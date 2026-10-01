@@ -34,10 +34,12 @@ extends Control
 ## legend says what your next signal would cost. Get thrown out and your crew
 ## forfeits the match.
 ##
-## Embedding: set `setup` (who sits where), `dealer_kind`, `starting_chips`
-## and `embedded = true` before adding the scene to the tree; it emits
-## `finished(won)` when the match ends and the player presses A, instead of
-## offering a rematch. With no `setup`, the demo crews below play.
+## Embedding: set `setup` (who sits where), `dealer_kind`, `starting_chips`,
+## `max_hands` (optional) and `embedded = true` before adding the scene to
+## the tree; it emits `finished(won)` once, when the match ends and the
+## player presses A, instead of offering a rematch. Embedded, it ignores the
+## dev flags except --autoplay (the embedding scene sets the dealer and
+## takes its own screenshots). With no `setup`, the demo crews below play.
 ##
 ## Dev flags (after `--`): --autoplay lets a bot play your seat,
 ## --dealer=STRICT (or STREET, ASLEEP, RELAXED, WATCHFUL, BOUGHT) picks the
@@ -58,6 +60,14 @@ const GOLD := Color("e8c35a")
 const HOT := Color("d9603b")
 const CHIP := Color("e8c35a")
 const CHIP_EDGE := Color("8a6a2a")
+const INK := PixelFrame.INK
+const INK_SOFT := PixelFrame.INK_SOFT
+const CREAM := PixelFrame.CREAM
+const CREW_FRAME := Color("3f9a8f")
+const RIVAL_FRAME := Color("d0603f")
+const FOLDED_FILL := Color("c9c1b0")
+const TEXT_BOX := Rect2(4, 346, 632, 50)  ## the battle-text box along the bottom
+const MENU_BOX := Rect2(398, 346, 238, 50)  ## your commands, over its right end
 const HUMAN := 0
 const S := UiFont.SMALL_SIZE
 const L := UiFont.LARGE_SIZE
@@ -80,7 +90,6 @@ const GLANCE_TIME := 0.9
 const CARD_SMALL := Vector2(16, 22)
 const CARD_BOARD := Vector2(22, 30)
 const CARD_YOURS := Vector2(26, 36)
-const BUTTON_SIZE := Vector2(98, 22)
 
 signal finished(won: bool)
 
@@ -89,16 +98,18 @@ signal finished(won: bool)
 var setup: Array[Dictionary] = []
 var embedded := false
 var starting_chips := 1000
+## Caps the match at this many hands (the crew with more chips wins), for
+## road games; 0 plays until a crew is out. Set before adding to the tree.
+var max_hands := 0
 
 var match_: TeamMatch
 var last_action := {}  ## seat -> short text under its name
 var bubbles := {}  ## seat -> [text, expires_at_msec]
-var log_lines: Array[String] = []
 var banner := ""
 var raise_to := 0
 var autoplay := false
 var dealer_kind := Dealer.Kind.WATCHFUL  ## set before adding to the tree
-var alert := ""  ## the dealer's latest words, above the controls
+var alert := ""  ## the dealer's latest words, in the text box
 var _alert_until := 0
 
 enum Flow { BOT_THINKING, HUMAN, HAND_DONE, MATCH_DONE }
@@ -106,8 +117,12 @@ var _flow := Flow.HAND_DONE
 var _decide_at := 0.0  ## when the bot to act makes up its mind
 var _act_at := 0.0  ## when it acts on it
 var _choice := {}  ## that decision, made at _decide_at
-var _controls_at := 0.0  ## when your buttons appear
+var _controls_at := 0.0  ## when your command menu appears
 var _controls_shown_at := 0.0
+var _menu_open := false
+var _raise_open := false  ## the raise amount picker, over the menu
+var _menu := CommandMenu.new()
+var _feed := TableFeed.new()
 var _next_hand_at := 0.0
 var _match_banner := ""
 var _match_banner_at := INF
@@ -132,10 +147,7 @@ var _help_open := false
 var _sizes: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 var _seed := 0
-var _buttons: HBoxContainer
-var _fold: Button
-var _call: Button
-var _raise: Button
+var _finished_sent := false  ## `finished` fires once, even on a double A
 
 
 func _ready() -> void:
@@ -147,6 +159,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--autoplay":
 			autoplay = true
+		elif embedded:
+			continue  # the embedding scene sets the dealer and takes its own screenshots
 		elif arg.begins_with("--screenshot="):
 			shot_path = arg.get_slice("=", 1)
 		elif arg.begins_with("--shot-after="):
@@ -164,8 +178,6 @@ func _ready() -> void:
 	if setup.is_empty():
 		setup = demo_setup()
 	_rng.seed = hash(_seed) if _seed else int(Time.get_ticks_usec())
-	theme = _make_theme()
-	_build_controls()
 	_new_match()
 	if shot_path:
 		_take_screenshots(shot_path, shot_after, shots, shot_every)
@@ -186,63 +198,9 @@ static func demo_setup() -> Array[Dictionary]:
 # --- Controls -------------------------------------------------------------
 
 
-## Buttons in the pixel font with a focus frame you can see from arm's
-## length: the default theme's thin focus outline vanished on the Deck.
-func _make_theme() -> Theme:
-	var th := Theme.new()
-	th.default_font = UiFont.large()
-	th.default_font_size = L
-	var normal := _box(Color("2b2633"), Color("4d4558"), 1)
-	var focus := _box(Color("3b3446"), GOLD, 2)
-	var pressed := _box(GOLD, GOLD, 1)
-	var disabled := _box(Color("221f29"), Color("332e3b"), 1)
-	th.set_stylebox("normal", "Button", normal)
-	th.set_stylebox("hover", "Button", normal)
-	th.set_stylebox("pressed", "Button", pressed)
-	th.set_stylebox("disabled", "Button", disabled)
-	th.set_stylebox("focus", "Button", focus)
-	th.set_stylebox("hover_pressed", "Button", pressed)
-	th.set_color("font_color", "Button", TEXT)
-	th.set_color("font_hover_color", "Button", TEXT)
-	th.set_color("font_focus_color", "Button", GOLD)
-	th.set_color("font_hover_pressed_color", "Button", ROOM)
-	th.set_color("font_pressed_color", "Button", ROOM)
-	th.set_color("font_disabled_color", "Button", Color("5d566a"))
-	return th
-
-
-func _box(bg: Color, border: Color, width: int) -> StyleBoxFlat:
-	var b := StyleBoxFlat.new()
-	b.bg_color = bg
-	b.border_color = border
-	b.set_border_width_all(width)
-	b.set_content_margin_all(2)
-	b.anti_aliasing = false
-	return b
-
-
-func _build_controls() -> void:
-	_buttons = HBoxContainer.new()
-	_buttons.add_theme_constant_override("separation", 6)
-	add_child(_buttons)
-	_fold = _make_button("Fold", func() -> void: _human_act(HoldemTable.Action.FOLD))
-	_call = _make_button("Call", func() -> void: _human_act(HoldemTable.Action.CALL))
-	_raise = _make_button("Raise", func() -> void: _human_act(HoldemTable.Action.RAISE))
-	_set_controls_visible(false)
-
-
-func _make_button(text: String, on_press: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = BUTTON_SIZE
-	b.focus_mode = Control.FOCUS_ALL
-	b.pressed.connect(on_press)
-	_buttons.add_child(b)
-	return b
-
-
 func _set_controls_visible(on: bool) -> void:
-	_buttons.visible = on
+	_menu_open = on
+	_raise_open = false
 	if on:
 		_controls_shown_at = _now()
 
@@ -263,6 +221,7 @@ func _new_match() -> void:
 			bot = PokerBot.new(PlayStyle.preset(PlayStyle.Kind.SHARK), bot_seed)
 		match_.add_player(setup[i]["name"], setup[i]["team"], starting_chips, bot)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
+	match_.max_hands = max_hands
 	var t := match_.table
 	t.hand_started.connect(_on_hand_started)
 	t.action_taken.connect(_on_action)
@@ -275,7 +234,7 @@ func _new_match() -> void:
 		_dealer_says("The floor fines %s: a dead big blind each, next hand." % _crew_name(team)))
 	match_.heat.ejection_called.connect(func(_team: int, seat: int) -> void:
 		_dealer_says("%s is thrown out after this hand!" % ("You are" if seat == HUMAN else t.seats[seat].name)))
-	log_lines.clear()
+	_feed.clear()
 	alert = ""
 	_heat_shown.clear()
 	_match_banner = ""
@@ -290,7 +249,7 @@ func _crew_name(team: int) -> String:
 func _dealer_says(line: String) -> void:
 	alert = line
 	_alert_until = Time.get_ticks_msec() + 4000
-	_log(line)
+	_say(line, HOT)
 
 
 func _now() -> float:
@@ -313,7 +272,7 @@ func _next_hand() -> void:
 	banner = ""
 	last_action.clear()
 	match_.start_hand()  # deals: _on_hand_started books the cards' flights
-	_log("Hand %d, blinds %d/%d" % [match_.table.hand_number, match_.table.small_blind, match_.table.big_blind])
+	_say("Hand %d. Blinds %d/%d." % [match_.table.hand_number, match_.table.small_blind, match_.table.big_blind], INK_SOFT)
 	_advance_flow()
 
 
@@ -329,6 +288,8 @@ func _advance_flow() -> void:
 			_flow = Flow.MATCH_DONE
 			_match_banner = _match_result()
 			_match_banner_at = maxf(now, _motion.cursor) + 1.4
+			_say(_match_banner, RIVAL_FRAME.darkened(0.2), _match_banner_at)
+			_say("Press A to continue." if embedded else "Press A for a rematch.", INK_SOFT, _match_banner_at + 0.05)
 		else:
 			_flow = Flow.HAND_DONE
 			_next_hand_at = maxf(now, _motion.cursor) + NEXT_HAND_PAUSE
@@ -373,7 +334,7 @@ func _process(delta: float) -> void:
 			Flow.BOT_THINKING:
 				_bot_turn(now)
 			Flow.HUMAN:
-				if not _buttons.visible and now >= _controls_at:
+				if not _menu_open and now >= _controls_at:
 					_start_human_turn()
 			Flow.HAND_DONE:
 				if now >= _next_hand_at:
@@ -424,29 +385,22 @@ func _start_human_turn() -> void:
 	var legal := t.legal()
 	_sizes = RaiseSizes.presets(legal, t.current_bet, t.pot())
 	raise_to = _sizes[0]["to"]
-	_call.text = "Check" if legal["can_check"] else "Call %d" % legal["to_call"]
-	_fold.disabled = legal["can_check"]  # folding when checking is free is never right
-	_raise.disabled = not legal["can_raise"]
-	_update_raise_label()
+	_menu.enabled[CommandMenu.Item.FOLD] = not legal["can_check"]  # folding when checking is free is never right
+	_menu.enabled[CommandMenu.Item.RAISE] = legal["can_raise"]
+	_menu.reset()
 	_set_controls_visible(true)
-	_call.grab_focus()
-
-
-func _update_raise_label() -> void:
-	var legal := match_.table.legal()
-	_raise.text = "All-in %d" % raise_to if raise_to >= legal["max_raise_to"] else "Raise to %d" % raise_to
 
 
 func _human_act(action: int) -> void:
-	if not match_.waiting_on_human() or not _buttons.visible:
+	if not match_.waiting_on_human() or not _menu_open:
 		return
 	_set_controls_visible(false)
 	match_.table.act(action, raise_to)
 	_advance_flow()
 
 
-## Help, and the raise fine-tune, read before the buttons see the event:
-## a focused Button would otherwise take up/down as focus moves.
+## The command menu and help, driven by the ui_* actions (D-pad, stick,
+## arrows; A / Enter; B / Escape).
 func _input(event: InputEvent) -> void:
 	if _is_help_toggle(event):
 		_toggle_help()
@@ -458,16 +412,47 @@ func _input(event: InputEvent) -> void:
 		if event.is_pressed():
 			get_viewport().set_input_as_handled()
 		return
-	if _flow == Flow.HUMAN and _buttons.visible and not _raise.disabled:
-		var dir := 0
-		if event.is_action_pressed("ui_up", true):
-			dir = 1
-		elif event.is_action_pressed("ui_down", true):
-			dir = -1
-		if dir:
-			raise_to = RaiseSizes.nudge(match_.table.legal(), raise_to, match_.table.big_blind, dir)
-			_update_raise_label()
-			get_viewport().set_input_as_handled()
+	if not (_flow == Flow.HUMAN and _menu_open):
+		return
+	var dir := Vector2i.ZERO
+	if event.is_action_pressed("ui_left", true):
+		dir = Vector2i.LEFT
+	elif event.is_action_pressed("ui_right", true):
+		dir = Vector2i.RIGHT
+	elif event.is_action_pressed("ui_up", true):
+		dir = Vector2i.UP
+	elif event.is_action_pressed("ui_down", true):
+		dir = Vector2i.DOWN
+	var legal := match_.table.legal()
+	if _raise_open:
+		# Up/down: one big blind; left/right (and the bumpers): the next size.
+		if dir.y:
+			raise_to = RaiseSizes.nudge(legal, raise_to, match_.table.big_blind, -dir.y)
+		elif dir.x:
+			raise_to = RaiseSizes.step(_sizes, raise_to, dir.x)
+		elif event.is_action_pressed("ui_accept"):
+			_human_act(HoldemTable.Action.RAISE)
+		elif event.is_action_pressed("ui_cancel"):
+			_raise_open = false
+		else:
+			return
+		get_viewport().set_input_as_handled()
+		return
+	if dir != Vector2i.ZERO:
+		_menu.move(dir)
+	elif event.is_action_pressed("ui_accept"):
+		match _menu.choose():
+			CommandMenu.Item.CALL:
+				_human_act(HoldemTable.Action.CALL)
+			CommandMenu.Item.FOLD:
+				_human_act(HoldemTable.Action.FOLD)
+			CommandMenu.Item.RAISE:
+				_raise_open = true
+			CommandMenu.Item.HELP:
+				_toggle_help()
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 
 func _is_help_toggle(event: InputEvent) -> bool:
@@ -482,13 +467,12 @@ func _toggle_help() -> void:
 	_help_open = not _help_open
 	var now := _now()
 	if _help_open:
-		_buttons.visible = false
 		return
 	# Whoever was about to act gets a moment after the card closes.
 	if _act_at < INF:
 		_act_at = maxf(_act_at, now + 0.3)
 	_next_hand_at = maxf(_next_hand_at, now + 1.0)
-	if _flow == Flow.HUMAN and now >= _controls_at:
+	if _flow == Flow.HUMAN and now >= _controls_at and not _menu_open:
 		_start_human_turn()
 
 
@@ -496,9 +480,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept"):
 		if _flow == Flow.MATCH_DONE and _now() >= _match_banner_at:
 			if embedded:
-				var won := match_.winner() == 0 and not match_.table.seats[HUMAN].ejected
-				finished.emit(won)
 				get_viewport().set_input_as_handled()
+				if not _finished_sent:
+					_finished_sent = true
+					finished.emit(match_.winner() == 0 and not match_.table.seats[HUMAN].ejected)
 				return
 			_new_match()
 			get_viewport().set_input_as_handled()
@@ -514,15 +499,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("signal_%d" % (i + 1)):
 			match_.talk.send(HUMAN, i as TableTalk.Sig, t.street)
 			_show_new_signals()
-	if _flow == Flow.HUMAN and _buttons.visible:
+	if _flow == Flow.HUMAN and _menu_open and _menu.enabled[CommandMenu.Item.RAISE]:
+		# The bumpers size the raise from the menu too; the Raise item shows it.
 		var dir := 0
 		if event.is_action_pressed("raise_more"):
 			dir = 1
 		elif event.is_action_pressed("raise_less"):
 			dir = -1
-		if dir and not _raise.disabled:
+		if dir:
 			raise_to = RaiseSizes.step(_sizes, raise_to, dir)
-			_update_raise_label()
 
 
 # --- What the table tells us ------------------------------------------------
@@ -541,7 +526,7 @@ func _show_new_signals() -> void:
 		s["shown"] = true
 		bubbles[seat] = [TableTalk.GESTURES[s["sig"]].to_lower(), Time.get_ticks_msec() + 2500]
 		var who := "You" if seat == HUMAN else match_.table.seats[seat].name
-		_log("%s: %s (\"%s\")" % [who, TableTalk.GESTURES[s["sig"]].to_lower(), TableTalk.MEANINGS[s["sig"]]])
+		_say("%s: %s (\"%s\")" % [who, TableTalk.GESTURES[s["sig"]].to_lower(), TableTalk.MEANINGS[s["sig"]]], CREW_FRAME.darkened(0.3))
 
 
 func _on_gesture(seat: int, _sig: int) -> void:
@@ -565,7 +550,7 @@ func _maybe_tell(seat: int, moment: AnimalTells.Moment, action: int, at := -1.0)
 	_tells[seat] = [AnimalTells.puff(animal.species), at if at >= 0.0 else _now()]
 	if AnimalTells.TELLS[animal.species]["when"] == AnimalTells.When.MONSTER:
 		_still[seat] = true
-	_log(AnimalTells.log_line(animal.species, s.name))
+	_say(AnimalTells.log_line(animal.species, s.name), INK_SOFT, at)
 
 
 func _on_hand_started(_button: int) -> void:
@@ -609,15 +594,7 @@ func _on_action(seat: int, action: int, amount: int) -> void:
 	if s.all_in:
 		text = "ALL-IN"
 	last_action[seat] = text
-	var long_text: String = HoldemTable.ACTION_NAMES[action]
-	if action == HoldemTable.Action.RAISE or (action == HoldemTable.Action.CALL and amount > 0):
-		long_text += " %d" % amount
-	if s.all_in:
-		long_text = "goes all-in for %d" % s.street_bet
-	if seat == HUMAN:  # "You fold", not "You folds"
-		long_text = long_text.replace("goes", "go").replace("folds", "fold").replace("checks", "check") \
-				.replace("calls", "call").replace("raises", "raise")
-	_log("%s %s" % [s.name, long_text])
+	_say(_action_line(seat, action, amount), RIVAL_FRAME.darkened(0.25) if s.team != t.seats[HUMAN].team else INK)
 	var geom := _seat_geom(seat)
 	var before: int = _last_bets.get(seat, 0)
 	if s.street_bet > before:
@@ -633,13 +610,28 @@ func _on_action(seat: int, action: int, amount: int) -> void:
 	_maybe_tell(seat, AnimalTells.Moment.ACTED, action)
 
 
+## "Honk raises to 60!", "You fold." For the text box.
+func _action_line(seat: int, action: int, amount: int) -> String:
+	var s := match_.table.seats[seat]
+	var you := seat == HUMAN
+	if s.all_in and action != HoldemTable.Action.FOLD:
+		return "%s all-in! (%d)" % ["You go" if you else s.name + " goes", s.street_bet]
+	match action:
+		HoldemTable.Action.FOLD:
+			return "You fold." if you else "%s folds." % s.name
+		HoldemTable.Action.CHECK:
+			return "You check." if you else "%s checks." % s.name
+		HoldemTable.Action.CALL:
+			return "You call %d." % amount if you else "%s calls %d." % [s.name, amount]
+	return "You raise to %d!" % amount if you else "%s raises to %d!" % [s.name, amount]
+
+
 func _on_street(street: int, board: Array) -> void:
 	var t := match_.table
 	var now := _now()
 	for seat: int in last_action.keys():
 		if not t.seats[seat].folded:
 			last_action.erase(seat)
-	_log("%s: %s" % [HoldemTable.STREET_NAMES[street], " ".join(board.map(Card.label))])
 	_collect_bets(now)
 	var actors := t.seats.filter(func(s: HoldemTable.Seat) -> bool: return s.can_act()).size()
 	if actors < 2 and street > HoldemTable.Street.FLOP:
@@ -647,6 +639,7 @@ func _on_street(street: int, board: Array) -> void:
 	while _board_flip.size() < board.size():
 		_board_flip.append(_motion.reserve(now, FLOP_STAGGER))
 	_motion.reserve(now, FLIP)  # let the last card finish turning
+	_say("The %s." % HoldemTable.STREET_NAMES[street].to_lower(), INK_SOFT, _board_flip[-1])
 	if street == HoldemTable.Street.FLOP:
 		for i in t.seats.size():
 			if t.seats[i].live():
@@ -676,7 +669,7 @@ func _on_hand_finished(result: Dictionary) -> void:
 		_gains.append([seat, won, _result_at + PAYOUT])
 	banner = ", ".join(parts)
 	_motion.reserve(now, 0.6)  # the "+240" lands before anything moves on
-	_log(banner)
+	_say(banner + "!", INK, _result_at)
 
 
 ## Chips bet this street slide into the pot (one beat for every seat).
@@ -711,10 +704,9 @@ func _held(key: String, actual: int) -> int:
 	return actual
 
 
-func _log(line: String) -> void:
-	log_lines.append(line)
-	if log_lines.size() > 4:
-		log_lines.pop_front()
+## A line for the text box, typed out at `at` (now if not given).
+func _say(line: String, color := INK, at := -1.0) -> void:
+	_feed.add(line, color, at if at >= 0.0 else _now())
 
 
 func _update_heat_bars(delta: float) -> void:
@@ -753,7 +745,7 @@ func _seat_geom(i: int, revealed := false) -> Dictionary:
 	var p := _seat_pos(i)
 	var c := _layout_center()
 	var toward := (c - p).normalized()
-	var badge := Rect2((p - Vector2(48, 15)).floor(), Vector2(96, 30))
+	var badge := Rect2((p - Vector2(48, 16)).floor(), Vector2(96, 32))
 	var card_size := CARD_YOURS if i == HUMAN else (CARD_BOARD if revealed else CARD_SMALL)
 	var pair_width := card_size.x * 2 + 2
 	var cards: Vector2
@@ -818,12 +810,6 @@ func _draw() -> void:
 		_draw_seat(i, now)
 	_draw_motion(now)
 
-	if banner and now >= _result_at:
-		var text := _match_banner if _match_banner and now >= _match_banner_at else banner
-		_text_box(Vector2(c.x, c.y + 50), text, L, GOLD)
-		if _flow == Flow.MATCH_DONE and now >= _match_banner_at:
-			_text_box(Vector2(c.x, c.y + 66), "Press A to continue" if embedded else "Press A for a rematch", S, TEXT)
-
 	for i in t.seats.size():
 		_draw_seat_overlays(i, now)
 
@@ -859,30 +845,33 @@ func _draw_seat(i: int, now: float) -> void:
 	var badge: Rect2 = geom["badge"]
 	var revealed: bool = now >= _reveal_at
 	var out := s.ejected or (s.stack == 0 and s.hand_bet == 0 and t.hand_over and not _holds.has("stack%d" % i))
-	var team_color := YOUR_CREW if s.team == t.seats[HUMAN].team else RIVALS
+	var frame := CREW_FRAME if s.team == t.seats[HUMAN].team else RIVAL_FRAME
+	var fill := CREAM
+	var ink := INK
 	if out:
-		team_color = team_color.darkened(0.6)
-	elif s.folded and not t.hand_over:
-		team_color = team_color.darkened(0.45)
+		frame = frame.lerp(INK_SOFT, 0.7)
+		fill = FOLDED_FILL.darkened(0.25)
+		ink = INK_SOFT
+	elif s.folded:
+		frame = frame.lerp(INK_SOFT, 0.5)
+		fill = FOLDED_FILL
+		ink = INK_SOFT
 
 	# The seat to act hops once when its turn comes; yours keeps glowing.
 	if i == _turn_seat and now >= _turn_at:
 		var since := now - _turn_at
 		if since < BOUNCE:
 			badge.position.y -= roundf(sin(since / BOUNCE * PI) * 3.0)
-		var glow := GOLD
-		if i == HUMAN:
-			glow = GOLD.lerp(TEXT, 0.5 + 0.5 * sin(now * 6.0))
-		draw_rect(badge.grow(2), glow)
+		frame = GOLD if i != HUMAN else GOLD.lerp(HOT, 0.5 + 0.5 * sin(now * 6.0))
 	var payouts: Dictionary = t.last_result.get("payouts", {})
 	var winner: bool = now >= _result_at and payouts.has(i)
 	if winner:
-		draw_rect(badge.grow(2), GOLD if fmod(now, 0.5) < 0.35 else TEXT)
-	draw_rect(badge, team_color)
-	_text(badge.position + Vector2(4, 12), s.name, L, TEXT)
+		frame = GOLD if fmod(now, 0.5) < 0.35 else CREAM
+	PixelFrame.panel(self, badge, fill, frame)
+	_text(badge.position + Vector2(5, 13), s.name, L, ink)
 	var stack := _held("stack%d" % i, s.stack)
-	_draw_chip_stack(badge.position + Vector2(7, 24), 1)
-	_text(badge.position + Vector2(13, 27), "%d" % stack, L, TEXT)
+	_draw_chip_stack(badge.position + Vector2(8, 24), 1)
+	_text(badge.position + Vector2(14, 27), "%d" % stack, L, ink)
 	var status: String = "fold" if s.folded else last_action.get(i, "")
 	var scores: Dictionary = t.last_result.get("scores", {})
 	if revealed and s.live() and scores.has(i):
@@ -891,7 +880,7 @@ func _draw_seat(i: int, now: float) -> void:
 		status = "thrown out"
 	elif out:
 		status = "busted"
-	_text(Vector2(badge.end.x - 3, badge.position.y + 27), status, S, GOLD if winner else QUIET, false, true)
+	_text(Vector2(badge.end.x - 5, badge.position.y + 26), status, S, RIVAL_FRAME.darkened(0.2) if winner else INK_SOFT, false, true)
 
 	var animal: Animal = setup[i]["animal"] if i < setup.size() else null
 	if animal:
@@ -961,7 +950,12 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 	if not _glance.is_empty() and _glance["seat"] == i:
 		var since: float = now - _glance["t"]
 		if since < GLANCE_TIME and fmod(since, 0.3) < 0.22:
-			_draw_eyes(Vector2(badge.end.x - 14, badge.position.y - 7), 0)
+			# The dealer's eyes on this seat, big enough to catch from the
+			# corner of your eye: 2x, on a dark plate.
+			var at := Vector2(badge.end.x - 26, badge.position.y - 12)
+			draw_rect(Rect2(at - Vector2(2, 2), Vector2(26, 14)), PANEL)
+			draw_rect(Rect2(at - Vector2(2, 2), Vector2(26, 14)), HOT, false)
+			_draw_eyes(at, 0, false, 2)
 	for g in _gains:
 		if g[0] != i:
 			continue
@@ -971,68 +965,121 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 			_text(Vector2(p.x, y), "+%d" % g[1], L, Color(GOLD, clampf((1.4 - since) / 0.4, 0.0, 1.0)), true)
 
 
-## Log (top left), Heat (top right), signal legend (bottom left), your
-## hand and your turn (beside your cards), the dealer's words and the raise
-## slider (bottom).
+## Heat (top right), the signal legend (left), your hand in words (beside
+## your cards), and along the bottom the text box with your command menu.
 func _draw_hud(now: float) -> void:
 	var t := match_.table
-	for k in log_lines.size():
-		_text(Vector2(6, 9 + k * 9), _fit(log_lines[k], 226), S, QUIET)
-
 	var lx := 6.0
-	var ly := size.y - 58
-	_text(Vector2(lx, ly), "Signals (back buttons, 1-4)", S, QUIET)
+	var ly := 288.0
+	_text(Vector2(lx, ly), "Signals: back buttons / 1-4", S, QUIET)
 	for k in 4:
 		_text(Vector2(lx, ly + 9 + k * 9), "%d %s: %s" % [k + 1, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S, TEXT if _flow == Flow.HUMAN else QUIET)
 	if match_.heat.dealer.watching() and not t.hand_over:
 		var cost := match_.heat.cost_of_next(HUMAN)
 		var hot := match_.heat.level(t.seats[HUMAN].team) + cost >= Heat.FINE
-		_text(Vector2(lx, ly + 47), "Next signal: +%d Heat" % roundi(cost), S, HOT if hot else QUIET)
-	_text(Vector2(size.x - 6, size.y - 5), "Select / H: help", S, QUIET, false, true)
-	_draw_heat(Vector2(size.x - 190, 10), now)
+		_text(Vector2(lx, ly + 46), "Next signal: +%d Heat" % roundi(cost), S, HOT if hot else QUIET)
+	_text(Vector2(size.x - 6, ly + 46), "Select: help", S, QUIET, false, true)
+	_draw_heat(Rect2(size.x - 196, 4, 192, 42), now)
 
-	# Your hand in words, right of your cards; your turn, left of them.
 	var me := t.seats[HUMAN]
-	var mine := _seat_geom(HUMAN)
-	var cards_at: Vector2 = mine["cards"]
+	var cards_at: Vector2 = _seat_geom(HUMAN)["cards"]
 	var land: Array = _hole_land.get(HUMAN, [INF, INF])
+	var readout := ""
 	if me.dealt and not me.folded and now >= land[1]:
 		var shown_board: Array[int] = []
 		for k in t.board.size():
 			if k < _board_flip.size() and now >= _board_flip[k] + FLIP:
 				shown_board.append(t.board[k])
-		var readout := HandReadout.describe(me.hole, shown_board)
+		readout = HandReadout.describe(me.hole, shown_board)
 		_text(cards_at + Vector2(CARD_YOURS.x * 2 + 8, 20), readout, L, GOLD)
-	if _flow == Flow.HUMAN and _buttons.visible:
-		var pulse := GOLD.lerp(TEXT, 0.5 + 0.5 * sin(now * 6.0))
-		_text(cards_at + Vector2(-8, 14), "YOUR TURN", L, pulse, false, true)
-		var legal := t.legal()
-		var owe := "%d to call" % legal["to_call"] if legal["to_call"] > 0 else "check is free"
-		_text(cards_at + Vector2(-8, 26), owe, S, TEXT, false, true)
 
-	if alert:
-		_text_box(Vector2(_layout_center().x, size.y - 47), alert, S, HOT)
-
-	# Controls along the bottom: they rise into place when your turn comes.
-	var bar_width := BUTTON_SIZE.x * 3 + 12
-	var rise := 1.0 - TableMotion.ease_out((now - _controls_shown_at) / 0.15)
-	_buttons.position = Vector2(floorf(_layout_center().x - bar_width / 2), size.y - 26 + floorf(rise * 10.0))
-	if _buttons.visible and not _raise.disabled:
-		_draw_raise_slider(Rect2(_buttons.position + _raise.position, _raise.size))
+	_draw_text_box(now, readout)
+	if _menu_open:
+		_draw_menu(now)
 
 
-## A track over the Raise button: one notch per size the bumpers jump to,
-## the knob where the raise is now, the size's name above.
-func _draw_raise_slider(button: Rect2) -> void:
+## The battle-text box: the last two things that happened, the newest
+## typing out. On your turn it asks what you'll do, and the command menu
+## covers its right end. A blinking arrow means A moves things on.
+func _draw_text_box(now: float, readout: String) -> void:
+	var r := TEXT_BOX
+	r.position.y = size.y - r.size.y - 4
+	var border := PixelFrame.BLUE
+	if alert and fmod(now, 0.4) < 0.2 and Time.get_ticks_msec() < _alert_until - 2500:
+		border = HOT  # the dealer just spoke
+	PixelFrame.panel(self, r, CREAM, border, 3)
+	var x := r.position.x + 12
+	var width := r.size.x - 24
+	if _flow == Flow.HUMAN and _menu_open:
+		width = MENU_BOX.position.x - x - 8
+		var legal := match_.table.legal()
+		_text(Vector2(x, r.position.y + 21), "What will you do?", L, INK)
+		var owe := "%d to call." % legal["to_call"] if legal["to_call"] > 0 else "Checking is free."
+		if _raise_open:
+			owe = "Raise to how much?"
+		elif readout:
+			owe += " You hold %s." % (readout if readout.begins_with("Pair") or readout.contains("-") else readout.to_lower())
+		_text(Vector2(x, r.position.y + 37), _fit(owe, width, L), L, INK_SOFT)
+		return
+	var lines := _feed.visible(now, 2)
+	for k in lines.size():
+		var line := lines[k]
+		var newest := k == lines.size() - 1
+		var text := TableFeed.typed(line, now) if newest else String(line["text"])
+		var color: Color = line["color"] if newest else Color(line["color"], 0.55)
+		_text(Vector2(x, r.position.y + 21 + (16 if lines.size() == 1 or newest else 0)), _fit(text, width, L), L, color)
+	var waiting := (_flow == Flow.HAND_DONE and now >= _result_at) or (_flow == Flow.MATCH_DONE and now >= _match_banner_at)
+	if waiting and not _feed.typing(now) and fmod(now, 0.6) < 0.4:
+		PixelFrame.down_arrow(self, r.end - Vector2(17, 11), INK)
+
+
+## Your commands, as a 2x2 grid with a cursor; disabled ones greyed out.
+## It slides up into place when your turn comes. With Raise chosen, an
+## amount picker opens above it.
+func _draw_menu(now: float) -> void:
+	var r := MENU_BOX
+	var rise := 1.0 - TableMotion.ease_out((now - _controls_shown_at) / 0.12)
+	r.position.y = size.y - r.size.y - 4 + floorf(rise * 12.0)
+	PixelFrame.panel(self, r, CREAM, CREW_FRAME, 3)
+	var legal := match_.table.legal()
+	var labels := {
+		CommandMenu.Item.CALL: "CHECK" if legal["can_check"] else "CALL %d" % legal["to_call"],
+		CommandMenu.Item.RAISE: ("ALL-IN %d" if raise_to >= legal["max_raise_to"] else "RAISE %d") % raise_to,
+		CommandMenu.Item.FOLD: "FOLD",
+		CommandMenu.Item.HELP: "HELP",
+	}
+	for k in CommandMenu.ORDER.size():
+		var item: CommandMenu.Item = CommandMenu.ORDER[k]
+		var cell := Vector2(r.position.x + 16 + (k % 2) * 112, r.position.y + 21 + (k / 2) * 16)
+		var on: bool = _menu.enabled[item]
+		_text(cell, labels[item], L, INK if on else Color(INK_SOFT, 0.5))
+		if k == _menu.cursor and not _raise_open:
+			var nudge := 1.0 if fmod(now, 0.5) < 0.25 else 0.0  # the cursor ticks, like it's waiting
+			PixelFrame.cursor(self, cell + Vector2(-4 + nudge, -4), INK)
+	if _raise_open:
+		_draw_raise_picker(Rect2(r.position + Vector2(r.size.x - 156, -62), Vector2(156, 60)), legal)
+
+
+## The raise amount: up/down for a big blind, left/right or the bumpers
+## for the next size (one notch each on the track), A to raise, B back.
+func _draw_raise_picker(r: Rect2, legal: Dictionary) -> void:
+	PixelFrame.panel(self, r, CREAM, GOLD, 3)
+	var center := r.position.x + r.size.x / 2
+	var all_in: bool = raise_to >= legal["max_raise_to"]
+	_text(Vector2(center, r.position.y + 19), ("ALL-IN %d" if all_in else "RAISE TO %d") % raise_to, L, INK, true)
+	PixelFrame.up_arrow(self, Vector2(r.position.x + 8, r.position.y + 10), INK_SOFT)
+	PixelFrame.down_arrow(self, Vector2(r.position.x + 8, r.position.y + 16), INK_SOFT)
+	var name := RaiseSizes.name_of(_sizes, raise_to)
+	_text(Vector2(center, r.position.y + 31), name if name else "+/- one big blind", S, INK_SOFT, true)
 	if _sizes.size() < 2:
 		return
-	var track := Rect2(button.position + Vector2(6, -6), Vector2(button.size.x - 12, 2))
-	draw_rect(track, Color("4d4558"))
+	var track := Rect2(Vector2(r.position.x + 14, r.position.y + 41), Vector2(r.size.x - 28, 2))
+	draw_rect(track, FOLDED_FILL)
 	var last := _sizes.size() - 1
 	var pos := 0.0
 	for k in _sizes.size():
 		var x := floorf(track.position.x + track.size.x * k / last)
-		draw_rect(Rect2(Vector2(x, track.position.y - 1), Vector2(1, 4)), QUIET)
+		draw_rect(Rect2(Vector2(x, track.position.y - 1), Vector2(1, 4)), INK_SOFT)
 		var at: int = _sizes[k]["to"]
 		if at <= raise_to:
 			pos = k
@@ -1040,97 +1087,104 @@ func _draw_raise_slider(button: Rect2) -> void:
 				var span: float = _sizes[k + 1]["to"] - at
 				pos += (raise_to - at) / span
 	var knob := Vector2(floorf(track.position.x + track.size.x * pos / last), track.position.y + 1)
-	draw_rect(Rect2(knob - Vector2(2, 3), Vector2(5, 6)), GOLD)
-	var label := RaiseSizes.name_of(_sizes, raise_to)
-	if label:
-		_text(Vector2(button.get_center().x, track.position.y - 4), "%s  (LB/RB)" % label, S, TEXT, true)
+	draw_rect(Rect2(knob - Vector2(2, 3), Vector2(5, 6)), INK)
+	draw_rect(Rect2(knob - Vector2(1, 2), Vector2(3, 4)), GOLD)
+	_text(Vector2(center, r.end.y - 7), "LB/RB size   A raise   B back", S, INK_SOFT, true)
 
 
-## The dealer, and a Heat bar per crew with the warning and fine lines.
-## The bar climbs to a new level instead of jumping, and flashes as it does.
-func _draw_heat(at: Vector2, now: float) -> void:
+## The dealer, and a Heat bar per crew with the warning and fine lines, in
+## a framed panel. The bar climbs to a new level instead of jumping, and
+## flashes as it does; the dealer's eyes look toward whoever was noticed.
+func _draw_heat(r: Rect2, now: float) -> void:
 	var heat := match_.heat
-	if not heat.dealer.watching():
-		_text(at + Vector2(0, 7), "No dealer: signal freely", S, QUIET)
-		return
 	var glancing: bool = not _glance.is_empty() and now - _glance["t"] < GLANCE_TIME
+	PixelFrame.panel(self, r, CREAM, HOT if glancing and fmod(now, 0.3) < 0.15 else PixelFrame.BLUE)
+	var at := r.position + Vector2(7, 6)
+	if not heat.dealer.watching():
+		_text(at + Vector2(0, 9), "No dealer:", L, INK)
+		_text(at + Vector2(0, 23), "signal freely", L, INK_SOFT)
+		return
 	var look := 0
 	if glancing:
 		look = signi(int(_seat_pos(_glance["seat"]).x - _layout_center().x))
 	_draw_eyes(at + Vector2(0, 1), look, not glancing)
-	_text(at + Vector2(15, 7), "Dealer: %s" % heat.dealer.display_name(), S, GOLD if glancing else QUIET)
+	_text(at + Vector2(16, 7), "Dealer: %s" % heat.dealer.display_name(), S, HOT if glancing else INK)
 	var mine := match_.table.seats[HUMAN].team
 	for k in 2:
 		var team := mine if k == 0 else 1 - mine
 		var y := at.y + 11 + k * 11
-		_text(Vector2(at.x, y + 7), "Your crew" if k == 0 else "Rivals", S, QUIET)
-		var bar := Rect2(Vector2(at.x + 46, y), Vector2(132, 7))
-		draw_rect(bar, FELT_RIM)
+		_text(Vector2(at.x, y + 7), "Your crew" if k == 0 else "Rivals", S, INK)
+		var bar := Rect2(Vector2(at.x + 46, y), Vector2(130, 7))
+		draw_rect(bar.grow(1), INK)
+		draw_rect(bar, FOLDED_FILL)
 		var actual := heat.level(team)
 		var shown: float = _heat_shown.get(team, actual)
-		var color := QUIET if actual < Heat.WARNING else (GOLD if actual < Heat.FINE else HOT)
+		var color := Color("58b368") if actual < Heat.WARNING else (GOLD if actual < Heat.FINE else HOT)
 		var flash: bool = now - _heat_flash.get(team, -10.0) < 0.6 and fmod(now, 0.16) < 0.08
-		draw_rect(Rect2(bar.position, Vector2(floorf(bar.size.x * minf(shown, Heat.EJECT) / Heat.EJECT), bar.size.y)), TEXT if flash else color)
+		draw_rect(Rect2(bar.position, Vector2(floorf(bar.size.x * minf(shown, Heat.EJECT) / Heat.EJECT), bar.size.y)), CREAM if flash else color)
 		for line in [Heat.WARNING, Heat.FINE]:
 			var x: float = floorf(bar.position.x + bar.size.x * line / Heat.EJECT)
-			draw_rect(Rect2(Vector2(x, y - 1), Vector2(1, 9)), TEXT)
+			draw_rect(Rect2(Vector2(x, y - 1), Vector2(1, 9)), INK)
 
 
 ## A pair of eyes, 11x5: looking left (-1), ahead (0) or right (1), or
 ## half-closed when the dealer isn't looking at anyone in particular.
-func _draw_eyes(at: Vector2, look: int, sleepy := false) -> void:
+func _draw_eyes(at: Vector2, look: int, sleepy := false, scale := 1) -> void:
 	at = at.floor()
+	var px := func(x: int, y: int, w: int, h: int, col: Color) -> void:
+		draw_rect(Rect2(at + Vector2(x, y) * scale, Vector2(w, h) * scale), col)
 	for k in 2:
-		var eye := at + Vector2(k * 6, 0)
+		var x := k * 6
 		if sleepy:
-			draw_rect(Rect2(eye + Vector2(0, 2), Vector2(5, 2)), TEXT)
-			draw_rect(Rect2(eye + Vector2(2, 3), Vector2(1, 1)), ROOM)
+			px.call(x, 2, 5, 2, INK)
 		else:
-			draw_rect(Rect2(eye, Vector2(5, 5)), TEXT)
-			draw_rect(Rect2(eye + Vector2(1 + look, 1), Vector2(2, 3)), ROOM)
+			px.call(x, 0, 5, 5, INK)
+			px.call(x + 1, 1, 3, 3, Color.WHITE)
+			px.call(x + 1 + look, 1, 2, 3, INK)
 
 
-## Controls and what everything means, on Select (or H / F1).
+## Controls and what everything means, on Select (or H / F1). In the large
+## font: it's read at arm's length, and there's room.
 func _draw_help() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(ROOM, 0.8))
-	var r := Rect2(Vector2(70, 30), Vector2(size.x - 140, size.y - 60))
-	draw_rect(r, PANEL)
-	draw_rect(r, GOLD, false)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(ROOM, 0.7))
+	var r := Rect2(Vector2(40, floorf(size.y / 2) - 143), Vector2(size.x - 80, 286))
+	PixelFrame.panel(self, r, CREAM, PixelFrame.BLUE, 3)
 	var x := r.position.x + 12
+	var col := x + 166
 	var y := r.position.y + 18
-	_text(Vector2(r.get_center().x, y), "How to play", L, GOLD, true)
-	y += 16
+	_text(Vector2(r.get_center().x, y), "How to play", L, PixelFrame.BLUE.darkened(0.3), true)
+	y += 18
 	var rows := [
-		["D-pad / stick", "choose Fold, Call, Raise"],
-		["A", "confirm; next hand"],
-		["LB / RB  (Q / E)", "raise size: min, half pot, pot, 2x, all-in"],
-		["D-pad up / down", "raise one big blind more / less"],
-		["Back buttons  (1-4)", "signal your teammates (below)"],
-		["Select  (H)", "this card; B or A closes it"],
+		["D-pad / stick", "move the cursor"],
+		["A    Enter", "choose; next hand"],
+		["B    Esc", "back"],
+		["LB / RB   Q / E", "raise size: min, half pot, pot, 2x"],
+		["Raise: up / down", "one big blind more / less"],
+		["Select    H", "this card"],
 	]
 	for row: Array in rows:
-		_text(Vector2(x, y), row[0], S, TEXT)
-		_text(Vector2(x + 110, y), row[1], S, QUIET)
-		y += 11
-	y += 6
-	_text(Vector2(x, y), "Signals", L, GOLD)
-	y += 13
-	var buttons := ["L4", "R4", "L5", "R5"]
+		_text(Vector2(x, y), row[0], L, INK)
+		_text(Vector2(col, y), row[1], L, INK_SOFT)
+		y += 13
+	y += 8
+	_text(Vector2(x, y), "Signals to your teammates", L, PixelFrame.BLUE.darkened(0.3))
+	y += 15
+	var buttons := ["L4  1", "R4  2", "L5  3", "R5  4"]
 	for k in 4:
-		_text(Vector2(x, y), "%s / %d  %s" % [buttons[k], k + 1, TableTalk.GESTURES[k]], S, TEXT)
-		_text(Vector2(x + 110, y), "\"%s\"" % TableTalk.MEANINGS[k], S, QUIET)
-		y += 11
-	y += 6
-	_text(Vector2(x, y), "Heat", L, GOLD)
-	y += 13
+		_text(Vector2(x, y), "%s  %s" % [buttons[k], TableTalk.GESTURES[k]], L, INK)
+		_text(Vector2(col, y), "\"%s\"" % TableTalk.MEANINGS[k], L, INK_SOFT)
+		y += 13
+	y += 8
+	_text(Vector2(x, y), "Heat", L, PixelFrame.BLUE.darkened(0.3))
+	y += 15
 	for line: String in [
-		"The dealer notices signals: each one adds Heat, more if your crew",
-		"already signalled this hand. 40: a warning. 70: a fine (a dead big",
-		"blind each). 100: the signaller is thrown out; if that's you, you lose.",
-		"Watch the animals too: each species has a tell.",
+		"Each signal adds Heat, more if your crew already",
+		"signalled this hand. 40: a warning. 70: a fine.",
+		"100: the signaller is thrown out (you: you lose).",
+		"And watch the animals: each kind has a tell.",
 	]:
-		_text(Vector2(x, y), line, S, QUIET)
-		y += 10
+		_text(Vector2(x, y), line, L, INK_SOFT)
+		y += 13
 
 
 ## Chips as a little stack of coins, `count` high.
@@ -1181,17 +1235,6 @@ func _text(pos: Vector2, text: String, font_size: int, color: Color, centered :=
 	draw_string(font, pos.floor(), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 
-## Centered text on a dark plate, for lines that cross the felt and cards.
-func _text_box(center: Vector2, text: String, font_size: int, color: Color) -> void:
-	var font := _font(font_size)
-	text = _fit(text, size.x - 16, font_size)
-	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
-	var h := 13.0 if font_size == L else 10.0
-	var r := Rect2(Vector2(floorf(center.x - w / 2) - 4, center.y - h + 2), Vector2(w + 8, h + 1))
-	draw_rect(r, Color(PANEL, 0.88))
-	_text(Vector2(center.x, center.y - (1 if font_size == L else 0)), text, font_size, color, true)
-
-
 ## Cuts `text` to `width` pixels, with "..." if it had to.
 func _fit(text: String, width: float, font_size := S) -> String:
 	var font := _font(font_size)
@@ -1211,8 +1254,10 @@ func _take_screenshots(path: String, after: float, count: int, every: float) -> 
 		var out := path if count == 1 else "%s_%d.png" % [path.get_basename(), k]
 		get_viewport().get_texture().get_image().save_png(out)
 		var t := match_.table
-		print("screenshot saved: %s  (hand %d, %s, board %d, busy %s)" % [out, t.hand_number,
-				"over" if t.hand_over else HoldemTable.STREET_NAMES[t.street], t.board.size(), _motion.busy(_now())])
+		var glancing: bool = not _glance.is_empty() and _now() - _glance["t"] < GLANCE_TIME
+		print("screenshot saved: %s  (hand %d, %s, board %d, busy %s%s%s%s)" % [out, t.hand_number,
+				"over" if t.hand_over else HoldemTable.STREET_NAMES[t.street], t.board.size(), _motion.busy(_now()),
+				", glance" if glancing else "", ", tell" if _tells else "", ", alert" if alert else ""])
 		if k < count - 1:
 			await get_tree().create_timer(every).timeout
 	get_tree().quit()

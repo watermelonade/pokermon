@@ -140,3 +140,43 @@ func test_motion_books_beats_one_after_another() -> void:
 	check_eq(TableMotion.ease_out(0.0), 0.0)
 	check_eq(TableMotion.ease_out(1.0), 1.0)
 	check(TableMotion.ease_out(0.5) > 0.5, "eases out")
+
+
+func test_command_menu_grid() -> void:
+	var m := CommandMenu.new()
+	check_eq(m.current(), CommandMenu.Item.CALL, "starts on Call")
+	m.move(Vector2i.RIGHT)
+	check_eq(m.current(), CommandMenu.Item.RAISE)
+	m.move(Vector2i.RIGHT)
+	check_eq(m.current(), CommandMenu.Item.RAISE, "stops at the edge")
+	m.move(Vector2i.DOWN)
+	check_eq(m.current(), CommandMenu.Item.HELP)
+	m.move(Vector2i.LEFT)
+	check_eq(m.current(), CommandMenu.Item.FOLD)
+	m.move(Vector2i.DOWN)
+	check_eq(m.current(), CommandMenu.Item.FOLD, "stops at the bottom")
+	m.enabled[CommandMenu.Item.FOLD] = false
+	check_eq(m.choose(), -1, "a greyed-out item does nothing")
+	m.move(Vector2i.UP)
+	check_eq(m.choose(), CommandMenu.Item.CALL)
+	m.move(Vector2i.RIGHT)
+	m.reset()
+	check_eq(m.current(), CommandMenu.Item.CALL)
+
+
+func test_feed_types_lines_out_when_due() -> void:
+	var f := TableFeed.new()
+	f.add("Honk raises to 60!", Color.WHITE, 1.0)
+	f.add("Honk wins 120!", Color.WHITE, 5.0)  # booked for when the pot moves
+	f.add("Sage folds.", Color.WHITE, 2.0)
+	var shown := f.visible(3.0)
+	check_eq(shown.map(func(l: Dictionary) -> String: return l["text"]), ["Honk raises to 60!", "Sage folds."], "the win isn't shown early")
+	check_eq(f.visible(6.0)[-1]["text"], "Honk wins 120!")
+	check_eq(TableFeed.typed(f.visible(5.05)[-1], 5.05), "Honk", "types out")
+	check(f.typing(5.05))
+	check(not f.typing(9.0))
+	f.add("Same time, said second", Color.WHITE, 2.0)
+	check_eq(f.visible(2.5)[-1]["text"], "Same time, said second", "same moment keeps the order said")
+	for i in 20:
+		f.add("line %d" % i, Color.WHITE, 10.0 + i)
+	check_eq(f.lines.size(), TableFeed.KEEP, "keeps only the recent lines")
