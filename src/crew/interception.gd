@@ -34,7 +34,10 @@ extends RefCounted
 ## weak" up by as much, and it bluffs WEAK_BLUFF more often into a pot where
 ## an opponent said "I'm weak" and none said strong.
 ## Kept small on purpose: an intercepted signal is a hint, and the type chart
-## (README) is tuned without it.
+## (README) is tuned without it. Measured with both crews intercepting, every
+## link of the cycle still holds, but Bluffer > Rock drops from 57% to about
+## 51%: the Bluffer signals "I'm weak" to its crew and then bluffs, and a
+## Rock that overheard it calls (README has the tally).
 ##
 ## Off by default (`enabled`), and while off it never draws a random number
 ## or changes a decision, so bot-vs-bot balance is byte-for-byte what it was
@@ -46,7 +49,11 @@ extends RefCounted
 signal noticed(watcher: int, from_seat: int, gesture: int, meaning: int, fake: bool)  ## meaning -1: not understood
 signal learned(reader_team: int, signaller_team: int, gesture: int, meaning: int)
 
-const LOOK := 0.25  ## chance per point of attentiveness, for a crew's first signal of the hand
+## Chance per point of attentiveness, for a crew's first signal of the hand.
+## At the demo table under a watchful dealer, 0.25 has you notice 45% of the
+## rivals' signals (about four a 20-hand road match) and crack about one
+## gesture a match; 0.15 gave 25% and 0.6 (README).
+const LOOK := 0.25
 const MAX_CHANCE := 0.9
 const YOU := 0.4  ## the player's own eyes: the animals are the sharp ones
 const DEFAULT := 0.4
