@@ -181,17 +181,20 @@ func _draw_card(p: Rect2) -> void:
 		fy += 14 * lines + 6
 	draw_rect(Rect2(p.position.x + 12, fy - 4, p.size.x - 24, 1), UiKit.QUIET.darkened(0.5))
 	UiKit.text(self, Vector2(body.x, fy + 12), "Individuals", 8, UiKit.GOLD)
-	fy += 20
+	fy += 16
+	# Two lines each: name, tag and bond; then the bio (Bios) once met.
 	for ind: Dictionary in Binder.individuals(state, id):
-		var row := Rect2(body.x - 2, fy, width + 4, 20)
+		var row := Rect2(body.x - 2, fy, width + 4, 25)
 		var a: Animal = ind["animal"]
 		if a:
 			draw_rect(row, UiKit.TEAL.darkened(0.35))
-		UiKit.text(self, Vector2(body.x + 2, fy + 14), ind["name"], 10, UiKit.TEXT if ind["met"] else UiKit.QUIET)
+		UiKit.text(self, Vector2(body.x + 2, fy + 11), ind["name"], 10, UiKit.TEXT if ind["met"] else UiKit.QUIET)
 		if a:
 			var tag := "IN YOUR CREW" if not state.party.has(state.roster.find(a)) else "SITS WITH YOU"
-			UiKit.text(self, Vector2(body.x + 74, fy + 14), tag, 8, UiKit.GOLD)
-			PocketArt.hearts(self, Vector2(row.end.x - PocketArt.hearts_width() - 6, fy + 7), a.bond)
+			UiKit.text(self, Vector2(body.x + 74, fy + 11), tag, 8, UiKit.GOLD)
+			PocketArt.hearts(self, Vector2(row.end.x - PocketArt.hearts_width() - 6, fy + 4), a.bond)
 		elif ind["met"]:
-			UiKit.text(self, Vector2(body.x + 74, fy + 14), "met at the table", 8, UiKit.QUIET)
-		fy += 22
+			UiKit.text(self, Vector2(body.x + 74, fy + 11), "met at the table", 8, UiKit.QUIET)
+		if ind["met"]:
+			UiKit.text(self, Vector2(body.x + 2, fy + 22), Bios.bio(id, ind["real_name"]), 8, UiKit.QUIET)
+		fy += 27

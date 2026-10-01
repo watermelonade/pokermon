@@ -97,13 +97,15 @@ static func loses_to(kind: PlayStyle.Kind) -> PlayStyle.Kind:
 
 
 ## One line per named individual of a species, for the card back:
-## {name ("?????" if not met), met, recruited, animal (yours, or null)}.
+## {name ("?????" if not met), real_name, met, recruited, animal (yours,
+## or null)}. The screen shows a met one's bio (Bios) under its name.
 static func individuals(state: GameState, species_id: StringName) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for n: String in Species.get_info(species_id)["individuals"]:
 		var met := state.has_seen(species_id, n) or state.has_recruited(species_id, n)
 		out.append({
 			"name": n if met else "?????",
+			"real_name": n,
 			"met": met,
 			"recruited": state.has_recruited(species_id, n),
 			"animal": state.roster_animal(species_id, n),

@@ -618,6 +618,9 @@ func _offer_recruit(crew: Dictionary) -> void:
 	node.queue_free()
 	Sfx.play(&"win_pot")  # until there's a proper recruit jingle
 	Sfx.voice(a.species)
+	var hello := Bios.recruit_line(a.species, a.name)
+	if hello:
+		await dialog.say([hello], a.name)
 	await dialog.say(["%s joins your crew! Choose who sits with you from Crew in the Start menu (Start or Tab)." % a.name])
 
 

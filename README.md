@@ -46,7 +46,7 @@ The Binder is the collection: 25 card pockets on one page (the demo's six
 species, 18 locked "???" slots for the full game, and a dog silhouette that
 "won't sit at your table... yet"). A species you've only sat across from
 shows greyed, with its style, where you met it and which of its four named
-animals you've met; once one joins, the card is in colour and its back
+animals you've met (with each one's bio); once one joins, the card is in colour and its back
 fills in (tell, favourite snack, your animals' bond). The counter is
 species recruited of 25. Bond grows each match an animal sits with you
 (+0.05, or +0.1 for a win, capped at 1.0; "Sage's bond grew!" after the

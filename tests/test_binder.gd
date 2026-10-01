@@ -79,6 +79,8 @@ func test_card_back_lists_individuals_met_and_yours() -> void:
 	check_eq(owls[1]["name"], "Hoot")
 	check(owls[1]["met"] and not owls[1]["recruited"] and owls[1]["animal"] == null)
 	check_eq(owls[2]["name"], "?????", "unmet individuals stay hidden")
+	check_eq(owls[2]["real_name"], "Bramble", "the screen looks the bio up by the real name")
+	check(Bios.bio(&"owl", owls[1]["real_name"]) != "", "a met individual has a bio to show")
 
 
 func test_type_chart_follows_the_cycle() -> void:

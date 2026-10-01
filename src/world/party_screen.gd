@@ -8,9 +8,9 @@ extends Control
 ## Laid out like a handheld RPG's party screen: the roster as a list on the
 ## left (portrait, name, species and style, bond hearts, seat), and on the
 ## right the table as it will be (you and your two seats) above the
-## highlighted animal's details: where its style sits in the type chart
-## (Bluffer > Rock > Maniac > Shark > Calling Station > Bluffer), its tell,
-## and bond, which is how reliably it reads your signals (recruits start
+## highlighted animal's details: its bio (Bios), where its style sits in
+## the type chart (Bluffer > Rock > Maniac > Shark > Calling Station >
+## Bluffer), its tell, and bond, which is how reliably it reads your signals (recruits start
 ## lower than your first two, and it grows each match it sits through, see
 ## GameState.grow_bonds). The earlier version was a single list with all of
 ## that on each row; with the walk sprite at 2x it was hard to tell the
@@ -157,12 +157,13 @@ func _draw_side(p: Rect2) -> void:
 	UiKit.text(self, Vector2(tx, y + 170), "Wary of %s." % PlayStyle.KIND_NAMES[Binder.loses_to(kind)], 8, UiKit.QUIET)
 	var seat := state.party.find(_cursor)
 	UiKit.text(self, Vector2(tx, y + 182), "Sits in seat %d" % (seat + 1) if seat >= 0 else "On the bench", 8, UiKit.TEXT)
-	var fy := y + 200
+	UiKit.wrapped(self, Vector2(x, y + 196), Bios.bio(a.species, a.name), p.size.x - 24, 8, UiKit.QUIET, 2)
+	var fy := y + 222
 	UiKit.text(self, Vector2(x, fy + 10), "Bond", 8, UiKit.GOLD)
 	PocketArt.hearts(self, Vector2(x + 44, fy), a.bond, 2.0)
-	UiKit.text(self, Vector2(x + 44, fy + 26), "Reads %s." % _reads(a.bond), 8, UiKit.QUIET)
-	UiKit.text(self, Vector2(x, fy + 46), "Tell", 8, UiKit.GOLD)
-	UiKit.wrapped(self, Vector2(x + 44, fy + 46), str(info["tell"]) + ".", p.size.x - 24 - 44, 10, UiKit.TEXT, 3)
+	UiKit.text(self, Vector2(x + 44, fy + 25), "Reads %s." % _reads(a.bond), 8, UiKit.QUIET)
+	UiKit.text(self, Vector2(x, fy + 44), "Tell", 8, UiKit.GOLD)
+	UiKit.wrapped(self, Vector2(x + 44, fy + 44), str(info["tell"]) + ".", p.size.x - 24 - 44, 10, UiKit.TEXT, 2)
 
 
 ## Bond as what it does: TableTalk.read_from misreads a signal with chance
