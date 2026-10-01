@@ -9,4 +9,12 @@
 *.wav filter=lfs diff=lfs merge=lfs -text
 *.ogg filter=lfs diff=lfs merge=lfs -text
 *.mp3 filter=lfs diff=lfs merge=lfs -text
+
+# Except the placeholder sounds tools/make_sfx.py generates: they're small
+# (~2 MB together), rebuilt from source, and CI's checkout doesn't fetch LFS
+# objects, so the test that loads every sound would see pointer files. Real
+# recordings that replace them should go back through LFS: see
+# assets/audio/README.md.
+assets/audio/sfx/*.wav -filter binary
+assets/audio/music/*.wav -filter binary
 *.png binary
