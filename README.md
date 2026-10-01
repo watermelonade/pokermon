@@ -66,22 +66,22 @@ JSON in `user://save.json`, which with the custom user dir set in
 project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 `%APPDATA%\AFriendInNeed\` on Windows.
 
-| Overworld | Keyboard | Controller / Steam Deck |
+| Overworld | Keyboard | Controller (Xbox-style) / Steam Deck |
 | --- | --- | --- |
 | Walk | arrows or WASD | D-pad or left stick |
 | Talk, read, confirm | Enter / Space | A |
 | Back | Esc | B |
 | Menu (Crew, Binder, Save, Options) | Tab / Esc | Start |
 
-| Table | Keyboard | Controller / Steam Deck |
+| Table | Keyboard | Controller (Xbox-style) / Steam Deck |
 | --- | --- | --- |
 | Move the cursor in the command menu (Call, Raise, Fold, Help) | arrow keys | D-pad or left stick |
 | Choose | Enter / Space | A |
 | Back (close the raise picker or help) | Escape | B |
 | Raise size: min, half pot, pot, 2x pot, all-in | Q / E | LB / RB |
 | In the raise picker: one big blind more / less | up / down | D-pad up / down |
-| Signal your teammates | 1 2 3 4 | back buttons L4 R4 L5 R5 |
-| Fake a signal (for rival eyes; your teammates ignore it) | Shift + 1-4 | hold LB + a back button |
+| Signal your teammates | 1 2 3 4 | X Y LT RT (on a Deck also the back buttons L4 R4 L5 R5, once mapped) |
+| Fake a signal (for rival eyes; your teammates ignore it) | Shift + 1-4 | hold LB + a signal button |
 | Help card (controls, signals, Heat) | H or F1 | Select |
 | Next hand (it also moves on by itself) | Enter | A |
 | Tutorial: next line / skip the lesson | Enter / Tab | A / Start |
@@ -114,7 +114,7 @@ about five minutes, one lesson each, taught by doing:
    way (soft play), and three Kings win.
 2. **A teammate's signal**: Bandit touches his nose ("I'm strong") and
    raises; you step aside with a good hand and the chips stay in the crew.
-3. **Your signal**: two Aces; Rosie asks you to touch your nose (1 / L4),
+3. **Your signal**: two Aces; Rosie asks you to touch your nose (X / 1),
    and both teammates fold hands they'd have played.
 4. **Tells**: Scraps the Raccoon raises the river and rubs its paws (the
    raccoon's bluffing tell); your pair of 9s calls and wins.
@@ -141,9 +141,11 @@ once.
 godot --headless --path . --import            # once, and after adding a class_name script
 godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
+godot --headless --path . res://tests/compile_check.tscn      # every script compiles, autoloads and all
+godot --headless --path . res://tests/pad_check.tscn          # a pretend Xbox pad signals at the real table
 ```
 
-159 tests, about 20 seconds. They cover hand ranking, equity against known odds
+168 tests, about 20 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -557,11 +559,31 @@ Deck's back buttons (A on a signal prompt has Rosie do it, so an unmapped
 Deck can't get stuck), and pressing Start mid-lesson on a real device (the
 skip is tested headless only).
 
+**Xbox controllers:** the signals used to be only on the Deck's back
+buttons, which an Xbox pad doesn't have (and which a Deck only passes on
+with a custom Steam Input layout). Now they're on X, Y, LT and RT as well
+(`src/input/pad_controls.gd` says why those four: everything else was
+taken), so a plain Xbox-style pad, or a Deck on Steam's default layout,
+plays everything. The triggers needed care: bound in the input map like the
+stick, one pull of RT read as a signal 7 times (measured: eleven motion
+events from rest to full and back, seven past the deadzone), each costing
+Heat. `TriggerButtons` (the `Triggers` autoload) turns each pull into one
+press, with a press line at 0.6 and a release line at 0.3 so a trigger
+hovering halfway presses once. `tests/pad_check.tscn` plays the real table
+with pretend pad events (X, Y, a full RT pull, LB held with a jittery LT
+pull) and checks exactly four signals arrive, the last a fake; with the
+autoload removed it fails on both triggers. `tests/test_controls.gd` checks
+every action has a button on an Xbox pad and that the on-screen names match
+the input map. The legend, the help card and Rosie's lines name the pad
+buttons; screenshots checked they fit. Not checked: a real Xbox pad (that
+SDL reports its buttons as Godot's X, Y and trigger axes is Godot's mapping,
+not tested here), how LB + LT feels for a fake, and the Deck.
+
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `project.godot` | 640x400 base resolution, integer-scaled x2 to the Deck's 1280x800, nearest-neighbour filtering, GL Compatibility renderer, input actions, the Game autoload, saves in a custom user dir (`AFriendInNeed`) |
+| `project.godot` | 640x400 base resolution, integer-scaled x2 to the Deck's 1280x800, nearest-neighbour filtering, GL Compatibility renderer, input actions, the Game, Sfx and Triggers autoloads, saves in a custom user dir (`AFriendInNeed`) |
 | `src/poker/card.gd` | Cards as ints 0-51, parsing and labels |
 | `src/poker/deck.gd` | Seeded shuffles (replayable), stacked decks for tests |
 | `src/poker/hand_evaluator.gd` | Best five of up to seven cards, as one comparable int |
@@ -573,6 +595,8 @@ skip is tested headless only).
 | `src/crew/interception.gd` | Reading the other crew's signals: noticing, learning codes at showdowns, fakes; off unless a match turns it on |
 | `src/crew/crew_code.gd` | Each crew's private code (gesture for each meaning), derived from its id |
 | `src/crew/code_book.gd` | What each crew has learned of other crews' codes; JSON-safe for the save |
+| `src/input/pad_controls.gd` | The controls' names for on-screen hints (X Y LT RT, L4 R4 L5 R5, 1-4), and why the signals sit where they do |
+| `src/input/trigger_buttons.gd` | The `Triggers` autoload: LT and RT as buttons, one signal per pull |
 | `src/ui/intercept_overlay.gd` | Draws intercepted signals, the code panel and fakes over the table |
 | `src/ai/poker_bot.gd` | An AI seat: equity + style, soft play, reacts to signals |
 | `src/match/team_match.gd` | Crew vs crew: rising blinds, fines and ejections, who's out, who won |

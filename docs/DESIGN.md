@@ -15,7 +15,8 @@ implementing.
   A crew is out when all its seats are busted. Bosses bring bigger crews
   (3v4, 3v5); later regions require a crew of 4.
 - **Team play:** soft play (no fighting teammates for chips), whipsaws,
-  chip dumps, and secret signals on the Steam Deck's back buttons. Bond
+  chip dumps, and secret signals on X, Y and the triggers (or the Steam
+  Deck's back buttons). Bond
   decides how reliably teammates read signals.
 - **Heat:** every signal raises the dealer's suspicion of the crew (more for
   each extra signal the crew makes in the same hand). 40: warning. 70: the

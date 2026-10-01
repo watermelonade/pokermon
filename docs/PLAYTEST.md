@@ -201,7 +201,8 @@ Reported, not fixed (in code other work owns this round):
 ## What it can't check
 
 How anything looks or feels (it runs headless, so nothing is drawn), real
-controllers, sound, the exported build, Steam. Real matches play at real
+controllers (it presses input actions; `tests/pad_check.tscn` covers the
+pad's buttons and triggers reaching them), sound, the exported build, Steam. Real matches play at real
 speed, so there are few of them. A kill on Linux can't test a power cut: the
 data is in the page cache once written, so a missing fsync can't show up
 (Godot's FileAccess has no fsync).
