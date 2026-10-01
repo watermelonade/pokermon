@@ -287,9 +287,8 @@ func _advance_flow() -> void:
 		if match_.is_over() or t.seats[HUMAN].ejected:
 			_flow = Flow.MATCH_DONE
 			_match_banner = _match_result()
-			_match_banner_at = maxf(now, _motion.cursor) + 1.4
-			_say(_match_banner, RIVAL_FRAME.darkened(0.2), _match_banner_at)
-			_say("Press A to continue." if embedded else "Press A for a rematch.", INK_SOFT, _match_banner_at + 0.05)
+			_match_banner_at = maxf(now, _motion.cursor) + 0.8
+			_say("%s %s" % [_match_banner, "Press A." if embedded else "A: rematch."], RIVAL_FRAME.darkened(0.2), _match_banner_at)
 		else:
 			_flow = Flow.HAND_DONE
 			_next_hand_at = maxf(now, _motion.cursor) + NEXT_HAND_PAUSE
@@ -650,9 +649,15 @@ func _on_hand_finished(result: Dictionary) -> void:
 	var t := match_.table
 	var now := _now()
 	_collect_bets(now)
+	# An uncalled bet goes back to its owner before the pot is settled
+	# ("returned"; "payouts" is then only what was won from the pot). Both
+	# are still on the table until the chips slide.
+	var returned: Dictionary = result.get("returned", {})
 	var total := 0
 	for seat: int in result["payouts"]:
 		total += result["payouts"][seat]
+	for seat: int in returned:
+		total += returned[seat]
 	if not result["uncontested"]:
 		_reveal_at = _motion.reserve(now, REVEAL + 0.45)  # turn them over, then a beat to read
 	_result_at = _motion.reserve(now, PAYOUT)
@@ -664,9 +669,13 @@ func _on_hand_finished(result: Dictionary) -> void:
 		if not result["uncontested"]:
 			line += " with %s" % HandReadout.describe(t.seats[seat].hole, t.board).to_lower()
 		parts.append(line)
-		_hold("stack%d" % seat, t.seats[seat].stack - won, _result_at + PAYOUT)
+		_hold("stack%d" % seat, t.seats[seat].stack - won - int(returned.get(seat, 0)), _result_at + PAYOUT)
 		_motion.add(&"chips", _result_at, PAYOUT, {"from": _pot_pos(), "to": _seat_geom(seat)["center"], "count": 4})
 		_gains.append([seat, won, _result_at + PAYOUT])
+	for seat: int in returned:
+		if not result["payouts"].has(seat):
+			_hold("stack%d" % seat, t.seats[seat].stack - int(returned[seat]), _result_at + PAYOUT)
+		_motion.add(&"chips", _result_at, PAYOUT, {"from": _pot_pos(), "to": _seat_geom(seat)["center"], "count": 1})
 	banner = ", ".join(parts)
 	_motion.reserve(now, 0.6)  # the "+240" lands before anything moves on
 	_say(banner + "!", INK, _result_at)
@@ -944,9 +953,10 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 			var w := UiFont.small().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, S).x + 6
 			var x := clampf(portrait.x + 16 - w / 2, 2, size.x - w - 2)
 			var r := Rect2(Vector2(x, portrait.y - 9 - rise).floor(), Vector2(w, 10))
-			draw_rect(r, Color(PANEL, 0.85 * alpha))
-			draw_rect(r, Color(GOLD, alpha), false)
-			_text(r.position + Vector2(3, 8), text, S, Color(GOLD, alpha))
+			draw_rect(r.grow(1), Color(INK, alpha))
+			draw_rect(r, Color(GOLD, alpha))
+			draw_rect(r.grow(-1), Color(CREAM, alpha))
+			_text(r.position + Vector2(3, 8), text, S, Color(INK, alpha))
 	if not _glance.is_empty() and _glance["seat"] == i:
 		var since: float = now - _glance["t"]
 		if since < GLANCE_TIME and fmod(since, 0.3) < 0.22:
