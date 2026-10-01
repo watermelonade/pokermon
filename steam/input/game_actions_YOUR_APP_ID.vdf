@@ -1,0 +1,66 @@
+// Steam Input action manifest (In-Game Actions): TEMPLATE, for the route in
+// docs/STEAM_DECK.md "Option B". Only needed once the game talks to Steam
+// Input itself (GodotSteam's Input functions); Option A (a default
+// configuration that maps the back buttons to the keys 1-4) needs no file
+// in the repo at all.
+//
+// The action names match the Godot input actions in project.godot, so the
+// game can feed both into the same code. Rename the file with the real app ID.
+// During development it goes in <Steam>/controller_config/; for release it
+// is uploaded on the partner site (Application > Steam Input).
+"In Game Actions"
+{
+	"actions"
+	{
+		"Table"
+		{
+			"title"		"#Set_Table"
+			"StickPadGyro"
+			{
+				"menu_move"
+				{
+					"title"			"#Action_Move"
+					"input_mode"	"joystick_move"
+				}
+			}
+			"AnalogTrigger"
+			{
+			}
+			"Button"
+			{
+				"ui_left"		"#Action_Left"
+				"ui_right"		"#Action_Right"
+				"ui_up"			"#Action_Up"
+				"ui_down"		"#Action_Down"
+				"ui_accept"		"#Action_Confirm"
+				"ui_cancel"		"#Action_Back"
+				"raise_less"	"#Action_RaiseLess"
+				"raise_more"	"#Action_RaiseMore"
+				"signal_1"		"#Action_Signal1"
+				"signal_2"		"#Action_Signal2"
+				"signal_3"		"#Action_Signal3"
+				"signal_4"		"#Action_Signal4"
+			}
+		}
+	}
+	"localization"
+	{
+		"english"
+		{
+			"Set_Table"			"At the table"
+			"Action_Move"		"Choose"
+			"Action_Left"		"Left"
+			"Action_Right"		"Right"
+			"Action_Up"			"Up"
+			"Action_Down"		"Down"
+			"Action_Confirm"	"Confirm"
+			"Action_Back"		"Back"
+			"Action_RaiseLess"	"Raise size down"
+			"Action_RaiseMore"	"Raise size up"
+			"Action_Signal1"	"Signal 1: Touch nose (I'm strong)"
+			"Action_Signal2"	"Signal 2: Scratch ear (I'm weak)"
+			"Action_Signal3"	"Signal 3: Stack chips (Raise behind me)"
+			"Action_Signal4"	"Signal 4: Tip hat (Let me have it)"
+		}
+	}
+}

@@ -69,6 +69,56 @@ Taking a screenshot without a display (how the screenshots in development
 were made): `xvfb-run godot --path . --rendering-driver opengl3 -- --autoplay
 --screenshot=out.png --shot-after=5`.
 
+## Building
+
+```
+scripts/export.sh            # Linux and Windows release builds, ~15s
+scripts/export.sh linux      # just one (also: windows, --debug)
+```
+
+| Build | Files | Size |
+| --- | --- | --- |
+| Linux x86_64 (native on the Steam Deck) | `build/linux/AFriendInNeed.x86_64` + `.pck` | 71 MB + 61 KB |
+| Windows x86_64 (Proton fallback on the Deck) | `build/windows/AFriendInNeed.exe` + `.pck` | 105 MB + 61 KB |
+
+The script needs Godot (`$GODOT`, else `godot` on PATH) and the export
+templates of the same version, unzipped from
+`Godot_v4.7.2-stable_export_templates.tpz` (GitHub releases) into
+`~/.local/share/godot/export_templates/4.7.2.stable/` (Windows:
+`%APPDATA%\Godot\export_templates\4.7.2.stable\`), or installed from the
+editor's Editor > Manage Export Templates. It checks both, imports the
+project, exports, and fails unless every expected file came out. CI does
+the same on pushes to main and on tags (`.github/workflows/build.yml`) and
+uploads both builds as workflow artifacts (the Linux one as a tarball, which
+keeps the executable bit).
+
+How the presets (`export_presets.cfg`) are set up, and why:
+
+- **The .pck isn't embedded.** Each build is Godot's official template,
+  byte-identical from build to build, plus the game's .pck. Steam patches
+  only the changed file, nothing rewrites an executable (nothing for virus
+  scanners or code signing to trip on), and a crash report names a stock
+  Godot binary. The .pck must stay next to the executable.
+- **`tests/` and `tools/` are excluded**: they're dev-only. Checked: the
+  .pck's file table lists only `src/`, `scenes/`, the icon and Godot's own
+  metadata. Almost all of each build is the engine; the game is 61 KB.
+- **Desktop texture compression only** (S3TC/BPTC). Pixel-art sprites,
+  when they exist, should be imported Lossless with filtering off (the
+  project already defaults canvas textures to nearest).
+- Editing the presets in the Godot editor rewrites the file and drops its
+  comments; this list is the lasting copy.
+
+**Checked:** the exported Linux build, run under a virtual display
+(`xvfb-run -a -s "-screen 0 1280x800x24" build/linux/AFriendInNeed.x86_64
+--rendering-driver opengl3 -- --autoplay --screenshot=out.png
+--shot-after=5`), renders the table, fills the 1280x800 screen at x2 and
+quits cleanly. The CI workflow's steps were run locally with only the
+templates it caches. **Not checked:** the Windows build running (it exports
+and its executable looks right), the workflow on GitHub, a real Deck, a
+Steam upload. What Steam and Deck Verified need (the back buttons and Steam
+Input, text size, suspend, Steam Cloud, SteamPipe uploads, the store page) is
+in [docs/STEAM_DECK.md](docs/STEAM_DECK.md).
+
 ## Measured so far
 
 **Hand evaluator:** all 2,598,960 five-card hands land in the textbook
@@ -189,6 +239,11 @@ controller.
 | `tests/` | Test runner and tests |
 | `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, input-map writer |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
+| `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
+| `scripts/export.sh` | Exports both presets headless into `build/` |
+| `.github/workflows/build.yml` | CI: exports both builds on main and tags, uploads them as artifacts |
+| `steam/` | SteamPipe upload scripts and a Steam Input action manifest, as templates with placeholder IDs |
+| `docs/STEAM_DECK.md` | What Steam and Deck Verified need, verified vs from the docs |
 
 ## Next steps
 
@@ -196,4 +251,4 @@ controller.
 2. Recheck the type chart (`tools/simulate.gd --cycle` on fresh seeds) after any change to the bot or the styles.
 3. Play against each dealer: is Heat a choice you weigh, or just a tax?
 4. Real art: an Aseprite palette, the Aseprite Wizard plugin, animal sprites at the seats.
-5. Export presets for Linux (native on the Deck) and Windows, then GodotSteam.
+5. GodotSteam, then a default Steam Input configuration so the back buttons reach the game (docs/STEAM_DECK.md section 2).

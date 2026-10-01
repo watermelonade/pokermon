@@ -1,0 +1,14 @@
+// SteamPipe depot: the Windows build (Windows players, and the Deck's
+// fallback through Proton if the Linux build is ever unusable).
+// TEMPLATE: replace YOUR_WINDOWS_DEPOT_ID.
+"DepotBuild"
+{
+	"DepotID" "YOUR_WINDOWS_DEPOT_ID"
+	"FileMapping"
+	{
+		"LocalPath" "windows/*"
+		"DepotPath" "."
+		"Recursive" "1"
+	}
+	"FileExclusion" "*.pdb"
+}
