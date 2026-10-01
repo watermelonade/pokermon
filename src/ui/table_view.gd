@@ -231,13 +231,13 @@ func _new_match() -> void:
 	match_.talk.gesture_made.connect(_on_gesture)
 	match_.heat.warned.connect(func(team: int, _seat: int) -> void:
 		_sound(&"dealer_warning")
-		_dealer_says("Dealer to %s: \"Hands where I can see them.\"" % _crew_name(team)))
+		_dealer_says("Dealer to %s: \"Paws where I can see them.\"" % _crew_name(team)))
 	match_.heat.fined.connect(func(team: int, _seat: int) -> void:
 		_sound(&"fine")
 		_dealer_says("The floor fines %s: a dead big blind each, next hand." % _crew_name(team)))
 	match_.heat.ejection_called.connect(func(_team: int, seat: int) -> void:
 		_sound(&"ejection")
-		_dealer_says("%s is thrown out after this hand!" % ("You are" if seat == HUMAN else t.seats[seat].name)))
+		_dealer_says("You're thrown out after this hand!" if seat == HUMAN else "%s is thrown out after this hand!" % t.seats[seat].name))
 	_feed.clear()
 	alert = ""
 	_heat_shown.clear()
@@ -669,7 +669,7 @@ func _action_line(seat: int, action: int, amount: int) -> String:
 	var s := match_.table.seats[seat]
 	var you := seat == HUMAN
 	if s.all_in and action != HoldemTable.Action.FOLD:
-		return "%s all-in! (%d)" % ["You go" if you else s.name + " goes", s.street_bet]
+		return "%s all-in for %d!" % ["You go" if you else s.name + " goes", s.street_bet]
 	match action:
 		HoldemTable.Action.FOLD:
 			return "You fold." if you else "%s folds." % s.name
@@ -1085,7 +1085,7 @@ func _draw_text_box(now: float, readout: String) -> void:
 	if _flow == Flow.HUMAN and _menu_open:
 		width = MENU_BOX.position.x - x - 8
 		var legal := match_.table.legal()
-		_text(Vector2(x, r.position.y + 21), "What will you do?", L, INK)
+		_text(Vector2(x, r.position.y + 21), "Your move.", L, INK)
 		var owe := "%d to call." % legal["to_call"] if legal["to_call"] > 0 else "Checking is free."
 		if _raise_open:
 			owe = "Raise to how much?"
@@ -1252,7 +1252,7 @@ func _draw_help() -> void:
 	for line: String in [
 		"Each signal adds Heat, more if your crew already",
 		"signalled this hand. 40: a warning. 70: a fine.",
-		"100: the signaller is thrown out (you: you lose).",
+		"100: the signaller's thrown out. If that's you, you lose.",
 		"And watch the animals: each kind has a tell.",
 	]:
 		_text(Vector2(x, y), line, L, INK_SOFT)
