@@ -104,6 +104,10 @@ const CARD_BOARD := Vector2(22, 30)
 const CARD_YOURS := Vector2(26, 36)
 
 signal finished(won: bool)
+## The match is decided (emitted once, before the result is even shown):
+## an embedding scene applies and saves the outcome here, so quitting while
+## the result is on screen can't undo a loss. `finished` is the A press after.
+signal decided(won: bool)
 
 ## Who sits where, in seat order: {"name": String, "team": int, "animal":
 ## Animal or null for you}. Seat 0 must be you.
@@ -123,6 +127,7 @@ var raise_to := 0
 var autoplay := false
 var dealer_kind := Dealer.Kind.WATCHFUL  ## set before adding to the tree
 var alert := ""  ## the dealer's latest words, in the text box
+var _decided_sent := false  ## `decided` fires once per match
 var _clock := 0.0  ## see _now()
 var _sounds: Array = []  ## [time, name, species] waiting for their beat
 var _alert_until := 0.0
@@ -291,6 +296,7 @@ func _new_match() -> void:
 	_heat_shown.clear()
 	_match_banner = ""
 	_match_banner_at = INF
+	_decided_sent = false
 	_next_hand()
 
 
@@ -382,6 +388,9 @@ func _advance_flow() -> void:
 			_say("%s %s" % [_match_banner, "Press A." if embedded else "A: rematch."], RIVAL_FRAME.darkened(0.2), _match_banner_at)
 			var won := match_.winner() == 0 and not t.seats[HUMAN].ejected
 			_sound(&"win_pot" if won else &"lose", _match_banner_at)
+			if not _decided_sent:
+				_decided_sent = true
+				decided.emit(won)
 		else:
 			_flow = Flow.HAND_DONE
 			_next_hand_at = maxf(now, _motion.cursor) + NEXT_HAND_PAUSE

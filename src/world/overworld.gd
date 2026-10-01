@@ -30,6 +30,8 @@ const TABLE_SCENE := preload("res://scenes/table.tscn")
 const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank Tournament Hall"}
 
 const ROAD_GAME_HANDS := 20
+var _settled := {}  ## the last match's outcome, applied once (see _settle)
+var _match_count := 0
 var _music: AudioStreamPlayer
 var state: GameState
 var map: WorldMap
@@ -589,6 +591,7 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 
 
 func _play_match(crew: Dictionary) -> void:
+	_match_count += 1
 	var rivals := WorldMap.crew_animals(crew)
 	Game.save()
 	var won := false
@@ -612,18 +615,43 @@ func _play_match(crew: Dictionary) -> void:
 		# Tournaments play to the end.
 		table.max_hands = 0 if crew.has("bracelet") else ROAD_GAME_HANDS
 		table.finished.connect(_on_table_finished)
+		table.decided.connect(func(w: bool) -> void: _settle(crew, w))
 		mode = Mode.TABLE
 		_hud.queue_redraw()
 		table_layer.add_child(table)
 		fade.color.a = 0.0
 		won = await _table_done
 		mode = Mode.BUSY
-	Game.dev_log("match against %s: %s" % [crew["id"], "won" if won else "lost"])
+	var outcome := _settle(crew, won)  # already settled when the table decided
+	Game.dev_log("match against %s: %s" % [crew["id"], "won" if outcome["won"] else "lost"])
+	if outcome["won"]:
+		await _after_win(crew, outcome["reward"])
+	else:
+		await _blackout(crew, outcome["lost"])
+
+
+## Applies a match's outcome to the run and saves it, once per match, the
+## moment it's decided: the reward, the bracelet or an owed recruit offer,
+## or the blackout; and bond growth. Everything after (leaving the table,
+## the dialogue) only shows what's already saved. Before, quitting while the
+## result was on screen (or during the dialogue after it) saved the state
+## from before the match: a loss could be dodged by quitting (the
+## playtester found it: tools/playtest.gd, seed 8002).
+func _settle(crew: Dictionary, won: bool) -> Dictionary:
+	if _settled.get("crew", "") == crew["id"] and _settled.get("match", -1) == _match_count:
+		return _settled
+	_settled = {"crew": crew["id"], "match": _match_count, "won": won, "reward": 0, "lost": 0}
 	_grew = state.grow_bonds(won)
 	if won:
-		await _after_win(crew)
+		_settled["reward"] = state.win_against(crew["id"], crew["reward"])
+		if crew.has("bracelet"):
+			state.add_bracelet(crew["bracelet"])
+		else:
+			state.pending_recruit = crew["id"]
 	else:
-		await _blackout(crew)
+		_settled["lost"] = state.blackout()
+	Game.save()
+	return _settled
 
 
 signal _table_done(won: bool)
@@ -666,17 +694,11 @@ func _say_bond_growth() -> void:
 		await dialog.say(lines)
 
 
-func _after_win(crew: Dictionary) -> void:
-	var reward := state.win_against(crew["id"], crew["reward"])
-	# Everything the win is owed is saved before the first line: closing the
-	# window mid-dialogue lost the recruit offer in 136 of 200 playtest runs,
-	# and once left a won Open without its bracelet. A pending recruit offer
-	# is made again on the next load (_ready).
-	if crew.has("bracelet"):
-		state.add_bracelet(crew["bracelet"])
-	else:
-		state.pending_recruit = crew["id"]
-	Game.save()
+## Shows a win that _settle has already saved (with the bracelet, or a
+## pending recruit offer that's made again on the next load if the window
+## closes first: closing mid-dialogue lost the offer in 136 of 200 playtest
+## runs before, and once left a won Open without its bracelet).
+func _after_win(crew: Dictionary, reward: int) -> void:
 	var title := _crew_title(crew)
 	await dialog.say(["You beat %s! They grumble and pay up: $%d." % [crew["name"], reward], crew["after"]], title)
 	await _say_bond_growth()
@@ -724,12 +746,9 @@ func _offer_recruit(crew: Dictionary) -> void:
 	await dialog.say(["%s joins your crew! Pick who sits with you under Crew (Start or Tab)." % a.name])
 
 
-func _blackout(crew: Dictionary) -> void:
-	# The blackout is applied and saved before the first line: closing the
-	# window during this dialogue skipped it (you kept your money and woke on
-	# the road) in 64 of 200 playtest runs.
-	var lost := state.blackout()
-	Game.save()
+## Shows a blackout that _settle has already applied and saved (closing the
+## window during this dialogue used to skip it: 64 of 200 playtest runs).
+func _blackout(crew: Dictionary, lost: int) -> void:
 	await dialog.say(["%s cleaned you out." % _crew_title(crew), "You wander back toward town, pockets flapping, and everything goes dark..."])
 	await _fade_out(0.6)
 	_load_map(state.map_id, state.cell, state.facing)

@@ -20,3 +20,5 @@ jobs:
         run: ./godot --headless --path . --import
       - name: Run tests
         run: ./godot --headless --path . -s tests/run_tests.gd
+      - name: Every script compiles (with the autoloads the test runner lacks)
+        run: ./godot --headless --path . res://tests/compile_check.tscn

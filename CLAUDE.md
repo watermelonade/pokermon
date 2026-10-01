@@ -24,6 +24,10 @@ godot --headless --path . -s tools/simulate.gd -- 40 7   # play-style balance
 - New `class_name` scripts aren't visible to other scripts until the import
   above refreshes the class cache: "Identifier not declared" usually means
   that, not a typo.
+- The test runner can't see scene scripts that use the `Game`/`Sfx`
+  autoloads (it runs as a SceneTree script, without autoloads), so also run
+  `godot --headless --path . res://tests/compile_check.tscn`: it compiles
+  every script under src/ (a broken overworld.gd once passed all the tests).
 - GDScript has no exceptions. A script error inside a test returns null and
   carries on; `tests/run_tests.gd` catches these with a Logger and fails the
   test. Keep it that way.
