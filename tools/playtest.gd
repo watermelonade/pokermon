@@ -141,6 +141,7 @@ var table_sig_ms := 0
 var table_frames := 0  ## frames spent at real tables: not counted against --pt-frames
 var table_hand := 0
 var in_table := false
+var last_world: Node = null
 var table_mode := "auto"  ## how the next real match is played: auto or human
 var expect := {}  ## a match's expected outcome, checked on the next walk
 var encounter_money := 0
@@ -233,6 +234,11 @@ func _tick() -> void:
 	if scene.scene_file_path == TITLE_SCENE:
 		_act_title(scene)
 	elif scene.scene_file_path == WORLD_SCENE and scene.get("player") != null:
+		if scene != last_world:
+			# The first frame of a new overworld: before any input reaches it
+			# (a mashed A can start an encounter on its first free frame).
+			last_world = scene
+			_check_continue()
 		_check_softlock(scene)
 		if not done:
 			_check_world(scene)
@@ -252,6 +258,7 @@ func _act_title(t: Node) -> void:
 	cooldown = rng.randi_range(3, 20)
 	var options: Array = t.get("_options")
 	if t.get("_confirming"):
+		title_detour = false
 		# "Start over?" Yes is 0, No is 1. Only a new-game start says yes.
 		var want := 0 if want_new_game else 1
 		_press(_toward(int(t.get("_cursor")), want) if int(t.get("_cursor")) != want else "ui_accept")
@@ -261,7 +268,6 @@ func _act_title(t: Node) -> void:
 	var target := "New game" if (want_new_game or not options.has("Continue")) else "Continue"
 	if title_detour and options.has("New game"):
 		target = "New game"  # look at starting over, then say no
-		title_detour = false
 	var want_index := options.find(target)
 	var cursor := int(t.get("_cursor"))
 	if cursor != want_index:
@@ -814,27 +820,6 @@ func _on_walk_again(ow: Node) -> void:
 	if expect:
 		_check_match_outcome(state)
 		expect = {}
-	if reload_expect != "":
-		var got := _norm(state.to_dict())
-		var want := reload_expect
-		var moved := _moved_off_taken_cell(want, state)
-		if moved:
-			stats["continue_moved"] += 1
-			_log("continue moved you from a taken cell to %s" % state.cell)
-			got = got.replace(_cell_json(state.cell), moved)
-		var saved: Dictionary = JSON.parse_string(want)
-		if (saved.get("party", []) as Array).size() < GameState.PARTY_SIZE:
-			# Saved with the party screen half-way: the load fills the seats.
-			var a := saved.duplicate()
-			var b: Dictionary = JSON.parse_string(got)
-			a.erase("party")
-			b.erase("party")
-			if JSON.stringify(a, "", true) == JSON.stringify(b, "", true):
-				got = want
-		if got != want:
-			_fail("continue_mismatch", "after quit and continue the run isn't as saved:\n  saved:  %s\n  loaded: %s\n  diff: %s"
-				% [_brief(want), _brief(got), _diff(want, got)])
-		reload_expect = ""
 	if state.bracelets.has("mossbank") and completed_at_decision < 0:
 		completed_at_decision = stats["decisions"]
 		stats["demo_complete"] = true
@@ -881,6 +866,33 @@ func _only_bracelets_added(want: String, got: String) -> bool:
 	a.erase("bracelets")
 	b.erase("bracelets")
 	return JSON.stringify(a, "", true) == JSON.stringify(b, "", true)
+
+
+## After a quit: Continue must bring back exactly what loading the last
+## save gives (moving you off a cell someone now stands on is allowed).
+func _check_continue() -> void:
+	var state: GameState = game.state
+	if reload_expect != "":
+		var got := _norm(state.to_dict())
+		var want := reload_expect
+		var moved := _moved_off_taken_cell(want, state)
+		if moved:
+			stats["continue_moved"] += 1
+			_log("continue moved you from a taken cell to %s" % state.cell)
+			got = got.replace(_cell_json(state.cell), moved)
+		var saved: Dictionary = JSON.parse_string(want)
+		if (saved.get("party", []) as Array).size() < GameState.PARTY_SIZE:
+			# Saved with the party screen half-way: the load fills the seats.
+			var a := saved.duplicate()
+			var b: Dictionary = JSON.parse_string(got)
+			a.erase("party")
+			b.erase("party")
+			if JSON.stringify(a, "", true) == JSON.stringify(b, "", true):
+				got = want
+		if got != want:
+			_fail("continue_mismatch", "after quit and continue the run isn't as saved:\n  saved:  %s\n  loaded: %s\n  diff: %s"
+				% [_brief(want), _brief(got), _diff(want, got)])
+		reload_expect = ""
 
 
 func _check_match_outcome(state: GameState) -> void:
