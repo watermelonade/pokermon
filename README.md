@@ -77,7 +77,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-61 tests, about 8 seconds. They cover hand ranking, equity against known odds
+64 tests, about 8 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up),
 side pots, split pots and odd chips, busted seats, a 600-hand random-play run
 that checks no chip is ever created or lost, full bot matches, soft play
@@ -90,7 +90,8 @@ and bodies), the walk-up path, that two crews can't be snuck past and two
 can, and that beaten crews don't block the road; and for the run: seating
 for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
-including damaged and missing saves. The runner fails any test that logs a script
+including damaged and missing saves; and that missing art falls back to
+placeholders and a sprite strip is cut to its first frame. The runner fails any test that logs a script
 error (GDScript has no exceptions, so a crashing test would otherwise pass).
 CI runs the same thing on every push (`.github/workflows/tests.yml`).
 
