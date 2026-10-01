@@ -167,3 +167,15 @@ func test_cautious_animals_go_quiet_when_the_dealer_is_suspicious() -> void:
 	check_eq(_signals_sent(0.0, 30.0), 20, "a careless one doesn't care yet")
 	var reckless := _signals_sent(0.0, 90.0)
 	check(reckless >= 4 and reckless <= 16, "past its line, a careless one forgets it about half the time: %d of 20" % reckless)
+
+
+func test_both_leaders_caught_is_a_draw() -> void:
+	var m := _match(D.STRICT)
+	m.leaders = {0: 0, 1: 3}
+	m.start_hand()
+	for _i in 3:
+		m.talk.send(0, TableTalk.Sig.STRONG, 0)
+		m.talk.send(3, TableTalk.Sig.STRONG, 0)
+	_fold_out(m)
+	check(m.is_over(), "both crews are done")
+	check_eq(m.winner(), -1, "nobody wins when both bosses are caught")

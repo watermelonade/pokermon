@@ -116,8 +116,14 @@ func is_over() -> bool:
 
 ## The winning team, or -1 for a tie on chips.
 func winner() -> int:
-	if caught_team() >= 0:
-		return 1 - caught_team()
+	var caught: Array[int] = []
+	for team: int in leaders:
+		if table.seats[leaders[team]].ejected:
+			caught.append(team)
+	if caught.size() > 1:
+		return -1  # both bosses thrown out in the same hand: a draw
+	if caught.size() == 1:
+		return 1 - caught[0]
 	var alive := teams_alive()
 	if alive.size() == 1:
 		return alive[0]

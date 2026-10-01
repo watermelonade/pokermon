@@ -28,5 +28,9 @@ implementing.
 - **The Binder:** 25 species, 4+ recruitable individuals each, so a crew of
   one species is possible. Dogs only join after the finale, enough of them
   to recreate the painting.
+- **Look and feel (for now):** old-school Pokemon, Game Boy Advance era:
+  16x16 tiles, outlined 3/4 top-down characters, trainer-style "!"
+  encounters, bottom-of-screen text boxes, a healing-center diner, a
+  battle-menu-style table. Inspired by, never copied.
 - **Steam Deck:** 640x400 base resolution, integer-scaled to 1280x800,
   controller only, save between hands.
