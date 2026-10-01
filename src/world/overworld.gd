@@ -24,6 +24,7 @@ enum Mode { WALK, BUSY, TABLE }
 const TABLE_SCENE := preload("res://scenes/table.tscn")
 const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank Tournament Hall"}
 
+var _music: AudioStreamPlayer
 var state: GameState
 var map: WorldMap
 var mode := Mode.BUSY
@@ -129,6 +130,7 @@ func _build() -> void:
 
 func _load_map(map_id: String, cell: Vector2i, facing: Vector2i) -> void:
 	map = WorldMap.get_map(map_id)
+	_play_room_music(map_id)
 	state.map_id = map_id
 	state.cell = cell
 	state.facing = facing
@@ -173,6 +175,21 @@ func _make_followers(cell: Vector2i, facing: Vector2i) -> void:
 		actors.add_child(f)
 		actors.move_child(f, 0)  # under the player when stacked
 		followers.append(f)
+
+
+## The lounge loop plays in the card rooms (the diner and the hall), and
+## nothing outdoors until there's route music.
+func _play_room_music(map_id: String) -> void:
+	if _music == null:
+		_music = AudioStreamPlayer.new()
+		_music.stream = load("res://assets/audio/music/lounge_loop.wav")
+		_music.volume_db = -10.0  # under the effects, per assets/audio/README.md
+		add_child(_music)
+	var card_room := map_id in ["diner", "hall"]
+	if card_room and not _music.playing:
+		_music.play()
+	elif not card_room:
+		_music.stop()
 
 
 func _area_name() -> String:
@@ -273,6 +290,7 @@ func _try_step(dir: Vector2i) -> void:
 	for i in followers.size():
 		if followers[i].cell != trail[i]:
 			followers[i].step_to(trail[i])
+	Sfx.play(&"step_grass" if map.outdoor else &"step_wood")
 	await player.step_to(target)
 	state.cell = target
 	_moving = false
@@ -437,6 +455,7 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 	if spotted:
 		leader.alert = true
 		leader.queue_redraw()
+		Sfx.play(&"encounter")
 		await get_tree().create_timer(0.8).timeout
 		leader.alert = false
 		leader.queue_redraw()
@@ -457,6 +476,7 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 	leader.face(toward)
 	player.face(-toward)
 	state.facing = player.facing
+	Sfx.voice(WorldMap.crew_animals(crew)[0].species)
 	await dialog.say(crew["before"], _crew_title(crew))
 	await _play_match(crew)
 	mode = Mode.WALK
@@ -558,6 +578,8 @@ func _offer_recruit(crew: Dictionary) -> void:
 	var node: Critter = nodes[i]
 	nodes[i] = null
 	node.queue_free()
+	Sfx.play(&"win_pot")  # until there's a proper recruit jingle
+	Sfx.voice(a.species)
 	await dialog.say(["%s joins your crew! Choose who sits with you from Crew in the Start menu (Start or Tab)." % a.name])
 
 

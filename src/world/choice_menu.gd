@@ -59,10 +59,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	var d := UiKit.menu_dir(event)
 	if d.y != 0:
 		_cursor = wrapi(_cursor + d.y, 0, _options.size())
+		Sfx.play(&"ui_move")
 		queue_redraw()
 	elif UiKit.accept(event):
+		Sfx.play(&"ui_confirm")
 		chosen.emit(_cursor)
 	elif (event.is_action_pressed("ui_cancel") or (_corner and event.is_action_pressed("menu"))) and _cancel >= 0:
+		Sfx.play(&"ui_back")
 		chosen.emit(_cancel)
 	else:
 		return
