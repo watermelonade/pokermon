@@ -22,9 +22,11 @@ func test_the_boss_crew_brings_your_chips_spread_leader_heavy() -> void:
 	check_eq(BossTable.stacks(3, 4, 1000, 3), [1500, 500, 500, 500] as Array[int], "a three-share leader")
 
 
-func test_the_rigged_draw_boxes_you_in() -> void:
-	check_eq(BossTable.seat_order(3, 4), [Vector2i(0, 0), Vector2i(1, 0), Vector2i(1, 2), Vector2i(0, 1),
-			Vector2i(0, 2), Vector2i(1, 3), Vector2i(1, 1)] as Array[Vector2i], "3v4, seat by seat")
+func test_the_rigged_draw_boxes_you_in_and_splits_your_crew() -> void:
+	check_eq(BossTable.seat_order(3, 4), [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 2),
+			Vector2i(1, 3), Vector2i(0, 2), Vector2i(1, 1)] as Array[Vector2i], "3v4, seat by seat")
+	check_eq(BossTable.seat_order(3, 3), [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 2),
+			Vector2i(0, 2), Vector2i(1, 1)] as Array[Vector2i], "3v3 alternates, as the road's tables do")
 	for boss in range(3, 7):
 		var order := BossTable.seat_order(3, boss)
 		var n := order.size()
@@ -32,32 +34,23 @@ func test_the_rigged_draw_boxes_you_in() -> void:
 		check_eq(order[0], Vector2i(0, 0), "3v%d: you in seat 0" % boss)
 		check_eq(order[1], Vector2i(1, 0), "3v%d: the leader acts right after you" % boss)
 		check_eq(order[n - 1].x, 1, "3v%d: a goon right before you" % boss)
-		var nearest_mate := n
-		var farthest_boss := 0
-		var mates: Array[int] = []
-		for seat in n:
-			var away := mini(seat, n - seat)
-			if order[seat].x == 1:
-				farthest_boss = maxi(farthest_boss, away)
-			elif seat > 0:
-				nearest_mate = mini(nearest_mate, away)
-				mates.append(seat)
-		check(farthest_boss <= nearest_mate, "3v%d: every boss seat is at least as near you as your teammates" % boss)
-		check_eq(mates[1] - mates[0], 1, "3v%d: your teammates sit together, across the table" % boss)
-		_check_everyone_once(order, boss)
-
-
-func test_a_fair_draw_spreads_your_crew_out() -> void:
-	check_eq(BossTable.seat_order(3, 3, false), [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1),
-			Vector2i(0, 2), Vector2i(1, 2)] as Array[Vector2i], "3v3 alternates, as the road's tables do")
-	for boss in range(3, 7):
-		var order := BossTable.seat_order(3, boss, false)
-		var n := order.size()
-		check_eq(order[0], Vector2i(0, 0), "you in seat 0")
+		if boss >= 5:
+			check(order[2].x == 1 and order[n - 2].x == 1, "3v%d: two of them on each side of you" % boss)
 		for seat in n:
 			if order[seat].x == 0:
-				check_eq(order[(seat + 1) % n].x, 1, "3v%d: no two of your crew side by side" % boss)
+				check_eq(order[(seat + 1) % n].x, 1, "3v%d: nobody on your crew next to anybody else on it" % boss)
 		_check_everyone_once(order, boss)
+
+
+func test_a_fair_draw_is_random_but_repeatable() -> void:
+	var seen := {}
+	for draw in 20:
+		var order := BossTable.seat_order(3, 4, false, draw)
+		check_eq(order[0], Vector2i(0, 0), "you in seat 0")
+		check_eq(order, BossTable.seat_order(3, 4, false, draw), "the same seed, the same draw")
+		_check_everyone_once(order, 4)
+		seen[str(order)] = true
+	check(seen.size() >= 10, "20 draws, %d different seatings" % seen.size())
 
 
 func _check_everyone_once(order: Array[Vector2i], boss: int) -> void:
@@ -81,13 +74,13 @@ func test_setup_carries_teams_chips_and_the_leader() -> void:
 	var names: Array[String] = []
 	for s in seats:
 		names.append(s["name"])
-	check_eq(names, ["You", "Graves", "Bramble", "Sage", "Bandit", "Dusty", "Tom"] as Array[String])
+	check_eq(names, ["You", "Graves", "Sage", "Bramble", "Dusty", "Bandit", "Tom"] as Array[String])
 	check_eq(BossTable.leader_seat(seats), 1)
 	check_eq(seats[1]["chips"], 1200, "the leader's big stack")
-	check_eq(seats[2]["chips"], 600, "a goon's short one")
-	check_eq(seats[3]["chips"], 1000, "yours")
+	check_eq(seats[3]["chips"], 600, "a goon's short one")
+	check_eq(seats[2]["chips"], 1000, "yours")
 	check_eq(seats[1].get("crew"), "mossbank_regulars", "the boss crew carries its id (interception's code book)")
-	check(not seats[3].has("crew"), "your crew doesn't")
+	check(not seats[2].has("crew"), "your crew doesn't")
 	check_eq(boss[0].has("team"), false, "the input isn't changed")
 	for s in seats:
 		check_eq(s["team"], 0 if s["name"] in ["You", "Sage", "Bandit"] else 1, s["name"])
@@ -229,7 +222,7 @@ func test_the_open_is_a_three_on_four_boss_table() -> void:
 	check(seats[1].get("leader", false), "Graves leads")
 	check_eq(seats[1]["chips"], 1200, "with a big stack")
 	check_eq(seats[6]["team"], 1, "a Regular on your other side too")
-	check_eq([seats[3]["name"], seats[4]["name"]], ["Sage", "Bandit"], "your crew across the table")
+	check_eq([seats[2]["name"], seats[5]["name"]], ["Sage", "Bandit"], "your crew split up")
 	var cells := WorldMap.crew_cells(regulars)
 	check_eq(cells.size(), 4, "all four stand in the hall")
 	var hall := WorldMap.get_map("hall")
@@ -255,7 +248,7 @@ func test_saves_from_before_boss_tables_still_load() -> void:
 	var regulars: Dictionary = WorldMap.get_map("hall").crews[0]
 	var seats := s.boss_table_setup(WorldMap.crew_animals(regulars), regulars["id"], 1000)
 	check_eq(seats.size(), 7)
-	check_eq([seats[3]["name"], seats[4]["name"]], ["Honk", "Sage"], "the saved party sits down")
+	check_eq([seats[2]["name"], seats[5]["name"]], ["Honk", "Sage"], "the saved party sits down")
 	check_eq(s.codebook.learned(CrewCode.PLAYER, "mossbank_regulars"), {0: 1}, "the cracked gesture is still known")
 	var back := GameState.from_dict(JSON.parse_string(JSON.stringify(s.to_dict())))
 	check_eq(back.to_dict(), s.to_dict(), "and saves again the same")

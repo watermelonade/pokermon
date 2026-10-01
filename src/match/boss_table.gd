@@ -15,15 +15,20 @@ extends RefCounted
 ##   picking them off early swing the numbers; the big-stack leader is the
 ##   one to bust (TeamMatch.leaderless: without it the goons stop
 ##   signalling and play scared).
-## - **The rigged seat draw:** the boss boxes you in. Its members take the
-##   seats nearest yours, alternating sides (the leader directly after you,
-##   so it acts behind you every hand, then right before you, then the next
-##   ones out), and your teammates get the far seats, side by side across
-##   the table where they can't help you squeeze anyone. A fair draw spreads
-##   your crew around the ring as evenly as it goes (3v3 is the usual
-##   alternation). The table shows the draw and says it was rigged; seeing
-##   it coming (reads) or changing it (bribing the dealer) is for later.
+## - **The rigged seat draw:** the boss boxes you in and splits your crew
+##   up. Its leader sits directly after you (it acts behind you every hand),
+##   a goon directly before you, and from 3v5 up two of them on each side;
+##   your teammates are spread round the ring with boss seats between them,
+##   so nobody on your crew sits next to anybody else on it. The table shows
+##   the draw and says it was rigged; seeing it coming (reads) or changing
+##   it (bribing the dealer) is for later. A fair draw (random, seeded) is
+##   there to measure the rig against.
 ##
+##   Tried first: the boss in the seats nearest yours and your teammates
+##   side by side across the table. It looked like boxing you in, but it
+##   helped your crew: bot crews won 51.0% of 3v4 Opens that way against
+##   42.5% with your crew split up (tools/boss_sim.gd, seed 50001, 200
+##   matches each, the same deals), so the rig splits your crew instead.
 ## Seat 0 is always you, in both draws: the table and its layout count on it.
 
 ## Shares of the boss crew's chips: the leader holds this many, a goon one.
@@ -51,35 +56,39 @@ static func stacks(mine: int, boss: int, base: int, shares := LEADER_SHARES, edg
 
 ## Who sits in each seat, as [team, index in that team's list] for seat 0,
 ## 1, 2...: team 0 is your crew (index 0 is you), team 1 the boss crew (index
-## 0 its leader). `rigged`: the boss's draw (see the top); otherwise a fair
-## one.
-static func seat_order(mine: int, boss: int, rigged := true) -> Array[Vector2i]:
+## 0 its leader). `rigged`: the boss's draw (see the top); otherwise a fair,
+## random one from `draw_seed`.
+static func seat_order(mine: int, boss: int, rigged := true, draw_seed := 0) -> Array[Vector2i]:
 	var n := mine + boss
 	var order: Array[Vector2i] = []
 	order.resize(n)
 	order.fill(Vector2i(-1, -1))
-	if rigged:
-		# Seats by distance from yours, the one after you first: 1, n-1, 2,
-		# n-2... The boss crew takes the nearest, in its own order.
-		var near: Array[int] = []
-		for k in range(1, n):
-			var seat := (k + 1) / 2 if k % 2 == 1 else n - k / 2
-			near.append(seat)
+	order[0] = Vector2i(0, 0)
+	if not rigged:
+		# Fair: everyone but you drawn at random.
+		var slots: Array[Vector2i] = []
+		for k in range(1, mine):
+			slots.append(Vector2i(0, k))
 		for b in boss:
-			order[near[b]] = Vector2i(1, b)
-		order[0] = Vector2i(0, 0)
-		var next := 1
-		for seat in n:
-			if order[seat].x < 0:
-				order[seat] = Vector2i(0, next)
-				next += 1
+			slots.append(Vector2i(1, b))
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash("seat draw %d" % draw_seed)
+		for k in range(slots.size() - 1, 0, -1):
+			var j := rng.randi_range(0, k)
+			var t := slots[k]
+			slots[k] = slots[j]
+			slots[j] = t
+		for k in slots.size():
+			order[k + 1] = slots[k]
 		return order
-	# Fair: your crew spread around the ring (seat round(k * n / mine)), the
-	# boss crew in the seats between, in order.
-	for k in mine:
+	# Your teammates spread round the ring (seat k * n / mine)...
+	for k in range(1, mine):
 		order[roundi(float(k * n) / mine) % n] = Vector2i(0, k)
+	# ...and the boss crew in the rest, nearest you first: the seat after
+	# yours, the one before, the next ones out (1, n-1, 2, n-2...).
 	var b := 0
-	for seat in n:
+	for k in range(1, n):
+		var seat := (k + 1) / 2 if k % 2 == 1 else n - k / 2
 		if order[seat].x < 0:
 			order[seat] = Vector2i(1, b)
 			b += 1
@@ -91,10 +100,11 @@ static func seat_order(mine: int, boss: int, rigged := true) -> Array[Vector2i]:
 ## its team, its starting `chips` (yours: `base`; the boss crew's: stacks())
 ## and the leader is marked `"leader": true`. `crew_id` names the boss crew
 ## for interception's code book, as in GameState.table_setup.
-static func setup(mine: Array[Dictionary], boss: Array[Dictionary], base: int, rigged := true, crew_id := "", shares := LEADER_SHARES, edge := CHIP_EDGE) -> Array[Dictionary]:
+static func setup(mine: Array[Dictionary], boss: Array[Dictionary], base: int, rigged := true, crew_id := "",
+		shares := LEADER_SHARES, edge := CHIP_EDGE, draw_seed := 0) -> Array[Dictionary]:
 	var chips := stacks(mine.size(), boss.size(), base, shares, edge)
 	var out: Array[Dictionary] = []
-	for slot in seat_order(mine.size(), boss.size(), rigged):
+	for slot in seat_order(mine.size(), boss.size(), rigged, draw_seed):
 		var seat: Dictionary
 		if slot.x == 0:
 			seat = mine[slot.y].duplicate()

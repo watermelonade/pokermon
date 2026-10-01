@@ -17,7 +17,8 @@ implementing.
   of 4.
 - **Boss tables** (src/match/boss_table.gd): the boss crew brings the same
   total chips as yours over more seats (the leader two shares, each goon
-  one), rigs the seat draw so its members sit either side of you, and has
+  one), rigs the seat draw so its members sit either side of you and your
+  teammates are split up, and has
   a leader: bust it and the goons stop signalling and play scared; get it
   thrown out and you win.
 - **City 1's tournament (the Mossbank Open):** the early rounds are 3v3;

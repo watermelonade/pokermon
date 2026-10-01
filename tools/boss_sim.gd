@@ -19,7 +19,7 @@ extends SceneTree
 ##                            table's --boss=N: Pudding the possum, Pip the owl)
 ##   --dealer=BOUGHT          who's watching (default: the crew's own dealer;
 ##                            BOUGHT looks away from the boss crew)
-##   --fair                   a fair seat draw instead of the boss's rigged one
+##   --fair                   a fair (random) seat draw instead of the boss's rigged one
 ##   --crews=all              your side: the starters only (default) or a mix
 ##                            of decent crews (see CREWS)
 ##   --no-crew-cards          the boss crew doesn't play as one (each member
@@ -171,7 +171,7 @@ func _play(seed_value: int, mates: Array, crew: Dictionary, road: bool, t: Dicti
 			them["team"] = 1
 			setup.append(them)
 	else:
-		setup = BossTable.setup(mine, rivals, chips, rigged, crew["id"], shares, edge)
+		setup = BossTable.setup(mine, rivals, chips, rigged, crew["id"], shares, edge, seed_value)
 	var m := TeamMatch.new(seed_value)
 	var kind: int = crew["dealer"] if dealer < 0 else dealer
 	m.heat.dealer = Dealer.preset(kind as Dealer.Kind, 1)
