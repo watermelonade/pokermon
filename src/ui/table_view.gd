@@ -101,6 +101,7 @@ var starting_chips := 1000
 ## Caps the match at this many hands (the crew with more chips wins), for
 ## road games; 0 plays until a crew is out. Set before adding to the tree.
 var max_hands := 0
+var codebook: CodeBook  # interception: rival codes learned so far (a CodeBook the save keeps); null = this table only
 
 var match_: TeamMatch
 var last_action := {}  ## seat -> short text under its name
@@ -149,6 +150,7 @@ var _sizes: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 var _seed := 0
 var _finished_sent := false  ## `finished` fires once, even on a double A
+var _intercept: InterceptOverlay  # interception: rival signals your crew catches, drawn over the table
 
 
 func _ready() -> void:
@@ -179,6 +181,7 @@ func _ready() -> void:
 	if setup.is_empty():
 		setup = demo_setup()
 	_rng.seed = hash(_seed) if _seed else int(Time.get_ticks_usec())
+	_intercept = InterceptOverlay.attach(self)  # interception:
 	_new_match()
 	if shot_path:
 		_take_screenshots(shot_path, shot_after, shots, shot_every)
@@ -223,6 +226,7 @@ func _new_match() -> void:
 		match_.add_player(setup[i]["name"], setup[i]["team"], starting_chips, bot)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
 	match_.max_hands = max_hands
+	_intercept.watch(match_, setup, HUMAN, codebook)  # interception: on for every match you play in
 	var t := match_.table
 	t.hand_started.connect(_on_hand_started)
 	t.action_taken.connect(_on_action)
@@ -536,7 +540,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	for i in 4:
 		if event.is_action_pressed("signal_%d" % (i + 1)):
-			match_.talk.send(HUMAN, i as TableTalk.Sig, t.street)
+			match_.talk.send(HUMAN, i as TableTalk.Sig, t.street, InterceptOverlay.is_fake_press(event))  # interception: LB/Shift held = a fake
 			_show_new_signals()
 	if _flow == Flow.HUMAN and _menu_open and _menu.enabled[CommandMenu.Item.RAISE]:
 		# The bumpers size the raise from the menu too; the Raise item shows it.
