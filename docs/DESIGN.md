@@ -29,6 +29,26 @@ implementing.
   money until they win their own. Wealth markers gate areas; once rich,
   purchases set save flags that the world reacts to in written ways, a
   light Sims touch, not a simulation.
+- **Survival and hidden meters (not built yet):** money is the only
+  number shown. Hunger, thirst, health, rest and tilt (which replaces
+  Nerve) are hidden and nudge odds softly, never by thresholds; they show
+  in the world (a slower walk, shaky paws on a tell). Food, water and
+  shelter cost money daily (needs an in-game clock); shelter runs from
+  alley to penthouse. A safety net (street games, odd jobs, a soup kitchen)
+  gets you from nothing back to a few days' upkeep in about 10-15 minutes.
+  On the streets your crew stays, still indebted, and can work real jobs
+  for you.
+- **Discovery (not built yet):** one honest, hard path up, completable with
+  no secrets; everything else is found, never taught: side routes with
+  later in-world consequences (cutting corners, stealing, wholesome work)
+  and trinkets that hook into existing systems (a dog whistle only dogs
+  hear, a lucky coin for the coin toss). Built as data (item, hooks,
+  effect, story flags), each with a test.
+- **Jail (not built yet):** caught stealing means arrest and confiscation.
+  Inside, money is worthless (commissary and favours), the sentence is
+  worked off, there are prison card games, inmates and contacts found
+  nowhere else. Out by serving, good behaviour, a bribe, your crew's bail,
+  or a secret escape (you leave wanted).
 - **Combat:** your crew of 3 against theirs at a 6-seat table, seats
   alternating. You play only your own seat and can't see teammates' cards.
   A crew is out when all its seats are busted. Bosses bring bigger crews
