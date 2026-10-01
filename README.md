@@ -8,8 +8,15 @@ Steam Deck first. The full design is in the
 (summary in [docs/DESIGN.md](docs/DESIGN.md)).
 
 This is the starter project: the poker rules, the hand evaluator, the AI play
-styles, team signals and a playable placeholder 3v3 table. No overworld or
-art yet; the first goal is to find out whether one table is fun.
+styles, team signals and a playable placeholder 3v3 table. The first goal is
+to find out whether one table is fun.
+
+**Art:** placeholder pixel art in a GBA-era top-down style (Endesga 32
+palette): the six species, the player and townsfolk as 4-direction walk
+sheets, portraits, and overworld and interior tiles. It's generated from text
+grids by `tools/make_art.gd`, so it can be tweaked in a text editor until it's
+redrawn in Aseprite; see [assets/README.md](assets/README.md). To look at it
+all: `godot --path . res://scenes/dev/art_preview.tscn`.
 
 ## Running it
 
@@ -169,6 +176,10 @@ controller.
 | `src/match/heat.gd` | Each crew's Heat: warnings, fines, ejections |
 | `src/ui/table_view.gd` | The placeholder table scene (everything drawn from code) |
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
+| `src/ui/sprites.gd` | Loads the art by name (species, portraits, tiles, walk animations); null when a file is missing |
+| `assets/` | Placeholder art and its palette, generated from the text grids in `assets/src/` (see assets/README.md) |
+| `tools/make_art.gd` | Regenerates every PNG in assets/ from the grids |
+| `scenes/dev/art_preview.tscn` | Shows all the art: characters walking, tiles, buildings, a small town at 1x |
 | `scenes/table.tscn` | Main scene |
 | `tests/` | Test runner and tests |
 | `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, input-map writer |
@@ -179,5 +190,5 @@ controller.
 1. Play it. Is setting up a teammate fun? Do the signals matter?
 2. Recheck the type chart (`tools/simulate.gd --cycle` on fresh seeds) after any change to the bot or the styles.
 3. Play against each dealer: is Heat a choice you weigh, or just a tax?
-4. Real art: an Aseprite palette, the Aseprite Wizard plugin, animal sprites at the seats.
+4. Real art: redraw the placeholders in Aseprite with assets/palette.gpl (assets/README.md says how), maybe via the Aseprite Wizard plugin.
 5. Export presets for Linux (native on the Deck) and Windows, then GodotSteam.
