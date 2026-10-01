@@ -13,6 +13,11 @@ extends Control
 ## legend says what your next signal would cost. Get thrown out and your crew
 ## forfeits the match.
 ##
+## Embedding: set `setup` (who sits where), `dealer_kind`, `starting_chips`
+## and `embedded = true` before adding the scene to the tree; it emits
+## `finished(won)` when the match ends and the player presses A, instead of
+## offering a rematch. With no `setup`, the demo crews below play.
+##
 ## Dev flags (after `--`): --autoplay lets a bot play your seat,
 ## --dealer=STRICT (or STREET, ASLEEP, RELAXED, WATCHFUL, BOUGHT) picks the
 ## dealer, --screenshot=path.png saves the screen after --shot-after=seconds
@@ -30,15 +35,13 @@ const HOT := Color("d9603b")
 const BOT_DELAY := 0.6
 const HUMAN := 0
 
-const CREW := [
-	# name, team, style
-	["You", 0, -1],
-	["Goose", 1, PlayStyle.Kind.MANIAC],
-	["Owl", 0, PlayStyle.Kind.ROCK],
-	["Cat", 1, PlayStyle.Kind.SHARK],
-	["Raccoon", 0, PlayStyle.Kind.BLUFFER],
-	["Squirrel", 1, PlayStyle.Kind.CALLING_STATION],
-]
+signal finished(won: bool)
+
+## Who sits where, in seat order: {"name": String, "team": int, "animal":
+## Animal or null for you}. Seat 0 must be you.
+var setup: Array[Dictionary] = []
+var embedded := false
+var starting_chips := 1000
 
 var match_: TeamMatch
 var last_action := {}  ## seat -> text under its name
@@ -47,7 +50,7 @@ var log_lines: Array[String] = []
 var banner := ""
 var raise_to := 0
 var autoplay := false
-var dealer_kind := Dealer.Kind.WATCHFUL
+var dealer_kind := Dealer.Kind.WATCHFUL  ## set before adding to the tree
 var alert := ""  ## the dealer's latest words, above the controls
 var _alert_until := 0
 var _font: Font
@@ -73,10 +76,24 @@ func _ready() -> void:
 			shot_after = float(arg.get_slice("=", 1))
 		elif arg.begins_with("--dealer="):
 			dealer_kind = Dealer.Kind.keys().find(arg.get_slice("=", 1)) as Dealer.Kind
+	if setup.is_empty():
+		setup = demo_setup()
 	_build_controls()
 	_new_match()
 	if shot_path:
 		_take_screenshot(shot_path, shot_after)
+
+
+## You, the Owl and the Raccoon against the Goose, the Cat and the Squirrel.
+static func demo_setup() -> Array[Dictionary]:
+	var rivals: Array[Animal] = [Species.individual(&"goose", 0), Species.individual(&"cat", 0), Species.individual(&"squirrel", 0)]
+	var crew: Array[Animal] = [null, Species.individual(&"owl", 0), Species.individual(&"raccoon", 0)]
+	var out: Array[Dictionary] = []
+	for i in 3:
+		var mine: Animal = crew[i]
+		out.append({"name": "You" if mine == null else mine.name, "team": 0, "animal": mine})
+		out.append({"name": rivals[i].name, "team": 1, "animal": rivals[i]})
+	return out
 
 
 func _build_controls() -> void:
@@ -106,13 +123,14 @@ func _make_button(text: String, on_press: Callable) -> Button:
 
 func _new_match() -> void:
 	match_ = TeamMatch.new(int(Time.get_unix_time_from_system()))
-	for i in CREW.size():
+	for i in setup.size():
+		var animal: Animal = setup[i]["animal"]
 		var bot: PokerBot = null
-		if CREW[i][2] >= 0:
-			bot = PokerBot.new(PlayStyle.preset(CREW[i][2]), i + 1 + int(Time.get_ticks_usec()))
+		if animal:
+			bot = animal.make_bot(i + 1 + int(Time.get_ticks_usec()))
 		elif autoplay:
 			bot = PokerBot.new(PlayStyle.preset(PlayStyle.Kind.SHARK))
-		match_.add_player(CREW[i][0], CREW[i][1], 1000, bot)
+		match_.add_player(setup[i]["name"], setup[i]["team"], starting_chips, bot)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
 	var t := match_.table
 	t.action_taken.connect(_on_action)
@@ -150,7 +168,7 @@ func _next_hand() -> void:
 			banner = "You were thrown out. Your crew forfeits."
 		elif match_.caught_team() >= 0:
 			banner = "The floor caught their boss! " + banner
-		banner += "  Press A for a rematch."
+		banner += "  Press A to continue." if embedded else "  Press A for a rematch."
 		_waiting_for_next = true
 		queue_redraw()
 		return
@@ -213,6 +231,10 @@ func _set_controls_visible(on: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _waiting_for_next and event.is_action_pressed("ui_accept"):
 		if match_.is_over() or match_.table.seats[HUMAN].ejected:
+			if embedded:
+				var won := match_.winner() == 0 and not match_.table.seats[HUMAN].ejected
+				finished.emit(won)
+				return
 			_new_match()
 		else:
 			_next_hand()
