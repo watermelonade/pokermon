@@ -248,7 +248,8 @@ func _setup() -> void:
 	if FileAccess.file_exists(game.save_path):
 		# A save without a deck is from before demo 2: a run past the opening
 		# whose roster (the old starters) and pickups (none) follow the old rules.
-		var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(game.save_path))
+		var json := JSON.new()  # (not JSON.parse_string, which logs an error on a damaged save)
+		var raw: Variant = json.data if json.parse(FileAccess.get_file_as_string(game.save_path)) == OK else null
 		from_old_save = raw is Dictionary and raw.has("roster") and not raw.has("deck")
 		stats["old_save"] = from_old_save
 	if start != "new" or damage:
