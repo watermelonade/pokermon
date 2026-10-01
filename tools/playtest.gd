@@ -188,6 +188,7 @@ var money_seen := -1  ## money at the last checked frame (the buy-in is checked 
 var gate_dialog_seen := false
 var alone_cell := Vector2i(-999, -999)
 var stranded_noted := false
+var cash_forfeit_frame := -999
 
 
 func _init() -> void:
@@ -607,7 +608,8 @@ func _act_menu(menu: Control) -> void:
 			# The open table's seat: mostly yes (the crew comes from there).
 			stats["cash_offers"] += 1
 			var r := rng.randf()
-			target = 0 if r < 0.7 else (1 if r < 0.9 else -1)
+			var yes := 0.3 if game.state.met_open_table else 0.7  # again now and then, once the crew's along
+			target = 0 if r < yes else (1 if r < yes + (1.0 - yes) * 0.65 else -1)
 			if target != 0:
 				stats["cash_declined"] += 1
 		else:
@@ -730,7 +732,7 @@ func _plan(ow: Node) -> void:
 		_go_vacated(ow)
 	elif r < 0.74 and not m.gates.is_empty():
 		_go_gate(ow)
-	elif r < 0.78 and m.id == "town":
+	elif r < 0.78 and m.id == "town" and (game.state.party.is_empty() or rng.randf() < 0.3):
 		_go_open_table(ow)
 	else:
 		_go_progress(ow)
@@ -1035,8 +1037,9 @@ func _reload(ow: Node, save: bool, closing := false) -> void:
 		# in front of you is forfeit (OpenTable's docstring), and the first sit
 		# didn't happen as far as the crew goes.
 		stats["cash_forfeits"] += 1
-		_note("cash_forfeited", "quit at the open table: the $%d buy-in is gone, Continue has you standing by the table" % int(cash["buy_in"]))
+		_note("cash_forfeited", "quit at the open table (or in the frame between getting up and the cash-out): the $%d buy-in is gone, Continue has you standing by the table" % int(cash["buy_in"]))
 		cash = {}
+		cash_forfeit_frame = frame
 	title_detour = rng.randf() < 0.3
 	_log("quit%s and continue (expect %s)" % [" after saving" if save else " without saving", _brief(reload_expect)])
 	ops.clear()
@@ -1076,6 +1079,13 @@ func _on_game_line(line: String) -> void:
 	elif line.begins_with("open table: left with "):
 		var chips := int(line.substr(22).get_slice(" ", 0))
 		_log(line)
+		if cash.is_empty() and frame - cash_forfeit_frame <= 3:
+			# The old overworld's OpenTable.play, still awaiting the frame after
+			# `left` when the driver quit to the title: it cashes out into a
+			# GameState nobody holds any more (and can't save it). A real quit
+			# ends the process there.
+			_log("(the quit run's open table finishing: ignored)")
+			return
 		if cash.is_empty():
 			_fail("cash_money", "left the open table without having sat down: " + line)
 			return
@@ -1289,7 +1299,7 @@ func _on_saved() -> void:
 		_fail("save_unreadable", "the save just written doesn't read back: %s" % FileAccess.get_file_as_string(path).left(300))
 		return
 	var got := _norm(loaded.to_dict())
-	if game.state.party.size() < GameState.PARTY_SIZE and game.get_tree().current_scene.get("party_screen") \
+	if game.state.party.size() < mini(GameState.PARTY_SIZE, game.state.roster.size()) and game.get_tree().current_scene.get("party_screen") \
 			and game.get_tree().current_scene.get("party_screen").visible:
 		# Saved (the window closed, focus lost) mid-way through re-seating
 		# the party: the load fills the empty seats, as it should.

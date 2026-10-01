@@ -4,12 +4,14 @@
 title screen, and checks the run on every frame. `tools/playtest.sh` runs it
 in batches: hundreds of runs with skipped matches, a few with real matches,
 kill -9 at random moments, and every kind of damaged save. It exists to find
-the bugs that only show up in the full loop (walk, encounter, table,
-recruit, blackout, save, quit, continue) before a person does.
+the bugs that only show up in the full loop (since demo 2: the intro, the
+dog alone in Sootbridge finding the four Aces, the gate, the Mill Road,
+Mossbank's open table and the crew that joins there; then walk, encounter,
+table, recruit, blackout, save, quit, continue) before a person does.
 
 ```
-tools/playtest.sh runs 200 1        # 200 runs, seeds 1-200, matches skipped (~25 s each)
-tools/playtest.sh real 12 1001      # 12 runs with real matches (20-40 minutes each)
+tools/playtest.sh runs 200 1        # 200 runs, seeds 1-200, matches skipped (~25 s each; every 10th from a pre-demo save)
+tools/playtest.sh real 12 1001      # 12 runs with real matches (a few minutes each)
 tools/playtest.sh kill 150 1        # kill -9 mid-play and mid-save, then Continue, 150 times
 tools/playtest.sh damaged           # one run per kind of damaged save (list below)
 tools/playtest.sh summary           # failures with seeds and replay commands, and stats
@@ -37,7 +39,28 @@ few of the scenes' private fields to know what's on screen (always through
 hooks.
 
 - **Title**: Continue, or New game (sometimes it looks at New game when
-  there's a save, and says No to starting over).
+  there's a save, and says No to starting over). A new game plays the
+  intro: its dialogs get A (sometimes B), and the window may close in the
+  middle of it.
+- **The opening** (docs/DEMO_SPEC.md): in Sootbridge the progress goal is
+  the Aces: walk onto a card still lying about (the gutter, the coal yard's
+  dead end, inside the washhouse), talk to Mags for hers, then out through
+  the gate and along the Mill Road to Mossbank. Besides that, at random:
+  walk into the gate whatever the deck holds (short of Aces it must say no
+  and keep you on the town side), step on a card's spot again after it's
+  taken (nothing must happen), talk to everyone. In Mossbank, with no crew,
+  the goal is the open table: talk to one of its players and the seat offer
+  ("Sit in?") gets yes 70% of the time, Not now or B otherwise; later it
+  goes back now and then for another session. Before the crew it also walks
+  into Ridge Road crews' sight (they must leave a dog alone).
+- **Open-table sessions**: 70% with a bot in your seat that gets up after
+  1-4 hands (TableView's `autoplay` and the `cash-hands` dev flag, set in
+  `Game.dev_args` as the table is added), A skipping the pause between
+  hands; 30% by random presses on your turn (`--pt-cash-human`), with Start
+  or B between hands (and Start mid-hand) opening "Leave the table?",
+  answered with leave, Stay or B until 1-4 hands are played (`--pt-cash-hands`),
+  then leave. Busting or cleaning the table out ends it on A. A few hands at
+  a few hundred frames each keeps a fast run at about 25 s.
 - **Walking**, picked at random each time it's free to walk: walk (shortest
   path, around walls and anyone standing, never through a door it didn't
   mean to take) to the hall door or into the hall to talk to the Regulars,
@@ -68,8 +91,12 @@ Headless with `--fixed-fps 60`, every frame is exactly 1/60 s of game time
 however fast it runs, so the overworld runs at 20-25x real speed (a run of
 20 game minutes takes about a minute) and a run with skipped matches
 replays exactly from its seed (checked: same seed,
-same frames, same final save). Real matches don't replay exactly: the table
-runs on the wall clock (see "Speeding up real matches" below).
+same frames, same final save). Tables too: the table's clock is the frame
+delta now (the hook proposed in "Speeding up real matches" below went in),
+and the playtester gives each table a seed of its own from the run's
+(`Game.dev_args["seed"]`, which TableView reads), so open-table sessions and
+real matches replay as well; only a run cut short by the wall-clock budget
+(`--pt-seconds`) can end differently.
 
 ## What it checks
 
@@ -80,23 +107,35 @@ last 60 things the driver did, and the replay command.
 | --- | --- |
 | `script_error` | Any error logged (a Logger, as tests/run_tests.gd installs) |
 | `softlock` | Nothing on screen changes for 30 game seconds (mode, map, every actor's position and facing, the fade, every dialog, menu and screen's state, the party) |
-| `softlock_table`, `match_too_long` | A real table unchanged for 90 s, or a match over 15 minutes |
+| `softlock_table`, `match_too_long` | A real table unchanged for 90 game seconds, or a match over 15 game minutes |
 | `position_desync`, `in_wall`, `out_of_bounds`, `on_someone` | Whenever you're free to walk: you're where the save state says, on a walkable cell, on the map, and not on anyone |
 | `trapped` | No door reachable from where you stand (every 30 frames) |
 | `followers` | Your followers match the party, seat by seat |
 | `save_unreadable`, `save_roundtrip`, `save_leftover`, `save_failed` | Every save reads back identical to the state just saved, with no `.part` left |
 | `continue_mismatch` | After quitting, Continue brings back exactly the last save (moving you off a cell someone now stands on is allowed) |
 | `money_negative` | Money is never below 0 |
-| `party_size`, `party_index`, `party_duplicate` | Two animals seated, real roster entries, nobody twice (while walking) |
-| `roster_duplicate`, `roster_stranger` | Nobody in the roster twice; nobody who wasn't a starter or in a crew you beat |
+| `party_size`, `party_index`, `party_duplicate` | While walking: nobody seated while the roster is empty (the dog alone), else two (as many as the roster allows), real roster entries, nobody twice |
+| `roster_duplicate`, `roster_stranger` | Nobody in the roster twice; nobody but Sage and Bandit (the open table's two) and animals from crews you beat |
+| `crew_early`, `crew_missing`, `crew_join` | Nobody in the roster before the open table (a new game's run); Sage and Bandit in it once you've sat there, and right after the first session |
+| `spotted_alone` | A crew dealt in a dog with an empty party (spotting, or talking to one) |
+| `deck_size`, `deck_cards`, `deck_pickups`, `deck_shrank`, `deck_pickup`, `pickup_unknown` | 48 to 52 cards, only Aces missing, each Ace held exactly when its pickup (or Mags's gift) is taken, so 52 iff all four; the deck never shrinks, and each pickup adds exactly one card (a pre-demo save's run: all 52) |
+| `pickup_reappeared`, `pickup_hidden` | While walking, the cards drawn on the ground are exactly the ones still waiting |
+| `gate_bypassed`, `gate_refused` | With Aces missing you're never anywhere that can't be reached from the start with the gates shut (the Mill Road, Mossbank, past the gate cells); the gate never refuses a full deck |
+| `cash_buy_in`, `cash_money`, `cash_seats` | Sitting down takes exactly the buy-in; getting up: money = before - buy-in + the chips you left with, which are the stack the table showed; you (the dog) at seat 0, each seat its own team, nobody from your crew at the table |
+| `joined_still_standing` | Sage and Bandit stop standing at the table once they've joined |
+| `old_save_load` | `--pt-start=old`: a pre-demo save loads with all 52 cards, opening_done, its roster, party, map and cell |
 | `bracelet`, `beaten_unknown` | The bracelet exactly when the Regulars are beaten; beaten crews exist |
 | `match_outcome` | A win pays the crew's reward and marks it beaten (and the Open gives the bracelet); a loss wakes you at the diner with half your money |
-| `progress_lost`, `save_lost` | Kill torture: the save left by a kill always loads, and no crew beaten or animal recruited in an earlier save is gone |
+| `progress_lost`, `save_lost` | Kill torture: the save left by a kill always loads, and no crew beaten, animal recruited, card taken or pickup recorded in an earlier save is gone |
 | `crash_or_timeout` | The run didn't report at all (killed by the batch timeout or crashed) |
 
 Notes (not failures) record what's worth knowing: `blackout_skipped`,
 `recruit_skipped`, `bracelet_pending` (the window closed between a match's
-end and its outcome being saved), `short_party_saved`. The batch for damaged
+end and its outcome being saved), `short_party_saved`, `cash_forfeited`
+(the window closed at the open table: the buy-in is gone, by design),
+`crew_join_pending` (a save between getting up from the first sit and Sage
+and Bandit joining: see "What it found"), `stranded` (a dog alone with
+less than the buy-in: see "What it found"). The batch for damaged
 saves is lenient about `roster_stranger` and `beaten_unknown`, which a
 damaged save can legitimately cause.
 
@@ -104,24 +143,35 @@ damaged save can legitimately cause.
 
 All after `--`, prefixed `--pt-`: `seed`, `frames` (game frames, not counting
 real tables; default 30 game minutes), `seconds` (wall clock, default 900),
+`cash-human` (chance an open-table session is played by random presses,
+default 0.3), `cash-hands` (a session gets up after 1 to this many hands,
+default 4),
 `after` (decisions to keep playing after the demo-complete screen, default
 300), `real` and `human` (chance a match is played, and played by random
 presses rather than a bot), `win`, `reload` (chance per decision to quit and
 continue), `close` and `focus` (chance per frame), `chips` (starting chips at
-real tables), `start` (`new` or `continue`), `slot` (save slot name, default
+real crew tables), `start` (`new`; `continue`; `old`, a pre-demo save
+written first, as damage `pre_demo`; `mix`, old on every 10th seed and new
+otherwise, which `playtest.sh runs` uses), `slot` (save slot name, default
 `playtest`), `damage=KIND`, `save-spam=N` (N extra saves every frame, for the
 kill torture), `lenient=kind,kind`, `keep-going`, `verbose`, `out=FILE`
 (appends the result as one JSON line).
 
-Damaged save kinds (`--pt-damage`), each written over a mid-game save (one
-crew beaten, a goose recruited): `ok truncated empty garbage array minimal
+Damaged save kinds (`--pt-damage`), each written over a mid-game save (the
+four Aces, the open table sat at with Sage and Bandit along, one crew
+beaten, a goose recruited): `ok truncated empty garbage array minimal
 no_version future_version unknown_species all_unknown_species roster_dict
 roster_one roster_dupes party_oob party_negative party_dup party_one
 party_three party_strings money_negative money_string money_huge cell_wall
 cell_oob cell_string cell_crew_home cell_recruit_home cell_door map_unknown
 heal_wall heal_oob heal_map_unknown beaten_unknown beaten_regulars_no_bracelet
 bracelet_only facing_zero facing_weird bond_weird unbeaten_member_in_roster
-seen_intro_false part_only part_newer_main_truncated`.
+seen_intro_false part_only part_newer_main_truncated`, and since demo 2
+`pre_demo` (no deck fields: must load past the opening), `pre_demo_alone`,
+`deck_short_in_town`, `deck_garbage`, `deck_dupes`, `deck_oob`,
+`taken_unknown`, `alone_met_table` (sat, nobody joined) and
+`alone_before_table`. The damaged batch is also lenient about the deck and
+gate checks, which a damaged deck legitimately breaks.
 
 ## Runs so far (2026-10-01, on the fixes below)
 
