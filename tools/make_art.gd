@@ -33,15 +33,22 @@ extends SceneTree
 ##   feet=<n>       (characters) how many bottom rows the walk frames replace
 ##   bob=<n>        (characters) push the body down n px in the step frames
 ##                  (a little squash on each footfall)
+##   under=<tile>   (tiles) composite onto a tile made earlier, so objects
+##                  are drawn on transparency but saved opaque: the
+##                  overworld draws one texture per cell with nothing
+##                  beneath it. Files are read alphabetically and grids in
+##                  order, so the base must come first.
 ##
 ## What gets made:
-##   assets/src/characters/<id>.txt -> sprites/<id>.png (facing down) and
-##       sprites/<id>_walk.png: 4 columns (stand, step A, stand, step B) by
-##       4 rows (down, left, right, up). The file has grids `down`, `up` and
-##       `right` (left is right mirrored), plus optional `step_down`,
-##       `step_up`, `step_right` and `step_right_b`: just the bottom `feet`
-##       rows of a step. Step B mirrors step A for down/up, and reuses step
-##       A sideways unless `step_right_b` exists.
+##   assets/src/characters/<id>.txt -> sprites/<id>.png, a walk sheet:
+##       rows face down, up, left, right; columns are stand, step A, stand,
+##       step B, stand. Frame 0 is the standing pose and frames 1-4 loop as
+##       the walk, which is how the overworld (src/world/sprite_bank.gd) and
+##       Sprites read it. The file has grids `down`, `up` and `right` (left
+##       is right mirrored), plus optional `step_down`, `step_up`,
+##       `step_right` and `step_right_b`: just the bottom `feet` rows of a
+##       step. Step B mirrors step A for down/up, and reuses step A sideways
+##       unless `step_right_b` exists.
 ##   assets/src/portraits/<id>.txt  -> portraits/<id>.png (grid `portrait`)
 ##   assets/src/tiles/*.txt         -> tiles/<grid name>.png, any size
 ##   PALETTE                        -> palette.gpl (GIMP/Aseprite), palette.png
@@ -88,12 +95,14 @@ const PALETTE := [
 	["f", "e8b796", "skin"],
 	["F", "c28569", "skin shade"],
 ]
-const DIRECTIONS := ["down", "left", "right", "up"]
+const DIRECTIONS := ["down", "up", "left", "right"]  ## sheet rows
+const WALK := [0, 1, 0, 3, 0]  ## sheet columns: stand, step A, stand, step B, stand
 
 var _colors := {}  ## palette letter -> Color
 var _errors := 0
 var _made: Array[Image] = []  ## everything written, for the contact sheet
 var _made_paths: Array[String] = []
+var _tiles := {}  ## tile name -> Image, for under=
 
 
 func _init() -> void:
@@ -113,7 +122,17 @@ func _init() -> void:
 	for file in _sources("tiles"):
 		var grids := _parse(SRC + "tiles/" + file)
 		for name: String in grids:
-			_save(_render(grids[name], "%s:%s" % [file, name]), "tiles/" + name + ".png")
+			var img := _render(grids[name], "%s:%s" % [file, name])
+			var under: String = grids[name]["opts"].get("under", "")
+			if under != "":
+				if _tiles.has(under) and _tiles[under].get_size() == img.get_size():
+					var base: Image = _tiles[under].duplicate()
+					base.blend_rect(img, Rect2i(Vector2i.ZERO, img.get_size()), Vector2i.ZERO)
+					img = base
+				else:
+					_error("%s:%s: under=%s must be an earlier tile of the same size" % [file, name, under])
+			_tiles[name] = img
+			_save(img, "tiles/" + name + ".png")
 	var scale := 4
 	var only := ""
 	for arg in OS.get_cmdline_user_args():
@@ -238,16 +257,15 @@ func _character(file: String) -> void:
 		if bad:
 			_error("%s: [%s] must be %dx%d like [down]; skipping %s" % [file, name, w, tall, id])
 			return
-	var sheet := Image.create_empty(w * 4, h * 4, false, Image.FORMAT_RGBA8)
-	for row in 4:
-		for col in 4:
-			var frame := _walk_frame(grids, DIRECTIONS[row], col, "%s:%s" % [file, DIRECTIONS[row]])
+	var sheet := Image.create_empty(w * WALK.size(), h * DIRECTIONS.size(), false, Image.FORMAT_RGBA8)
+	for row in DIRECTIONS.size():
+		for col in WALK.size():
+			var frame := _walk_frame(grids, DIRECTIONS[row], WALK[col], "%s:%s" % [file, DIRECTIONS[row]])
 			if frame.get_size() != Vector2i(w, h):
 				_error("%s: every grid must be %dx%d like [down]" % [file, w, h])
 				return
 			sheet.blit_rect(frame, Rect2i(0, 0, w, h), Vector2i(col * w, row * h))
-	_save(_walk_frame(grids, "down", 0, file + ":down"), "sprites/%s.png" % id)
-	_save(sheet, "sprites/%s_walk.png" % id)
+	_save(sheet, "sprites/%s.png" % id)
 
 
 ## One walk frame: phase 0 and 2 stand, 1 and 3 step (see the docstring).

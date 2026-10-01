@@ -3,6 +3,7 @@
 # animals.
 outline = k
 feet = 4
+bob = 1
 
 [down]
 ................
