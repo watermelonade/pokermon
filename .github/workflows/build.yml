@@ -1,0 +1,87 @@
+# Release builds: exports the Linux (Steam Deck native) and Windows presets
+# with scripts/export.sh and uploads them as workflow artifacts. Runs on
+# pushes to main, on tags, and by hand (Actions tab > build > Run workflow).
+# Tests stay in tests.yml, which runs on every push.
+#
+# Godot and the two export templates it needs are cached by version. The
+# full template archive is ~1.2 GB (every platform), so on a cache miss only
+# the Linux and Windows x86_64 templates are unpacked and cached (~370 MB).
+# Bump GODOT_VERSION here, in tests.yml and in scripts/cloud_setup.sh together.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GODOT_VERSION: 4.7.2-stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-linux-windows-templates-v1
+
+      - name: Download Godot and export templates
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}"
+          mkdir -p ~/godot
+          cd ~/godot
+          curl -fsSL --retry 5 --retry-delay 10 -o godot.zip "$base/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          curl -fsSL --retry 5 --retry-delay 10 -o templates.tpz "$base/Godot_v${GODOT_VERSION}_export_templates.tpz"
+          # The templates folder is named after the version with a dot: 4.7.2.stable
+          tdir="$HOME/.local/share/godot/export_templates/${GODOT_VERSION/-/.}"
+          mkdir -p "$tdir"
+          unzip -q -j -o templates.tpz -d "$tdir" \
+            templates/version.txt \
+            templates/linux_release.x86_64 templates/linux_debug.x86_64 \
+            templates/windows_release_x86_64.exe templates/windows_release_x86_64_console.exe \
+            templates/windows_debug_x86_64.exe templates/windows_debug_x86_64_console.exe
+          rm templates.tpz
+          ls -la "$tdir"
+
+      - name: Export Linux and Windows
+        run: GODOT="$HOME/godot/Godot_v${GODOT_VERSION}_linux.x86_64" scripts/export.sh all
+
+      - name: Name and package the builds
+        id: pkg
+        run: |
+          set -euo pipefail
+          # Artifact names can't contain '/', which branch names can.
+          name="a-friend-in-need-$(echo "$GITHUB_REF_NAME" | tr '/' '-')-${GITHUB_SHA::7}"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          # upload-artifact drops the executable bit, so the Linux build goes
+          # in a tarball, which keeps it.
+          tar -C build -czf "build/$name-linux.tar.gz" linux
+          du -h build/linux/* build/windows/* "build/$name-linux.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.name }}-linux
+          path: build/${{ steps.pkg.outputs.name }}-linux.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.name }}-windows
+          path: build/windows/
+          if-no-files-found: error
