@@ -63,7 +63,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_scroll = clampi(_scroll, _cursor - VISIBLE_ROWS + 1, _cursor)
 		_message = ""
 	elif UiKit.accept(event):
-		if not state.toggle_party(_cursor):
+		if state.roster.is_empty():
+			_message = "No crew yet. Mossbank's open table is a start."
+		elif not state.toggle_party(_cursor):
 			_message = "Both seats are taken. Stand someone up first."
 		else:
 			_message = ""
@@ -130,9 +132,9 @@ func _draw_side(p: Rect2) -> void:
 		draw_rect(box, UiKit.BG)
 		var mid := box.position.x + box_w / 2
 		if seat == 0:
-			var you := Sprites.player()
+			var you := SpriteBank.character("dog")  # you are the dog (demo 2)
 			if you:
-				draw_texture_rect(you, Rect2(mid - 12, box.position.y + 4, 24, 36), false)
+				draw_texture_rect_region(you, Rect2(mid - 16, box.position.y + 6, 32, 32), SpriteBank.character_region(you))
 			UiKit.text(self, Vector2(mid, box.end.y - 8), "You", 8, UiKit.TEXT, 1)
 		elif seat - 1 < state.party.size():
 			var a: Animal = state.roster[state.party[seat - 1]]
