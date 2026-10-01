@@ -344,6 +344,59 @@ func occupied_cells() -> Dictionary:
 	return out
 
 
+## Every cell someone stands on when this map loads, in the run `state`:
+## the townsfolk, and every crew member who hasn't joined you (a recruit's
+## spot is empty from then on). occupied_cells() is the same without a run.
+func standing_cells(state: GameState) -> Dictionary:
+	var out := {}
+	for n: Dictionary in npcs:
+		out[n["cell"]] = true
+	for c: Dictionary in crews:
+		var cells := crew_cells(c)
+		var animals := crew_animals(c)
+		for i in cells.size():
+			if not state.has_animal(animals[i].species, animals[i].name):
+				out[cells[i]] = true
+	return out
+
+
+## Where to stand you when a save puts you somewhere you can't be: `cell`
+## itself if it's walkable and nobody in `taken` stands there, otherwise the
+## nearest free cell (not a door) that can be walked to from the map's
+## doors, so a fence next to the garden can't shut you inside it.
+##
+## It used to be "back to the start" for anything odd, meant for saves made
+## before a map edit. But spots the map counts as taken are free in play:
+## where a recruit stood, or a crew's home after it walked over to you. Quit
+## there and Continue took you home to Mossbank, the whole road lost
+## (found by tools/playtest.gd, which stands on such spots and continues).
+func open_cell_near(cell: Vector2i, taken: Dictionary) -> Vector2i:
+	if tile_walkable(cell) and not taken.has(cell):
+		return cell
+	var seen := {}
+	var queue: Array[Vector2i] = []
+	for w: Dictionary in warps:
+		seen[w["cell"]] = true
+		queue.append(w["cell"])
+	var best := START_CELL if id == START_MAP else cell
+	var best_distance := 1 << 30
+	var head := 0
+	while head < queue.size():
+		var c: Vector2i = queue[head]
+		head += 1
+		var distance := absi(c.x - cell.x) + absi(c.y - cell.y)
+		if distance < best_distance and warp_at(c).is_empty():
+			best = c
+			best_distance = distance
+		for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+			var next: Vector2i = c + d
+			if seen.has(next) or taken.has(next) or not tile_walkable(next):
+				continue
+			seen[next] = true
+			queue.append(next)
+	return best
+
+
 ## The cells a crew leader can see: straight ahead, up to `distance`, until
 ## a tile that isn't walkable or anyone in `occupied` blocks the view.
 ## Tall grass doesn't hide you; this is poker, not hide and seek.

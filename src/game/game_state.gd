@@ -300,23 +300,51 @@ static func from_dict(d: Dictionary) -> GameState:
 	if not (d.has("version") and d.has("roster")):
 		return null
 	var s := GameState.new()
-	for entry: Variant in d["roster"]:
+	var moved := {}  ## index in the file's roster -> index in ours, for the party
+	var entries: Variant = d["roster"]
+	for i in entries.size() if entries is Array else 0:
+		var entry: Variant = entries[i]
 		if not entry is Dictionary or not Species.CATALOG.has(StringName(entry.get("species", ""))):
 			continue
-		s.roster.append(Animal.make(StringName(entry["species"]), str(entry.get("name", "?")), float(entry.get("bond", 0.3))))
+		var a := Animal.make(StringName(entry["species"]), str(entry.get("name", "?")), float(entry.get("bond", 0.3)))
+		for j in s.roster.size():  # each individual once: a duplicate seats the first copy
+			if s.roster[j].species == a.species and s.roster[j].name == a.name:
+				moved[i] = j
+		if not moved.has(i):
+			moved[i] = s.roster.size()
+			s.roster.append(a)
+	if s.roster.size() < PARTY_SIZE:
+		# Lost animals (a species gone from the catalog, a damaged file):
+		# your starting pair come back, so you never sit down short-handed.
+		for a in fresh().roster:
+			if not s.has_animal(a.species, a.name):
+				s.roster.append(a)
 	s.party.clear()
-	for i: Variant in d.get("party", []):
-		var index := int(i)
-		if index >= 0 and index < s.roster.size() and not s.party.has(index) and s.party.size() < PARTY_SIZE:
+	var party: Variant = d.get("party", [])
+	for i: Variant in party if party is Array else []:
+		var index: int = moved.get(int(i), -1)
+		if index >= 0 and not s.party.has(index) and s.party.size() < PARTY_SIZE:
 			s.party.append(index)
-	if s.party.is_empty():  # a damaged party: seat the first animals
-		for i in mini(PARTY_SIZE, s.roster.size()):
+	# A damaged party: fill the empty seats with the first animals standing
+	# (the party screen never lets you leave a seat empty, so a load doesn't
+	# either; a one-seat party played the next match two against three).
+	for i in s.roster.size():
+		if s.party.size() >= PARTY_SIZE:
+			break
+		if not s.party.has(i):
 			s.party.append(i)
 	s.money = maxi(0, int(d.get("money", STARTING_MONEY)))
 	for b: Variant in d.get("bracelets", []):
 		s.bracelets.append(str(b))
 	for c: Variant in d.get("beaten", []):
 		s.beaten[str(c)] = true
+	for map_id: String in WorldMap.ids():
+		for c: Dictionary in WorldMap.get_map(map_id).crews:
+			if c.has("bracelet") and s.beaten.has(c["id"]):
+				# Saved between the win and the bracelet (the window closed
+				# during "You beat the Regulars!"): the Regulars won't play
+				# again, so without this the bracelet could never be won.
+				s.add_bracelet(c["bracelet"])
 	s.map_id = str(d.get("map", WorldMap.START_MAP))
 	s.cell = _vec(d.get("cell"), WorldMap.START_CELL)
 	if not WorldMap.MAPS.has(s.map_id):  # a map that's been renamed or removed
@@ -325,7 +353,9 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.facing = _vec(d.get("facing"), Vector2i.DOWN)
 	s.heal_map = str(d.get("heal_map", WorldMap.HEAL_MAP))
 	s.heal_cell = _vec(d.get("heal_cell"), WorldMap.HEAL_CELL)
-	if not WorldMap.MAPS.has(s.heal_map):
+	if not WorldMap.MAPS.has(s.heal_map) or not WorldMap.get_map(s.heal_map).tile_walkable(s.heal_cell):
+		# A blackout would wake you inside a wall (or off the map, with no
+		# way out): wake at the diner's booth instead.
 		s.heal_map = WorldMap.HEAL_MAP
 		s.heal_cell = WorldMap.HEAL_CELL
 	s.tutorial_offered = bool(d.get("tutorial_offered", true))
