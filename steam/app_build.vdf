@@ -1,0 +1,24 @@
+// SteamPipe app build script: TEMPLATE, nothing in it is a real ID.
+// Uploads build/linux and build/windows (made by scripts/export.sh) as two
+// depots of one app. Before the first upload, replace:
+//   YOUR_APP_ID            the app ID from the Steamworks partner site
+//   YOUR_LINUX_DEPOT_ID    a depot set to OS "Linux + SteamOS"
+//   YOUR_WINDOWS_DEPOT_ID  a depot set to OS "Windows"
+// Paths are relative to this file. Run from the repo root:
+//   steamcmd +login <builder_account> +run_app_build "$PWD/steam/app_build.vdf" +quit
+// Never commit a login, password or Steam Guard code. docs/STEAM_DECK.md has
+// the whole procedure.
+"AppBuild"
+{
+	"AppID" "YOUR_APP_ID"
+	"Desc" "A Friend in Need build"   // the note shown in the Steamworks build list
+	"ContentRoot" "../build/"
+	"BuildOutput" "../build/steam_output/"
+	"SetLive" ""      // e.g. "beta" to go live on the beta branch; never "default" from a script
+	"Preview" "0"     // "1" = dry run: lists what would upload, uploads nothing
+	"Depots"
+	{
+		"YOUR_LINUX_DEPOT_ID" "depot_build_linux.vdf"
+		"YOUR_WINDOWS_DEPOT_ID" "depot_build_windows.vdf"
+	}
+}

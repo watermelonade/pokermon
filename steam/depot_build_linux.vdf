@@ -1,0 +1,15 @@
+// SteamPipe depot: the native Linux build (what the Steam Deck runs).
+// TEMPLATE: replace YOUR_LINUX_DEPOT_ID. ContentRoot comes from
+// app_build.vdf (../build/). Upload Linux depots from Linux or macOS:
+// SteamCMD on Windows can't record the executable bit, and the game
+// then won't launch on the Deck.
+"DepotBuild"
+{
+	"DepotID" "YOUR_LINUX_DEPOT_ID"
+	"FileMapping"
+	{
+		"LocalPath" "linux/*"
+		"DepotPath" "."
+		"Recursive" "1"
+	}
+}
