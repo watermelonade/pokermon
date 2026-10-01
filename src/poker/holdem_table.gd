@@ -10,6 +10,10 @@ extends RefCounted
 ##   time, starting left of the button) and then the board, in order.
 ## - An all-in raise smaller than a full raise still reopens the betting.
 ## - A short big blind still sets the bet to call at the full big blind.
+##
+## Dead money (a fine from the floor) goes into the pot at the start of the
+## next hand without counting as a bet, like a dead blind in a real card
+## room: the seat can still win it back.
 
 signal hand_started(button: int)
 signal action_taken(seat: int, action: int, amount: int)
@@ -34,6 +38,7 @@ class Seat:
 	var street_bet := 0  ## chips put in on the current street
 	var hand_bet := 0  ## chips put in over the whole hand
 	var acted := false
+	var ejected := false  ## thrown out by the floor; never dealt in again
 
 	func _init(seat_name: String, seat_team: int, chips: int) -> void:
 		name = seat_name
@@ -61,6 +66,7 @@ var hand_number := 0
 var last_result := {}
 var rng := RandomNumberGenerator.new()
 var _deck: Deck
+var _dead_money := {}  ## seat -> chips to post dead at the next hand's start
 
 
 func add_seat(seat_name: String, team: int, chips: int) -> Seat:
@@ -118,6 +124,12 @@ func start_hand(stacked: Array[int] = []) -> void:
 	_put_in(seats[bb], big_blind)
 	current_bet = big_blind
 	min_raise = big_blind
+	for i: int in _dead_money:
+		var dead := mini(_dead_money[i], seats[i].stack)
+		seats[i].stack -= dead
+		seats[i].hand_bet += dead
+		seats[i].all_in = seats[i].stack == 0
+	_dead_money.clear()
 
 	for _round in 2:
 		var i := button
@@ -128,6 +140,23 @@ func start_hand(stacked: Array[int] = []) -> void:
 	hand_started.emit(button)
 	to_act = bb
 	_advance()
+
+
+## `chips` go into the next hand's pot from `seat`, dead (see the top).
+func queue_dead_money(seat: int, chips: int) -> void:
+	_dead_money[seat] = _dead_money.get(seat, 0) + chips
+
+
+## Removes a seat from play between hands; its chips leave the game.
+## Returns how many chips were removed.
+func eject(seat: int) -> int:
+	assert(hand_over, "eject between hands")
+	var s := seats[seat]
+	var removed := s.stack
+	s.stack = 0
+	s.ejected = true
+	_dead_money.erase(seat)
+	return removed
 
 
 ## What the seat to act may do right now.

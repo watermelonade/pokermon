@@ -20,6 +20,7 @@ extends RefCounted
 var style: PlayStyle
 var bond := 0.5  ## how well this animal reads its teammates' signals, 0..1
 var table_reads: TableReads  ## set by TeamMatch; null = no history to read
+var heat: Heat  ## set by TeamMatch; null = nobody watching
 var equity_iterations := 120
 var rng := RandomNumberGenerator.new()
 var _signalled_street := -1
@@ -137,6 +138,17 @@ func _maybe_signal(table: HoldemTable, me: int, talk: TableTalk, value: bool, st
 		return
 	if rng.randf() >= style.chattiness:
 		return
+	if heat and heat.dealer.watching():
+		# Every animal has a comfort line for its crew's Heat: careful ones
+		# stop near the warning (40), careless ones push towards ejection
+		# (100). Careless ones also sometimes forget the line altogether,
+		# which is how crews get thrown out. (A first try scaled the chance
+		# of signalling by Heat; who got caught then depended on how long
+		# their hands ran, not on caution: see README.)
+		var after := heat.level(table.seats[me].team) + heat.cost_of_next(me)
+		var comfort := Heat.EJECT - style.caution * (Heat.EJECT - Heat.WARNING)
+		if after >= comfort and rng.randf() >= (1.0 - style.caution) * 0.5:
+			return
 	if value:
 		talk.send(me, TableTalk.Sig.STRONG, table.street)
 	elif strength < style.tightness * 0.7:

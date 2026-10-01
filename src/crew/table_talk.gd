@@ -6,7 +6,10 @@ extends RefCounted
 ##
 ## Reading a signal isn't free: a teammate with a weak bond sometimes
 ## misreads it as a different one. That's what makes bond worth training.
-## Heat (the dealer noticing) will hang off `sent` later.
+## Every signal is also a gesture the dealer might see: Heat listens for
+## `gesture_made` (src/match/heat.gd).
+
+signal gesture_made(from_seat: int, sig: int)
 
 enum Sig {
 	STRONG,  ## "I've got a big hand": teammates step aside
@@ -31,6 +34,7 @@ func clear() -> void:
 
 func send(from_seat: int, sig: Sig, street: int) -> void:
 	sent.append({"from": from_seat, "sig": sig, "street": street})
+	gesture_made.emit(from_seat, sig)
 
 
 ## What `reader` takes the signals from teammate `from_seat` to be, this hand.

@@ -17,8 +17,12 @@ implementing.
 - **Team play:** soft play (no fighting teammates for chips), whipsaws,
   chip dumps, and secret signals on the Steam Deck's back buttons. Bond
   decides how reliably teammates read signals.
-- **Heat:** signals raise the dealer's suspicion: warning, penalty, then
-  ejection. Street games have no dealer.
+- **Heat:** every signal raises the dealer's suspicion of the crew (more for
+  each extra signal the crew makes in the same hand). 40: warning. 70: the
+  crew is fined a dead big blind each. 100: the signaller is thrown out.
+  Heat cools each hand. Street games have no dealer; a bought dealer barely
+  sees the boss crew; getting a boss crew's leader thrown out wins. Careful
+  animals stay under their comfort line; careless ones get caught.
 - **Play styles form a cycle:** Bluffer > Rock > Maniac > Shark > Calling
   Station > Bluffer. `tools/simulate.gd` measures how close the bots are.
 - **The Binder:** 25 species, 4+ recruitable individuals each, so a crew of

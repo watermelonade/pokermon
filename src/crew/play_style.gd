@@ -54,6 +54,10 @@ const KIND_NAMES := ["Rock", "Maniac", "Shark", "Calling Station", "Bluffer"]
 @export var persistence := 0.3
 ## Chance of signalling teammates when there's something to say.
 @export var chattiness := 0.6
+## How much the dealer's suspicion quiets it, 0..1. It won't signal past a
+## comfort line on its crew's Heat: 40 (the warning) at 1, 100 (ejection) at
+## 0; and a careless animal (low caution) sometimes forgets the line.
+@export var caution := 0.5
 
 
 static func preset(style_kind: Kind) -> PlayStyle:
@@ -73,6 +77,7 @@ static func preset(style_kind: Kind) -> PlayStyle:
 			s.doubt = 0.0
 			s.reads = 1.0
 			s.persistence = 0.0
+			s.caution = 0.9
 			s.bluff_risk = 1.0
 		Kind.MANIAC:
 			# Plays everything, raises everything, doesn't let go.
@@ -84,6 +89,7 @@ static func preset(style_kind: Kind) -> PlayStyle:
 			s.doubt = 0.5
 			s.reads = 0.0
 			s.persistence = 0.9
+			s.caution = 0.0
 			s.bluff_risk = 1.0
 		Kind.SHARK:
 			# Solid and careful: believes big bets, even holding a good hand.
@@ -95,6 +101,7 @@ static func preset(style_kind: Kind) -> PlayStyle:
 			s.doubt = 1.0
 			s.reads = 0.0
 			s.persistence = 0.3
+			s.caution = 0.85
 			s.bluff_risk = 1.0
 		Kind.CALLING_STATION:
 			# Calls. Believes nothing, never bluffs, bets its good hands.
@@ -106,6 +113,7 @@ static func preset(style_kind: Kind) -> PlayStyle:
 			s.doubt = 0.5
 			s.reads = 0.0
 			s.persistence = 0.0
+			s.caution = 0.4
 			s.bluff_risk = 1.0
 		Kind.BLUFFER:
 			# Bets weak hands when nobody has shown strength, gives up when
@@ -118,6 +126,7 @@ static func preset(style_kind: Kind) -> PlayStyle:
 			s.doubt = 1.0
 			s.reads = 0.0
 			s.persistence = 0.1
+			s.caution = 0.8
 			s.bluff_risk = 0.5
 	return s
 

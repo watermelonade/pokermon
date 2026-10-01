@@ -29,6 +29,13 @@ You are seat "You". Your crew (teal) is the Owl (Rock) and the Raccoon
 (Calling Station). Your teammates' signals pop up over their heads. The rival
 crew signals too, but you can't see theirs yet.
 
+A watchful dealer runs the table. Both crews' Heat shows top right, and the
+bottom left says what your next signal would cost. At 40 Heat the dealer
+warns your crew, at 70 it fines each of you a dead big blind, and at 100 the
+signaller is thrown out after the hand; if that's you, your crew forfeits.
+Try another dealer with `godot --path . -- --dealer=STRICT` (or STREET,
+ASLEEP, RELAXED, BOUGHT).
+
 ## Tests
 
 ```
@@ -37,11 +44,13 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-27 tests, about 2 seconds. They cover hand ranking, equity against known odds
+36 tests, about 8 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up),
 side pots, split pots and odd chips, busted seats, a 600-hand random-play run
 that checks no chip is ever created or lost, full bot matches, soft play
-between teammates, and signals. The runner fails any test that logs a script
+between teammates, signals, and Heat: what signals cost, cooling, one
+warning per episode, fines as dead money, ejections, bought dealers,
+catching a boss, and careful animals going quiet. The runner fails any test that logs a script
 error (GDScript has no exceptions, so a crashing test would otherwise pass).
 CI runs the same thing on every push (`.github/workflows/tests.yml`).
 
@@ -52,6 +61,7 @@ godot --headless --path . -s tools/verify_evaluator.gd        # all 2,598,960 fi
 godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style balance, 40 matches a pairing, seed 7
 godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=)
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
+godot --headless --path . -s tools/heat_report.gd -- 30 1 STRICT     # how often a dealer warns, fines, ejects each style
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
 ```
 
@@ -101,6 +111,40 @@ How it got there (details in `src/crew/play_style.gd`'s docstring):
 
 Off-cycle pairings (Rock vs Shark and so on) aren't part of the type chart
 and weren't tuned. Each match takes about 0.9s at the game's settings.
+**Heat.** How often each dealer costs a crew a seat (the share of matches in
+which the floor threw one of its animals out), from `tools/heat_report.gd --
+30 31`, same-style crews, 60 crews per cell:
+
+| Crew | Asleep | Relaxed | Watchful | Strict |
+| --- | --- | --- | --- | --- |
+| Rock | 0% | 0% | 2% | 8% |
+| Shark | 0% | 0% | 0% | 3% |
+| Bluffer | 0% | 0% | 0% | 17% |
+| Calling Station | 5% | 27% | 52% | 65% |
+| Maniac | 0% | 3% | 20% | 35% |
+
+Careful styles go quiet instead: a Rock crew makes 0.73 signals a hand with
+an asleep dealer and 0.16 with a strict one. So a strict dealer either takes
+a crew's signals away or takes its animals; either costs it. Warnings come
+about once per crew per match at every dealer.
+
+Getting there took two fixes, both found with that report. First, careful
+animals scaled down how often they signalled as Heat rose: the strict dealer
+threw out 90% of Rock crews and 20% of Maniac crews, because who got caught
+depended on how long their hands ran, not on caution. Now each animal has a
+comfort line it won't push the crew's Heat past (careful: the warning,
+careless: near ejection) and careless ones sometimes forget it. Second,
+repeat signals got more expensive per seat, which let short-handed styles
+signal freely; they now get more expensive per crew. Warnings also fired up
+to 16 times a match for a crew hovering at the line; each now fires once
+until the crew cools off.
+
+The Calling Station is caught most: it plays long hands, so it has more to
+say, and a caution of 0.4 lets it say it. With no dealer, the bots draw the
+same random numbers as before Heat existed (the simulator's output is
+identical), so the type chart above is unchanged. Not measured yet: how the
+type chart shifts under each dealer.
+
 **The table on screen:** checked with screenshots under a virtual display:
 the preflop decision, a showdown (the right hand wins, the busted seat greys
 out). Not checked: how it feels to play, on a real Steam Deck, or with a real
@@ -120,18 +164,20 @@ controller.
 | `src/crew/table_talk.gd` | Signals between teammates, and misreads when the bond is weak |
 | `src/crew/table_reads.gd` | What a watchful player learns: who re-raises when bet into |
 | `src/ai/poker_bot.gd` | An AI seat: equity + style, soft play, reacts to signals |
-| `src/match/team_match.gd` | Crew vs crew: rising blinds, who's out, who won |
+| `src/match/team_match.gd` | Crew vs crew: rising blinds, fines and ejections, who's out, who won |
+| `src/match/dealer.gd` | Who's watching: street (nobody), asleep, relaxed, watchful, strict, bought |
+| `src/match/heat.gd` | Each crew's Heat: warnings, fines, ejections |
 | `src/ui/table_view.gd` | The placeholder table scene (everything drawn from code) |
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
 | `scenes/table.tscn` | Main scene |
 | `tests/` | Test runner and tests |
-| `tools/` | Evaluator check, balance simulator, chip-flow analysis, input-map writer |
+| `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, input-map writer |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 
 ## Next steps
 
 1. Play it. Is setting up a teammate fun? Do the signals matter?
 2. Recheck the type chart (`tools/simulate.gd --cycle` on fresh seeds) after any change to the bot or the styles.
-3. Heat: signals add suspicion, and the dealer warns, penalises, ejects.
+3. Play against each dealer: is Heat a choice you weigh, or just a tax?
 4. Real art: an Aseprite palette, the Aseprite Wizard plugin, animal sprites at the seats.
 5. Export presets for Linux (native on the Deck) and Windows, then GodotSteam.

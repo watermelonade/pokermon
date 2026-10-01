@@ -7,6 +7,14 @@ extends RefCounted
 ##
 ## Seats alternate teams (0, 1, 0, 1, ...) by default, as at the 3v3 table.
 ## Boss tables seat crews unevenly; pass `teams` to set them explicitly.
+##
+## Heat: set `heat.dealer` to someone watching (Dealer.preset) and signals
+## start to cost. This class applies what Heat decides: fines become dead
+## money at the next hand's start, ejections happen when the hand ends (the
+## ejected seat's chips leave the game, counted in `removed_chips`). If a
+## crew's `leaders` seat is thrown out, that crew loses on the spot: catching
+## the boss counts as beating them. The default dealer is nobody, which is
+## also what the play styles were tuned under.
 
 const BLIND_LEVELS := [
 	[5, 10], [10, 20], [15, 30], [25, 50], [50, 100], [75, 150],
@@ -17,6 +25,9 @@ var table := HoldemTable.new()
 var bots: Array[PokerBot] = []  ## null entries are human-controlled seats
 var talk := TableTalk.new()
 var reads := TableReads.new()
+var heat := Heat.new()
+var leaders := {}  ## team -> seat; catching a leader ends the match
+var removed_chips := 0  ## chips that left the game with ejected seats
 var hands_per_level := 8
 var max_hands := 0  ## 0 = play until one crew is out
 
@@ -28,20 +39,43 @@ func _init(seed_value := 0) -> void:
 		table.rng.seed = hash(seed_value)
 	table.hand_started.connect(func(_button: int) -> void: talk.clear())
 	reads.watch(table)
+	heat.watch(table, talk)
+	table.hand_finished.connect(func(_result: Dictionary) -> void: _apply_ejections())
 
 
 func add_player(player_name: String, team: int, chips: int, bot: PokerBot) -> void:
 	table.add_seat(player_name, team, chips)
 	if bot:
 		bot.table_reads = reads
+		bot.heat = heat
 	bots.append(bot)
 
 
-func start_hand() -> void:
+## `stacked` sets the exact deal order (for tests), as in HoldemTable.
+func start_hand(stacked: Array[int] = []) -> void:
 	var level: Array = BLIND_LEVELS[mini(table.hand_number / hands_per_level, BLIND_LEVELS.size() - 1)]
 	table.small_blind = level[0]
 	table.big_blind = level[1]
-	table.start_hand()
+	for team in heat.pending_fines:
+		for i in table.seats.size():
+			if table.seats[i].team == team and table.seats[i].stack > 0:
+				table.queue_dead_money(i, table.big_blind)
+	heat.pending_fines.clear()
+	table.start_hand(stacked)
+
+
+func _apply_ejections() -> void:
+	for seat in heat.pending_ejections:
+		removed_chips += table.eject(seat)
+	heat.pending_ejections.clear()
+
+
+## The team whose leader has been thrown out, or -1.
+func caught_team() -> int:
+	for team: int in leaders:
+		if table.seats[leaders[team]].ejected:
+			return team
+	return -1
 
 
 ## Lets bots act until the hand ends or it's a human's turn.
@@ -75,11 +109,15 @@ func teams_alive() -> Array[int]:
 func is_over() -> bool:
 	if not table.hand_over:
 		return false
+	if caught_team() >= 0:
+		return true
 	return teams_alive().size() <= 1 or (max_hands > 0 and table.hand_number >= max_hands)
 
 
 ## The winning team, or -1 for a tie on chips.
 func winner() -> int:
+	if caught_team() >= 0:
+		return 1 - caught_team()
 	var alive := teams_alive()
 	if alive.size() == 1:
 		return alive[0]
