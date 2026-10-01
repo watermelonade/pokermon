@@ -10,6 +10,25 @@ implementing.
   tournament in each of eight cities, and finish inside Cassius Coolidge's
   *A Friend in Need* (1903), the "Dogs Playing Poker" painting where a
   bulldog passes an ace under the table.
+- **Story (2026-10-01, not built yet):** you are a dog. Your owner, a bad
+  poker player who took his losses out on you, falls drunk down a manhole
+  and leaves his cards; a few went down with him. Recovering them is the
+  first town's quest and the tutorial for the whole loop (simple card games
+  with the cards you have, then poker once the deck is whole). Then low
+  stakes tables to afford the next city, and so on up to the penthouse.
+  Crew members each have their own reasons to stay (like Paper Mario's
+  party). Tone: starts heavy, gets lighter, ends heavy (friendship, duty,
+  community, what wealth does to people).
+- **Money is health (not built yet; the demo still has the blackout):**
+  your bank account is your only life bar. Going broke means "dying": you
+  restart at your last save, losing everything since. Cash tables can be
+  left any time; tournaments and winner-takes-all games can't.
+  Winner-takes-all is how you recruit: the loser is wiped out and joins
+  you (later, owes you instead). A coin toss decides whose deck is used,
+  worth a small edge to its owner (to be measured). Recruits play with your
+  money until they win their own. Wealth markers gate areas; once rich,
+  purchases set save flags that the world reacts to in written ways, a
+  light Sims touch, not a simulation.
 - **Combat:** your crew of 3 against theirs at a 6-seat table, seats
   alternating. You play only your own seat and can't see teammates' cards.
   A crew is out when all its seats are busted. Bosses bring bigger crews
