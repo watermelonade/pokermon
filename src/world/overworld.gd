@@ -396,6 +396,10 @@ func _interact() -> void:
 			if not n.asleep:
 				n.face(-player.facing)
 			var data: Dictionary = npc_data[n]
+			if data.has("open_table"):  # Mossbank's open table: a seat, a cash game (OpenTable)
+				await OpenTable.play(self, data)
+				mode = Mode.WALK
+				return
 			var lines: Array = data["lines"]
 			if data["id"] == "rosie" and state.bracelets.size() > 0:
 				lines = ["The Mossbank bracelet! Pie for the champ. On the house. (Not that House, hon.)"]
