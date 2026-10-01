@@ -6,10 +6,10 @@ extends Control
 ##
 ## Controls: the D-pad / stick moves between Fold / Call / Raise, A confirms,
 ## bumpers (or Q/E) jump between raise sizes (min, half pot, pot, 2x pot,
-## all-in: RaiseSizes), D-pad up/down fine-tunes by a big blind, the four
-## back buttons (or 1-4) send a signal to your teammates, and Select (or H,
-## F1) opens a help card. Input actions live in project.godot; help has no
-## action there yet, so it's read straight from the Back button and keys.
+## all-in: RaiseSizes), D-pad up/down fine-tunes by a big blind, X, Y, LT,
+## RT (or the Deck's back buttons, or 1-4) send a signal to your teammates
+## (PadControls), and Select (or H, F1) opens a help card. Input actions
+## live in project.godot.
 ##
 ## Motion: cards slide from the shoe to the seats, board cards flip in,
 ## chips slide to the pot at the end of a street and the pot slides to the
@@ -1261,9 +1261,10 @@ func _draw_hud(now: float) -> void:
 	var t := match_.table
 	var lx := 6.0
 	var ly := 288.0
-	_text(Vector2(lx, ly), "Signals: back buttons / 1-4", S, QUIET)
+	_text(Vector2(lx, ly), "Signals (pad / keys)", S, QUIET)
 	for k in 4:
-		_text(Vector2(lx, ly + 9 + k * 9), "%d %s: %s" % [k + 1, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S, TEXT if _flow == Flow.HUMAN else QUIET)
+		var keys := "%s/%s" % [PadControls.SIGNAL_PAD[k], PadControls.SIGNAL_KEYS[k]]
+		_text(Vector2(lx, ly + 9 + k * 9), "%-4s %s: %s" % [keys, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S, TEXT if _flow == Flow.HUMAN else QUIET)
 	if match_.heat.dealer.watching() and not t.hand_over:
 		var cost := match_.heat.cost_of_next(HUMAN)
 		var hot := match_.heat.level(t.seats[HUMAN].team) + cost >= Heat.FINE
@@ -1303,10 +1304,10 @@ func _draw_text_box(now: float, readout: String) -> void:
 		var hint := ""
 		var wait := tutorial.current_wait()
 		if wait == "signal:any":
-			hint = "1-4 / back buttons: signal    A: Rosie does it"
+			hint = "%s / 1-4: signal    A: Rosie does it" % PadControls.pad_signals()
 		elif wait.begins_with("signal:"):
 			var k := int(wait.get_slice(":", 1))
-			hint = "%d / %s: %s    A: Rosie does it" % [k + 1, ["L4", "R4", "L5", "R5"][k], TableTalk.GESTURES[k].to_lower()]
+			hint = "%s / %s: %s    A: Rosie does it" % [PadControls.SIGNAL_PAD[k], PadControls.SIGNAL_KEYS[k], TableTalk.GESTURES[k].to_lower()]
 		elif tutorial.current_wait() == "skip":
 			hint = "A: skip    B: keep going"
 		CoachBox.draw(self, r, TutorialScript.COACH, _coach_sprite, text, typed,
@@ -1476,9 +1477,9 @@ func _draw_help() -> void:
 	y += 8
 	_text(Vector2(x, y), "Signals to your teammates", L, PixelFrame.BLUE.darkened(0.3))
 	y += 15
-	var buttons := ["L4  1", "R4  2", "L5  3", "R5  4"]
 	for k in 4:
-		_text(Vector2(x, y), "%s  %s" % [buttons[k], TableTalk.GESTURES[k]], L, INK)
+		var buttons := "%-2s %s %s" % [PadControls.SIGNAL_PAD[k], PadControls.SIGNAL_BACK[k], PadControls.SIGNAL_KEYS[k]]
+		_text(Vector2(x, y), "%s  %s" % [buttons, TableTalk.GESTURES[k]], L, INK)
 		_text(Vector2(col, y), "\"%s\"" % TableTalk.MEANINGS[k], L, INK_SOFT)
 		y += 13
 	y += 8

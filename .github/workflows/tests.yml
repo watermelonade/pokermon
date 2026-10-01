@@ -22,3 +22,5 @@ jobs:
         run: ./godot --headless --path . -s tests/run_tests.gd
       - name: Every script compiles (with the autoloads the test runner lacks)
         run: ./godot --headless --path . res://tests/compile_check.tscn
+      - name: A pretend Xbox pad signals at the real table (buttons and triggers)
+        run: ./godot --headless --path . res://tests/pad_check.tscn

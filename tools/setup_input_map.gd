@@ -4,10 +4,15 @@ extends SceneTree
 ##
 ##   godot --headless --path . -s tools/setup_input_map.gd
 ##
-## The four signals sit on the Steam Deck's back buttons (L4 R4 L5 R5 are
-## the SDL paddles 1-4) and on 1-4. Steam Input passes the back buttons
-## through only if the game's controller layout maps them, so the Steam
-## store config should ship a layout that does.
+## The four signals sit on X, Y, LT, RT (any Xbox-style pad, and the Deck
+## with Steam's default layout), the Steam Deck's back buttons (L4 R4 L5 R5
+## are the SDL paddles 1-4) and 1-4 (src/input/pad_controls.gd says why).
+## The triggers aren't in this list: they're axes, and an axis in the input
+## map presses its action once per motion event, so TriggerButtons
+## (src/input/trigger_buttons.gd) turns each pull into one press instead.
+## Steam Input passes the back buttons through only if the game's
+## controller layout maps them, so the Steam store config should ship a
+## layout that does.
 ##
 ## Walking uses its own move_ actions (arrows, WASD, D-pad, left stick)
 ## rather than Godot's ui_ ones, so menus and the table's buttons keep their
@@ -19,10 +24,10 @@ extends SceneTree
 ## joypad button; [axis, direction] is a stick direction.
 
 const ACTIONS := {
-	"signal_1": [KEY_1, JOY_BUTTON_PADDLE1],
-	"signal_2": [KEY_2, JOY_BUTTON_PADDLE2],
-	"signal_3": [KEY_3, JOY_BUTTON_PADDLE3],
-	"signal_4": [KEY_4, JOY_BUTTON_PADDLE4],
+	"signal_1": [KEY_1, JOY_BUTTON_PADDLE1, JOY_BUTTON_X],
+	"signal_2": [KEY_2, JOY_BUTTON_PADDLE2, JOY_BUTTON_Y],
+	"signal_3": [KEY_3, JOY_BUTTON_PADDLE3],  # + LT: TriggerButtons
+	"signal_4": [KEY_4, JOY_BUTTON_PADDLE4],  # + RT: TriggerButtons
 	"raise_more": [KEY_E, JOY_BUTTON_RIGHT_SHOULDER],
 	"raise_less": [KEY_Q, JOY_BUTTON_LEFT_SHOULDER],
 	"move_up": [KEY_UP, KEY_W, JOY_BUTTON_DPAD_UP, [JOY_AXIS_LEFT_Y, -1.0]],
