@@ -60,6 +60,30 @@ extends Control
 ## (or Tab) offers to skip; an embedded tutorial then emits `finished` at
 ## once. With no tutorial set none of this runs.
 ##
+## Cash game (`cash_game`, Mossbank's open table, docs/DEMO_SPEC.md G-SIT
+## and G-LEAVE): a CashMatch instead of a crew match. Every seat plays for
+## itself at fixed blinds (CashMatch.blinds_for the buy-in, `buy_in`), so
+## there are no signals, no Heat bar and no "match won": the top right shows
+## your stack against what you bought in for, and the legend how to leave.
+## After any hand, Start or B offers "Leave the table?" (leaving under the
+## cursor, Stay below it; the next hand waits for the answer); Start
+## mid-hand asks as soon as the hand is over. Leaving emits `left(chips)`
+## once, and so does A on the banner when the game ends without you
+## choosing (you bust, or you hold every chip). A rival who busts leaves the
+## table (its plate greys out, "left"). Your seat shows your animal's art
+## when setup[0]["animal"] is set (the dog), but it's still yours: no bot
+## plays it unless --autoplay. `left` is emitted at the moment you leave,
+## not when the game is decided: the buy-in was already taken and saved
+## when you sat down, so there's nothing to dodge by quitting, and a test or
+## the overworld that starts listening after a bust still hears it.
+## Standalone, --cash seats you and four animals at a $100 open table.
+##
+## Dev flags are also read from the Game autoload's `dev_args` (filled from
+## the command line, and set by the scene tests, which can't pass flags per
+## test): "autoplay" and "seed" reach an embedded table that way too, so a
+## scene test's deal and bots repeat. "cash-hands=N" (with autoplay) ends a
+## cash game after N hands, so scripted runs get up and leave.
+##
 ## Dev flags (after `--`): --autoplay lets a bot play your seat,
 ## --dealer=STRICT (or STREET, ASLEEP, RELAXED, WATCHFUL, BOUGHT) picks the
 ## dealer, --screenshot=path.png saves the screen after --shot-after=seconds
@@ -120,14 +144,22 @@ signal finished(won: bool)
 ## the result is on screen can't undo a loss. `finished` is the A press after.
 signal decided(won: bool)
 ## A cash game (Mossbank's open table, CashMatch): emitted once, when you
-## leave between hands or the match ends, with the chips you walk away with.
-## STUB (demo 2): the open-table agent emits it.
+## leave between hands or the match ends, with the chips you walk away with
+## (see the top: at the moment you leave).
 signal left(chips: int)
 
 ## A cash game instead of a crew match: every seat for itself, leave after
 ## any hand. Set before adding the scene to the tree.
-## STUB (demo 2): the open-table agent makes the table honour it.
 var cash_game := false
+## What a cash seat cost (the HUD shows your stack against it, and the
+## blinds come from it); 0 means starting_chips. Set before adding.
+var buy_in := 0
+var cash: CashMatch  ## the cash game, when cash_game; match_ is its crew_match
+var _leave_open := false  ## the "Leave the table?" prompt is up
+var _leave_cursor := 0  ## 0 leave, 1 stay
+var _leave_queued := false  ## Start mid-hand: ask once the hand is over
+var _left_sent := false  ## `left` fires once
+var _leave_after := 0  ## dev "cash-hands": a bot in your seat gets up after this many hands
 
 ## Who sits where, in seat order: {"name": String, "team": int, "animal":
 ## Animal or null for you}. Seat 0 must be you.
@@ -243,6 +275,16 @@ func _ready() -> void:
 			# The bought-dealer boss table: 3v5, the floor in the boss's pocket.
 			setup = boss_setup(5)
 			dealer_kind = Dealer.Kind.BOUGHT
+		elif arg == "--cash" and setup.is_empty():
+			cash_game = true
+			setup = cash_setup()
+			starting_chips = 100
+	# The Game autoload's flags too: the scene tests set them there (see the top).
+	if Game.dev_args.has("autoplay"):
+		autoplay = true
+	if Game.dev_args.has("seed"):
+		_seed = int(Game.dev_args["seed"])
+	_leave_after = int(Game.dev("cash-hands", "0"))
 	if autoplay and _coach_auto < 0.0:
 		_coach_auto = 1.2
 	if setup.is_empty():
@@ -285,6 +327,15 @@ static func boss_setup(boss_size: int) -> Array[Dictionary]:
 	return BossTable.setup(mine, boss, 1000, true, crew["id"] if boss_size == crew["members"].size() else "")
 
 
+## The --cash dev table: you (the dog) and four animals, each for itself.
+static func cash_setup() -> Array[Dictionary]:
+	var out: Array[Dictionary] = [{"name": "You", "team": 0, "animal": Animal.make(&"dog", "You")}]
+	for p: Array in [[&"owl", 0], [&"raccoon", 0], [&"goose", 1], [&"squirrel", 2]]:
+		var a := Species.individual(p[0], p[1])
+		out.append({"name": a.name, "team": out.size(), "animal": a})
+	return out
+
+
 # --- Controls -------------------------------------------------------------
 
 
@@ -300,7 +351,17 @@ func _set_controls_visible(on: bool) -> void:
 
 func _new_match() -> void:
 	var seed_value := _seed if _seed else int(Time.get_unix_time_from_system())
-	match_ = TeamMatch.new(seed_value)
+	cash = null
+	_leave_open = false
+	_leave_queued = false
+	_left_sent = false
+	if cash_game:
+		cash = CashMatch.new(seed_value)
+		match_ = cash.crew_match  # the view drives it like any match; CashMatch says what differs
+		var blinds := CashMatch.blinds_for(_buy_in())
+		cash.set_blinds(blinds[0], blinds[1])
+	else:
+		match_ = TeamMatch.new(seed_value)
 	if tutorial and tutorial.lesson_index >= 0:  # a rematch: the lessons from the top
 		var start := tutorial.start_lesson
 		tutorial = TableTutorial.new()
@@ -311,11 +372,15 @@ func _new_match() -> void:
 		var bot_seed := i + 1 + (_seed * 7919 if _seed else int(Time.get_ticks_usec()))
 		if tutorial:
 			bot = tutorial.make_bot(i, autoplay)
-		elif animal:
+		elif animal and i != HUMAN:  # your seat may show your animal (the dog), but it's yours
 			bot = animal.make_bot(bot_seed)
 		elif autoplay:
 			bot = PokerBot.new(PlayStyle.preset(PlayStyle.Kind.SHARK), bot_seed)
-		match_.add_player(setup[i]["name"], setup[i]["team"], int(setup[i].get("chips", starting_chips)), bot)
+		var chips := int(setup[i].get("chips", starting_chips))
+		if cash:
+			cash.add_player(setup[i]["name"], chips, bot)  # each seat its own team
+		else:
+			match_.add_player(setup[i]["name"], setup[i]["team"], chips, bot)
 	_leader = BossTable.leader_seat(setup)
 	if _leader >= 0:
 		match_.set_leader(setup[_leader]["team"], _leader)
@@ -323,8 +388,8 @@ func _new_match() -> void:
 		# table has booked the payout it should come after.
 		match_.leader_lost.connect(_on_leader_lost, CONNECT_DEFERRED)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
-	match_.max_hands = tutorial.hands() if tutorial else max_hands
-	if tutorial == null:
+	match_.max_hands = tutorial.hands() if tutorial else (0 if cash else max_hands)
+	if tutorial == null and cash == null:  # a cash game has no crews: no codes to read
 		# interception: on for every match you play in; off in Rosie's lessons,
 		# which are scripted down to exact Heat values and need a clean table.
 		_intercept.watch(match_, setup, HUMAN, codebook)
@@ -402,7 +467,7 @@ func _on_leader_lost(_team: int) -> void:
 ## waiting for A to continue. Public so an embedding scene can tell (the
 ## overworld's scripted runs press A for you then) without reading internals.
 func is_waiting_to_continue() -> bool:
-	return _flow == Flow.MATCH_DONE and _now() >= _match_banner_at and not _finished_sent and not _coach_holding()
+	return _flow == Flow.MATCH_DONE and _now() >= _match_banner_at and not _finished_sent and not _left_sent and not _coach_holding()
 
 
 func _crew_name(team: int) -> String:
@@ -464,6 +529,9 @@ func _next_hand() -> void:
 		match_.start_hand(tutorial.begin_hand(match_))  # the lesson's stacked deal
 		_say("Lesson %d of %d: %s." % [tutorial.lesson_number(), TutorialScript.count(), tutorial.lesson()["title"]], INK_SOFT)
 		_coach("hand_start", {})
+	elif cash:
+		cash.start_hand()  # the fixed blinds (CashMatch); deals as below
+		_say("Hand %d. Blinds %d/%d." % [match_.table.hand_number, match_.table.small_blind, match_.table.big_blind], INK_SOFT)
 	else:
 		match_.start_hand()  # deals: _on_hand_started books the cards' flights
 		_say("Hand %d. Blinds %d/%d." % [match_.table.hand_number, match_.table.small_blind, match_.table.big_blind], INK_SOFT)
@@ -479,6 +547,9 @@ func _advance_flow() -> void:
 	if t.hand_over:
 		_turn_seat = -1
 		_coach("hand_over", {}, maxf(now, _motion.cursor))
+		if cash:
+			_cash_hand_over(now)
+			return
 		if match_.is_over() or t.seats[HUMAN].ejected:
 			_flow = Flow.MATCH_DONE
 			_match_banner = _match_result()
@@ -504,6 +575,69 @@ func _advance_flow() -> void:
 	_choice = {}
 	_decide_at = start
 	_act_at = INF
+
+
+## A cash hand is over: the next one waits (or the leave prompt opens, if
+## you asked mid-hand), rivals who busted get up, and if you busted or
+## cleaned out the table it's over: A leaves with what you have.
+func _cash_hand_over(now: float) -> void:
+	var t := match_.table
+	var settle := maxf(now, _motion.cursor)
+	for i in range(1, t.seats.size()):
+		if cash.seat_left(i) and t.seats[i].dealt:  # dealt into this hand, out of chips at its end
+			_say("%s is out of chips and leaves the table." % t.seats[i].name, INK_SOFT, settle + 0.4)
+	var tired := autoplay and _leave_after > 0 and t.hand_number >= _leave_after
+	if cash.is_over() or tired:
+		_flow = Flow.MATCH_DONE
+		_match_banner = _cash_result(tired)
+		_match_banner_at = settle + 0.8
+		_say("%s Press A." % _match_banner, RIVAL_FRAME.darkened(0.2), _match_banner_at)
+		_sound(&"lose" if t.seats[HUMAN].stack == 0 else &"win_pot", _match_banner_at)
+		return
+	_flow = Flow.HAND_DONE
+	_next_hand_at = settle + NEXT_HAND_PAUSE
+	if _leave_queued:
+		_leave_queued = false
+		_open_leave_prompt()
+
+
+## The line a cash game ends on when you didn't choose to leave.
+func _cash_result(tired := false) -> String:
+	var stack := match_.table.seats[HUMAN].stack
+	if stack == 0:
+		return "You're out of chips."
+	if tired:
+		return "That's %d hands. Time to cash out your %d." % [match_.table.hand_number, stack]
+	return "You've cleaned out the table: %d chips!" % stack
+
+
+func _buy_in() -> int:
+	return buy_in if buy_in > 0 else starting_chips
+
+
+func _open_leave_prompt() -> void:
+	_leave_open = true
+	_leave_cursor = 0
+	_sound(&"ui_confirm")
+
+
+## Leaves the cash table (see the top): `left` once, with your stack.
+## Standalone (not embedded), the table says so and A deals you in again.
+func _leave_table() -> void:
+	if _left_sent or cash == null:
+		return
+	var chips := cash.leave()
+	if chips < 0:
+		return
+	_left_sent = true
+	_leave_open = false
+	_set_controls_visible(false)
+	if not embedded:
+		_flow = Flow.MATCH_DONE
+		_match_banner = "You leave with %d." % chips
+		_match_banner_at = _now()
+		_say("%s A: sit down again." % _match_banner, INK, _match_banner_at)
+	left.emit(chips)
 
 
 func _match_result() -> String:
@@ -549,7 +683,7 @@ func _process(delta: float) -> void:
 				if not _menu_open and now >= _controls_at and not _coach("your_turn", {"street": match_.table.street}):
 					_start_human_turn()
 			Flow.HAND_DONE:
-				if now >= _next_hand_at:
+				if now >= _next_hand_at and not _leave_open:
 					_next_hand()
 	if Engine.get_process_frames() % 30 == 0:
 		_motion.prune(now)
@@ -642,6 +776,9 @@ func _input(event: InputEvent) -> void:
 		if event.is_pressed():
 			get_viewport().set_input_as_handled()
 		return
+	if cash and _cash_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if not (_flow == Flow.HUMAN and _menu_open):
 		return
 	var dir := Vector2i.ZERO
@@ -692,6 +829,46 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
+## A cash game's leaving (see the top): the prompt takes the input while
+## it's up; between hands Start or B opens it; Start mid-hand asks for it
+## once the hand is over (Escape, which is Start and B both, still backs out
+## of the raise picker). True if the event was used.
+func _cash_input(event: InputEvent) -> bool:
+	if _left_sent:
+		return embedded and event.is_pressed()  # standalone, A deals you in again
+	if _leave_open:
+		if event.is_action_pressed("ui_up", true) or event.is_action_pressed("ui_down", true):
+			_leave_cursor = 1 - _leave_cursor
+			_sound(&"ui_move")
+		elif event.is_action_pressed("ui_accept"):
+			if _leave_cursor == 0:
+				_sound(&"ui_confirm")
+				_leave_table()
+			else:
+				_close_leave_prompt()
+		elif event.is_action_pressed("ui_cancel") or event.is_action_pressed("menu"):
+			_close_leave_prompt()
+		return event.is_pressed()
+	var start := event.is_action_pressed("menu")
+	if not start and not event.is_action_pressed("ui_cancel"):
+		return false
+	if _flow == Flow.HAND_DONE or _flow == Flow.MATCH_DONE:
+		_open_leave_prompt()
+		return true
+	if start and not _raise_open and not _leave_queued:
+		_leave_queued = true
+		_say("You can leave when this hand is over.", INK_SOFT)
+		_sound(&"ui_confirm")
+		return true
+	return false
+
+
+func _close_leave_prompt() -> void:
+	_leave_open = false
+	_sound(&"ui_back")
+	_resume_after_pause(_now())
+
+
 func _is_help_toggle(event: InputEvent) -> bool:
 	return event.is_action_pressed("help")  # Select, H or F1 (project.godot)
 
@@ -727,8 +904,14 @@ func _resume_after_pause(now: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _coach_holding():
 		return  # A mustn't start the next hand over the coach's next line
+	if _left_sent and embedded:
+		return  # gone: the embedding scene frees this table
 	if event.is_action_pressed("ui_accept"):
 		if _flow == Flow.MATCH_DONE and _now() >= _match_banner_at:
+			if cash and not _left_sent:  # busted or cleaned out: A gets up with what you have
+				get_viewport().set_input_as_handled()
+				_leave_table()
+				return
 			if embedded:
 				get_viewport().set_input_as_handled()
 				if not _finished_sent:
@@ -746,6 +929,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if t.hand_over:
 		return
 	for i in 4:
+		if cash:
+			break  # every seat for itself: nobody to signal to
 		if event.is_action_pressed("signal_%d" % (i + 1)):
 			if tutorial and not tutorial.on_signal(i, _now()):
 				continue  # it would overheat your crew: the coach says so instead
@@ -1115,13 +1300,19 @@ func _pot_pos() -> Vector2:
 
 
 func _seat_pos(i: int) -> Vector2:
+	if cash:
+		return _seat_geom(i)["center"]
 	return SeatLayout.seat_pos(match_.table.seats.size(), i, size)
 
 
 ## Where everything at seat `i` goes (SeatLayout: up to 6 seats on an
-## ellipse as always, 7-9 in two columns).
+## ellipse as always, 7-9 in two columns; a cash table on the 6-seat
+## ring's places, SeatLayout.cash_slots).
 func _seat_geom(i: int, revealed := false) -> Dictionary:
-	return SeatLayout.geom(match_.table.seats.size(), i, size, revealed)
+	var n := match_.table.seats.size()
+	if cash and n <= 6:
+		return SeatLayout.geom(6, SeatLayout.cash_slots(n)[i], size, revealed)
+	return SeatLayout.geom(n, i, size, revealed)
 
 
 # --- Drawing ----------------------------------------------------------------
@@ -1232,7 +1423,7 @@ func _draw_seat(i: int, now: float) -> void:
 	if s.ejected:
 		status = "thrown out"
 	elif out:
-		status = "busted"
+		status = "left" if cash and i != HUMAN else "busted"  # a busted rival gets up from a cash table
 	_text(Vector2(badge.end.x - 5, badge.position.y + 26), status, S, RIVAL_FRAME.darkened(0.2) if winner else INK_SOFT, false, true)
 
 	var animal: Animal = setup[i]["animal"] if i < setup.size() else null
@@ -1325,16 +1516,10 @@ func _draw_hud(now: float) -> void:
 	var t := match_.table
 	var lx := 6.0
 	var ly := 288.0
-	_text(Vector2(lx, ly), "Signals (pad / keys)", S, QUIET)
-	for k in 4:
-		var keys := "%s/%s" % [PadControls.SIGNAL_PAD[k], PadControls.SIGNAL_KEYS[k]]
-		_text(Vector2(lx, ly + 9 + k * 9), "%-4s %s: %s" % [keys, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S, TEXT if _flow == Flow.HUMAN else QUIET)
-	if match_.heat.dealer.watching() and not t.hand_over:
-		var cost := match_.heat.cost_of_next(HUMAN)
-		var hot := match_.heat.level(t.seats[HUMAN].team) + cost >= Heat.FINE
-		_text(Vector2(lx, ly + 46), "Next signal: +%d Heat" % roundi(cost), S, HOT if hot else QUIET)
-	_text(Vector2(size.x - 6, ly + 46), "Start: skip lesson   Select: help" if tutorial else "Select: help", S, QUIET, false, true)
-	_draw_heat(Rect2(size.x - 196, 4, 192, 42), now)
+	if cash:
+		_draw_cash_hud(Rect2(size.x - 196, 4, 192, 42), Vector2(lx, ly))
+	else:
+		_draw_crew_hud(now, lx, ly)
 
 	var me := t.seats[HUMAN]
 	var cards_at: Vector2 = _seat_geom(HUMAN)["cards"]
@@ -1351,6 +1536,61 @@ func _draw_hud(now: float) -> void:
 	_draw_text_box(now, readout)
 	if _menu_open and not _coach_showing():  # Start mid-turn: the skip question takes the whole box
 		_draw_menu(now)
+	if _leave_open:
+		_draw_leave_prompt(now)
+
+
+## A crew match's HUD: the signal legend (bottom left), what your next
+## signal costs, and the Heat panel (top right).
+func _draw_crew_hud(now: float, lx: float, ly: float) -> void:
+	var t := match_.table
+	_text(Vector2(lx, ly), "Signals (pad / keys)", S, QUIET)
+	for k in 4:
+		var keys := "%s/%s" % [PadControls.SIGNAL_PAD[k], PadControls.SIGNAL_KEYS[k]]
+		_text(Vector2(lx, ly + 9 + k * 9), "%-4s %s: %s" % [keys, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S, TEXT if _flow == Flow.HUMAN else QUIET)
+	if match_.heat.dealer.watching() and not t.hand_over:
+		var cost := match_.heat.cost_of_next(HUMAN)
+		var hot := match_.heat.level(t.seats[HUMAN].team) + cost >= Heat.FINE
+		_text(Vector2(lx, ly + 46), "Next signal: +%d Heat" % roundi(cost), S, HOT if hot else QUIET)
+	_text(Vector2(size.x - 6, ly + 46), "Start: skip lesson   Select: help" if tutorial else "Select: help", S, QUIET, false, true)
+	_draw_heat(Rect2(size.x - 196, 4, 192, 42), now)
+
+
+## A cash game's HUD: your stack against your buy-in and the blinds (top
+## right, where a crew match's Heat goes), and how to leave (bottom left,
+## where the signal legend goes).
+func _draw_cash_hud(r: Rect2, legend: Vector2) -> void:
+	var t := match_.table
+	PixelFrame.panel(self, r, CREAM, PixelFrame.BLUE)
+	var at := r.position + Vector2(7, 6)
+	var stack := _held("stack%d" % HUMAN, t.seats[HUMAN].stack) + t.seats[HUMAN].hand_bet
+	var up := stack - _buy_in()
+	_text(at + Vector2(0, 9), "Your chips %d" % stack, L, INK)
+	if up != 0:
+		_text(Vector2(r.end.x - 7, at.y + 9), "%+d" % up, L, Color("3f8a4a") if up > 0 else HOT, false, true)
+	_text(at + Vector2(0, 22), "Bought in for %d" % _buy_in(), S, INK_SOFT)
+	_text(at + Vector2(0, 31), "Blinds %d/%d, every seat for itself" % [cash.small_blind, cash.big_blind], S, INK_SOFT)
+	_text(legend, "Open table", S, QUIET)
+	_text(legend + Vector2(0, 9), "Leave after any hand:", S, TEXT if t.hand_over else QUIET)
+	_text(legend + Vector2(0, 18), "Start or B, then A.", S, TEXT if t.hand_over else QUIET)
+	if _leave_queued:
+		_text(legend + Vector2(0, 27), "Leaving after this hand.", S, GOLD)
+	_text(Vector2(size.x - 6, legend.y + 46), "Select: help", S, QUIET, false, true)
+
+
+## "Leave the table?" over the text box's right end, like your commands:
+## leaving first (under the cursor), staying below it.
+func _draw_leave_prompt(now: float) -> void:
+	var r := MENU_BOX
+	r.position.y = size.y - r.size.y - 4
+	PixelFrame.panel(self, r, CREAM, GOLD, 3)
+	var options := ["Leave with %d chips" % match_.table.seats[HUMAN].stack, "Stay for the next hand"]
+	for k in options.size():
+		var cell := Vector2(r.position.x + 16, r.position.y + 21 + k * 16)
+		_text(cell, options[k], L, INK)
+		if k == _leave_cursor:
+			var nudge := 1.0 if fmod(now, 0.5) < 0.25 else 0.0
+			PixelFrame.cursor(self, cell + Vector2(-4 + nudge, -4), INK)
 
 
 ## The battle-text box: the last two things that happened, the newest
@@ -1380,6 +1620,15 @@ func _draw_text_box(now: float, readout: String) -> void:
 	PixelFrame.panel(self, r, CREAM, border, 3)
 	var x := r.position.x + 12
 	var width := r.size.x - 24
+	if _leave_open:
+		width = MENU_BOX.position.x - x - 8
+		var up := match_.table.seats[HUMAN].stack - _buy_in()
+		var how := "Even on your %d buy-in." % _buy_in()
+		if up != 0:
+			how = "%s %d on your %d buy-in." % ["Up" if up > 0 else "Down", absi(up), _buy_in()]
+		_text(Vector2(x, r.position.y + 21), "Leave the table?", L, INK)
+		_text(Vector2(x, r.position.y + 37), _fit(how, width, L), L, INK_SOFT)
+		return
 	if _flow == Flow.HUMAN and _menu_open:
 		width = MENU_BOX.position.x - x - 8
 		var legal := match_.table.legal()
@@ -1534,11 +1783,27 @@ func _draw_help() -> void:
 	]
 	if tutorial:
 		rows.append(["Start     Tab", "skip the lesson"])
+	if cash:
+		rows.append(["Start / B   Esc", "after a hand: leave the table"])
 	for row: Array in rows:
 		_text(Vector2(x, y), row[0], L, INK)
 		_text(Vector2(col, y), row[1], L, INK_SOFT)
 		y += 13
 	y += 8
+	if cash:
+		_text(Vector2(x, y), "The open table", L, PixelFrame.BLUE.darkened(0.3))
+		y += 15
+		for line: String in [
+			"A cash game: every seat plays for itself, no crews,",
+			"no signals. The blinds never go up. You bought in for",
+			"%d; leave after any hand and your chips are your money." % _buy_in(),
+			"Bust, and you're out what you bought in for.",
+			"",
+			"And watch the animals: each kind has a tell.",
+		]:
+			_text(Vector2(x, y), line, L, INK_SOFT)
+			y += 13
+		return
 	_text(Vector2(x, y), "Signals to your teammates", L, PixelFrame.BLUE.darkened(0.3))
 	y += 15
 	for k in 4:

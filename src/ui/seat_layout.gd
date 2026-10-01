@@ -28,6 +28,14 @@ extends RefCounted
 ## Seat order runs clockwise from you as before (seat 1 is to your lower
 ## left and acts after you), so BossTable's "nearest seats" are the ones
 ## beside you on screen too.
+##
+## Cash games (the open table, CashMatch) seat 3 to 6, and the old ellipse
+## at 4 or 5 seats puts a side seat's portrait off the screen (the owl's
+## was cut in half at 5, in the first screenshot). Rather than move the 2-6
+## seat geometry (tests/test_seat_layout.gd holds it to the pixel), a cash
+## table sits on the 6-seat ring's places, some left empty: `cash_slots`.
+## The 6-seat table is the one every 3v3 has fitted, so any subset of it
+## does; 3 seats land exactly where the old 3-seat ellipse put them.
 
 const CENTER_Y := 172.0
 const RADII := Vector2(262, 132)  ## the ellipse seats sit on, up to 6 seats
@@ -48,6 +56,23 @@ static var SLOTS := {
 	9: [Vector2(0, 132), Vector2(-SIDE_X, 64), Vector2(-SIDE_X, 16), Vector2(-SIDE_X, -32), Vector2(-SIDE_X, -80),
 		Vector2(SIDE_X, -80), Vector2(SIDE_X, -32), Vector2(SIDE_X, 16), Vector2(SIDE_X, 64)],
 }
+
+
+## Which of the 6-seat ring's places (0 is you, then clockwise) each seat
+## of an `n`-seat cash table takes (see the top): 4 seats face you across
+## the felt, 5 leave the top empty (its bet sits on the shoe).
+static func cash_slots(n: int) -> Array[int]:
+	match n:
+		3:
+			return [0, 2, 4]
+		4:
+			return [0, 2, 3, 4]
+		5:
+			return [0, 1, 2, 4, 5]
+	var all: Array[int] = []
+	for i in n:
+		all.append(i)
+	return all
 
 
 static func center(view: Vector2) -> Vector2:

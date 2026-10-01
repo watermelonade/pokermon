@@ -26,6 +26,7 @@ const COLORS := {
 	&"cat": Color("d98a3b"),
 	&"squirrel": Color("b5562e"),
 	&"possum": Color("c9bcc8"),
+	&"dog": Color("b08850"),  ## you, at the open table (until the dog has art)
 }
 const INK := Color("2a2633")
 const EYE := Color("f4ecd8")

@@ -154,3 +154,17 @@ func test_seven_to_nine_seats_go_round_clockwise_from_you() -> void:
 				check(q.y < p.y, "%d seats: up the left side, seat %d to %d" % [n, i, i + 1])
 			elif p.x > 320 and q.x > 320:
 				check(q.y > p.y, "%d seats: down the right side, seat %d to %d" % [n, i, i + 1])
+
+
+## Cash tables (3-6 seats) sit on the 6-seat ring's places, which the test
+## above fits: you in place 0, the rest clockwise, nobody twice, and 3
+## seats exactly where the old 3-seat ellipse put them.
+func test_cash_tables_sit_on_the_six_seat_ring() -> void:
+	for n in range(3, 7):
+		var slots := SeatLayout.cash_slots(n)
+		check_eq(slots.size(), n, "%d-seat cash table: places" % n)
+		check_eq(slots[0], 0, "%d-seat cash table: you at the bottom" % n)
+		for i in range(1, n):
+			check(slots[i] > slots[i - 1] and slots[i] < 6, "%d-seat cash table: seat %d clockwise on the ring (%s)" % [n, i, slots])
+	for i in 3:
+		check_eq(SeatLayout.geom(6, SeatLayout.cash_slots(3)[i], VIEW), SeatLayout.geom(3, i, VIEW), "3-seat cash table, seat %d" % i)
