@@ -79,8 +79,10 @@ static func is_fake_press(event: InputEvent) -> bool:
 	return InputMap.has_action("raise_less") and Input.is_action_pressed("raise_less")
 
 
+## The table's clock (it follows time scale; see TableView._now), so the
+## overlay's bubbles stay in step with the table's beats.
 func _now() -> float:
-	return Time.get_ticks_msec() / 1000.0
+	return table._now() if table and table.has_method("_now") else Time.get_ticks_msec() / 1000.0
 
 
 func _my_team() -> int:

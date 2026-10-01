@@ -56,6 +56,8 @@ var heal_map := "diner"  ## where a blackout wakes you
 var heal_cell := Vector2i.ZERO
 var tutorial_offered := false  ## Rosie has asked "want me to show you?" (asked once, at the start)
 var tutorial_done := false  ## you played the lessons to the end
+var pending_recruit := ""  ## a beaten crew whose recruit offer hasn't been answered yet
+var demo_complete_seen := false  ## the end-of-demo screen has been shown
 var seen_intro := false
 var seen := {}  ## species id (String) -> Array of individual names met, in order met
 var recruited := {}  ## species id (String) -> Array of names that joined you
@@ -290,6 +292,8 @@ func to_dict() -> Dictionary:
 		"recruited": recruited.duplicate(true),
 		"found_at": found_at.duplicate(),
 		"codebook": codebook.to_dict(),
+		"pending_recruit": pending_recruit,
+		"demo_complete_seen": demo_complete_seen,
 	}
 
 
@@ -373,6 +377,9 @@ static func from_dict(d: Dictionary) -> GameState:
 		var book := CodeBook.from_dict(d["codebook"])
 		if book:
 			s.codebook = book
+	s.pending_recruit = str(d.get("pending_recruit", ""))
+	# Older saves: a won Open means the end screen was already seen.
+	s.demo_complete_seen = bool(d.get("demo_complete_seen", not s.bracelets.is_empty()))
 	return s
 
 

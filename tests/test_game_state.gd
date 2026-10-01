@@ -172,3 +172,18 @@ func test_cracked_codes_survive_a_save() -> void:
 	var old := s.to_dict()
 	old.erase("codebook")
 	check(GameState.from_dict(JSON.parse_string(JSON.stringify(old))).codebook != null, "older saves load with an empty code book")
+
+
+func test_a_cut_short_win_is_remembered() -> void:
+	var s := GameState.fresh()
+	s.pending_recruit = "pond_hecklers"
+	var back := GameState.from_dict(JSON.parse_string(JSON.stringify(s.to_dict())))
+	check_eq(back.pending_recruit, "pond_hecklers", "the owed recruit offer survives a reload")
+	check(not back.demo_complete_seen, "no bracelet yet: the end screen is still to come")
+	var old := s.to_dict()
+	old.erase("pending_recruit")
+	old.erase("demo_complete_seen")
+	old["bracelets"] = ["mossbank"]
+	var older := GameState.from_dict(JSON.parse_string(JSON.stringify(old)))
+	check_eq(older.pending_recruit, "", "older saves owe nothing")
+	check(older.demo_complete_seen, "an older save with the bracelet already saw the end screen")

@@ -79,6 +79,7 @@ func _ready() -> void:
 		Game.save()
 		_area = ""
 		_show_area()  # the banner timed out behind the intro
+	await _resume_after_win()
 	mode = Mode.WALK
 	match Game.dev("show"):
 		"party":
@@ -101,6 +102,21 @@ func _ready() -> void:
 			mode = Mode.BUSY
 			await _play_tutorial()
 			mode = Mode.WALK
+
+
+## A win whose dialogue was cut short (the window closed): make the recruit
+## offer it still owes, or show the demo-complete screen once.
+func _resume_after_win() -> void:
+	if state.pending_recruit:
+		var crew := map.crew_by_id(state.pending_recruit)  # the win happened on this map
+		if not crew.is_empty() and crew_nodes.has(crew["id"]):
+			mode = Mode.BUSY
+			await _offer_recruit(crew)
+		state.pending_recruit = ""
+		Game.save()
+	if not state.bracelets.is_empty() and not state.demo_complete_seen:
+		mode = Mode.BUSY
+		await _show_demo_complete()
 
 
 func _build() -> void:
@@ -535,7 +551,13 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 	mode = Mode.BUSY
 	Game.dev_log("encounter: %s (%s)" % [crew["id"], "spotted you" if spotted else "you talked"])
 	state.mark_crew_seen(WorldMap.crew_animals(crew), "%s, with %s" % [_area_name(), crew["name"]])  # the Binder
-	var members: Array = crew_nodes[crew["id"]]
+	# Whoever's still standing: a member you've recruited is gone from the
+	# crew (its slot is null), and that may be the leader (playtester: a
+	# null leader crashed here and softlocked).
+	var members: Array = crew_nodes[crew["id"]].filter(func(m: Variant) -> bool: return m != null)
+	if members.is_empty():
+		mode = Mode.WALK
+		return
 	var leader: Critter = members[0]
 	if spotted:
 		leader.alert = true
@@ -547,10 +569,9 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 		for cell in WorldMap.approach_path(leader.cell, leader.facing, player.cell):
 			var trail: Array[Vector2i] = []
 			for m: Critter in members:
-				trail.append(m.cell if m else Vector2i.ZERO)
+				trail.append(m.cell)
 			for i in range(1, members.size()):
-				if members[i]:
-					members[i].step_to(trail[i - 1])
+				members[i].step_to(trail[i - 1])
 			await leader.step_to(cell)
 	# Face each other along the longer axis (talking to a shoulder member
 	# leaves the leader off to one side).
@@ -647,16 +668,30 @@ func _say_bond_growth() -> void:
 
 func _after_win(crew: Dictionary) -> void:
 	var reward := state.win_against(crew["id"], crew["reward"])
+	# Everything the win is owed is saved before the first line: closing the
+	# window mid-dialogue lost the recruit offer in 136 of 200 playtest runs,
+	# and once left a won Open without its bracelet. A pending recruit offer
+	# is made again on the next load (_ready).
+	if crew.has("bracelet"):
+		state.add_bracelet(crew["bracelet"])
+	else:
+		state.pending_recruit = crew["id"]
+	Game.save()
 	var title := _crew_title(crew)
 	await dialog.say(["You beat %s! They grumble and pay up: $%d." % [crew["name"], reward], crew["after"]], title)
 	await _say_bond_growth()
 	if crew.has("bracelet"):
-		state.add_bracelet(crew["bracelet"])
-		Game.save()
 		await dialog.say(["You won the Mossbank Open! The Regulars hand over the bracelet. Slowly."])
-		await demo_complete.open(state, _road_crew_count())
+		await _show_demo_complete()
 		return
 	await _offer_recruit(crew)
+	state.pending_recruit = ""
+	Game.save()
+
+
+func _show_demo_complete() -> void:
+	await demo_complete.open(state, _road_crew_count())
+	state.demo_complete_seen = true
 	Game.save()
 
 
@@ -690,11 +725,14 @@ func _offer_recruit(crew: Dictionary) -> void:
 
 
 func _blackout(crew: Dictionary) -> void:
+	# The blackout is applied and saved before the first line: closing the
+	# window during this dialogue skipped it (you kept your money and woke on
+	# the road) in 64 of 200 playtest runs.
+	var lost := state.blackout()
+	Game.save()
 	await dialog.say(["%s cleaned you out." % _crew_title(crew), "You wander back toward town, pockets flapping, and everything goes dark..."])
 	await _fade_out(0.6)
-	var lost := state.blackout()
 	_load_map(state.map_id, state.cell, state.facing)
-	Game.save()
 	await get_tree().create_timer(0.4).timeout
 	await _fade_in(0.6)
 	await dialog.say([

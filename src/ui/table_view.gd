@@ -123,8 +123,9 @@ var raise_to := 0
 var autoplay := false
 var dealer_kind := Dealer.Kind.WATCHFUL  ## set before adding to the tree
 var alert := ""  ## the dealer's latest words, in the text box
+var _clock := 0.0  ## see _now()
 var _sounds: Array = []  ## [time, name, species] waiting for their beat
-var _alert_until := 0
+var _alert_until := 0.0
 
 enum Flow { BOT_THINKING, HUMAN, HAND_DONE, MATCH_DONE }
 var _flow := Flow.HAND_DONE
@@ -175,6 +176,7 @@ var _intercept: InterceptOverlay  # interception: rival signals your crew catche
 
 
 func _ready() -> void:
+	_clock = Time.get_ticks_msec() / 1000.0
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var shot_path := ""
 	var shot_after := 2.5
@@ -305,7 +307,7 @@ func _crew_name(team: int) -> String:
 
 func _dealer_says(line: String) -> void:
 	alert = line
-	_alert_until = Time.get_ticks_msec() + 4000
+	_alert_until = _now() * 1000.0 + 4000
 	_say(line, HOT)
 
 
@@ -329,8 +331,13 @@ func _play_due_sounds(now: float) -> void:
 			i += 1
 
 
+## The table's clock. It advances by each frame's delta rather than reading
+## the wall clock, so it follows Engine.time_scale and --fixed-fps: the
+## playtester (tools/playtest.gd) runs real matches about 10x faster
+## headless (a whole demo with 10 real matches in 139 s instead of 1,512 s,
+## measured), while normal play is unchanged.
 func _now() -> float:
-	return Time.get_ticks_msec() / 1000.0
+	return _clock
 
 
 func _next_hand() -> void:
@@ -405,13 +412,14 @@ func _match_result() -> String:
 
 
 func _process(delta: float) -> void:
+	_clock += delta
 	if match_ == null:
 		return
 	var now := _now()
-	if alert and Time.get_ticks_msec() > _alert_until:
+	if alert and now * 1000.0 > _alert_until:
 		alert = ""
 	if bubbles:
-		var now_ms := Time.get_ticks_msec()
+		var now_ms := now * 1000.0
 		for seat: int in bubbles.keys():
 			if bubbles[seat][1] < now_ms:
 				bubbles.erase(seat)
@@ -755,7 +763,7 @@ func _show_new_signals() -> void:
 		if s.get("shown", false):
 			continue
 		s["shown"] = true
-		bubbles[seat] = [TableTalk.GESTURES[s["sig"]].to_lower(), Time.get_ticks_msec() + 2500]
+		bubbles[seat] = [TableTalk.GESTURES[s["sig"]].to_lower(), _now() * 1000.0 + 2500]
 		var who := "You" if seat == HUMAN else match_.table.seats[seat].name
 		_say("%s: %s (\"%s\")" % [who, TableTalk.GESTURES[s["sig"]].to_lower(), TableTalk.MEANINGS[s["sig"]]], CREW_FRAME.darkened(0.3))
 		_sound(&"signal")
@@ -1278,7 +1286,7 @@ func _draw_text_box(now: float, readout: String) -> void:
 	var r := TEXT_BOX
 	r.position.y = size.y - r.size.y - 4
 	var border := PixelFrame.BLUE
-	if alert and fmod(now, 0.4) < 0.2 and Time.get_ticks_msec() < _alert_until - 2500:
+	if alert and fmod(now, 0.4) < 0.2 and now * 1000.0 < _alert_until - 2500:
 		border = HOT  # the dealer just spoke
 	if _coach_showing():
 		var typed := _coach_typed(now)
