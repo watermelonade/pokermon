@@ -8,8 +8,15 @@ extends Control
 ## bumpers (or Q/E) size the raise, and the four back buttons (or 1-4) send
 ## a signal to your teammates. Input actions live in project.godot.
 ##
+## Heat: the dealer (watchful by default) notices signals. Both crews' Heat
+## shows top right, with the warning (40) and fine (70) lines marked; the
+## legend says what your next signal would cost. Get thrown out and your crew
+## forfeits the match.
+##
 ## Dev flags (after `--`): --autoplay lets a bot play your seat,
-## --screenshot=path.png saves the screen after --shot-after=seconds and quits.
+## --dealer=STRICT (or STREET, ASLEEP, RELAXED, WATCHFUL, BOUGHT) picks the
+## dealer, --screenshot=path.png saves the screen after --shot-after=seconds
+## and quits.
 
 const YOUR_CREW := Color("2f6f6a")
 const RIVALS := Color("7a3b2e")
@@ -19,6 +26,7 @@ const ROOM := Color("1d1a24")
 const TEXT := Color("f4ecd8")
 const QUIET := Color("a89f8c")
 const GOLD := Color("e8c35a")
+const HOT := Color("d9603b")
 const BOT_DELAY := 0.6
 const HUMAN := 0
 
@@ -39,6 +47,9 @@ var log_lines: Array[String] = []
 var banner := ""
 var raise_to := 0
 var autoplay := false
+var dealer_kind := Dealer.Kind.WATCHFUL
+var alert := ""  ## the dealer's latest words, above the controls
+var _alert_until := 0
 var _font: Font
 var _buttons: HBoxContainer
 var _fold: Button
@@ -60,6 +71,8 @@ func _ready() -> void:
 			shot_path = arg.get_slice("=", 1)
 		elif arg.begins_with("--shot-after="):
 			shot_after = float(arg.get_slice("=", 1))
+		elif arg.begins_with("--dealer="):
+			dealer_kind = Dealer.Kind.keys().find(arg.get_slice("=", 1)) as Dealer.Kind
 	_build_controls()
 	_new_match()
 	if shot_path:
@@ -100,19 +113,43 @@ func _new_match() -> void:
 		elif autoplay:
 			bot = PokerBot.new(PlayStyle.preset(PlayStyle.Kind.SHARK))
 		match_.add_player(CREW[i][0], CREW[i][1], 1000, bot)
+	match_.heat.dealer = Dealer.preset(dealer_kind)
 	var t := match_.table
 	t.action_taken.connect(_on_action)
 	t.street_dealt.connect(_on_street)
 	t.hand_finished.connect(_on_hand_finished)
+	match_.heat.warned.connect(func(team: int, _seat: int) -> void:
+		_dealer_says("Dealer to %s: \"Hands where I can see them.\"" % _crew_name(team)))
+	match_.heat.fined.connect(func(team: int, _seat: int) -> void:
+		_dealer_says("The floor fines %s: a dead big blind each, next hand." % _crew_name(team)))
+	match_.heat.ejection_called.connect(func(_team: int, seat: int) -> void:
+		_dealer_says("%s is thrown out after this hand!" % ("You are" if seat == HUMAN else t.seats[seat].name)))
 	log_lines.clear()
+	alert = ""
 	_next_hand()
+
+
+func _crew_name(team: int) -> String:
+	return "your crew" if team == match_.table.seats[HUMAN].team else "the rival crew"
+
+
+func _dealer_says(line: String) -> void:
+	alert = line
+	_alert_until = Time.get_ticks_msec() + 4000
+	_log(line)
+	queue_redraw()
 
 
 func _next_hand() -> void:
 	_waiting_for_next = false
-	if match_.is_over():
+	var thrown_out := match_.table.seats[HUMAN].ejected
+	if thrown_out or match_.is_over():
 		var w := match_.winner()
 		banner = "Your crew wins the match!" if w == 0 else ("The rival crew wins." if w == 1 else "A draw.")
+		if thrown_out:
+			banner = "You were thrown out. Your crew forfeits."
+		elif match_.caught_team() >= 0:
+			banner = "The floor caught their boss! " + banner
 		banner += "  Press A for a rematch."
 		_waiting_for_next = true
 		queue_redraw()
@@ -132,7 +169,7 @@ func _run() -> void:
 		if t.hand_over:
 			_waiting_for_next = true
 			get_tree().create_timer(3.0).timeout.connect(func() -> void:
-				if _waiting_for_next and not match_.is_over():
+				if _waiting_for_next and not match_.is_over() and not t.seats[HUMAN].ejected:
 					_next_hand())
 			return
 		if match_.waiting_on_human():
@@ -175,7 +212,7 @@ func _set_controls_visible(on: bool) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _waiting_for_next and event.is_action_pressed("ui_accept"):
-		if match_.is_over():
+		if match_.is_over() or match_.table.seats[HUMAN].ejected:
 			_new_match()
 		else:
 			_next_hand()
@@ -251,6 +288,9 @@ func _log(line: String) -> void:
 
 
 func _process(_delta: float) -> void:
+	if alert and Time.get_ticks_msec() > _alert_until:
+		alert = ""
+		queue_redraw()
 	if bubbles:
 		var now := Time.get_ticks_msec()
 		for seat: int in bubbles.keys():
@@ -285,6 +325,8 @@ func _draw() -> void:
 	_text(c + Vector2(0, 24), "Pot %d" % t.pot(), 10, TEXT, true)
 	if banner:
 		_text(c + Vector2(0, -34), banner, 10, GOLD, true)
+	if alert:
+		_text(Vector2(c.x, size.y - 42), alert, 8, HOT, true)  # clear of the bets
 
 	var showdown: bool = t.hand_over and not t.last_result.get("uncontested", true)
 	for i in t.seats.size():
@@ -293,13 +335,40 @@ func _draw() -> void:
 	# Log, top left; signal legend, bottom left.
 	for k in log_lines.size():
 		_text(Vector2(8, 12 + k * 10), log_lines[k], 8, QUIET)
-	_text(Vector2(8, 336), "Signals (back buttons, or 1-4):", 8, QUIET)
+	_text(Vector2(8, 326), "Signals (back buttons, or 1-4):", 8, QUIET)
 	for k in 4:
-		_text(Vector2(8, 348 + k * 10), "%d  %s: %s" % [k + 1, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], 8, QUIET)
+		_text(Vector2(8, 338 + k * 10), "%d  %s: %s" % [k + 1, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], 8, QUIET)
+	if match_.heat.dealer.watching() and not t.hand_over:
+		var cost := match_.heat.cost_of_next(HUMAN)
+		var hot := match_.heat.level(t.seats[HUMAN].team) + cost >= Heat.FINE
+		_text(Vector2(8, 384), "Next signal: +%d Heat" % roundi(cost), 8, HOT if hot else QUIET)
+	_draw_heat(Vector2(size.x - 196, 12))
 
 	# Controls along the bottom.
 	_buttons.position = Vector2(c.x - 120, size.y - 30)
 	_hint.position = Vector2(c.x + 128, size.y - 24)
+
+
+## The dealer, and a Heat bar per crew with the warning and fine lines.
+func _draw_heat(at: Vector2) -> void:
+	var heat := match_.heat
+	if not heat.dealer.watching():
+		_text(at, "No dealer: signal freely", 8, QUIET)
+		return
+	_text(at, "Dealer: %s" % heat.dealer.display_name(), 8, QUIET)
+	var mine := match_.table.seats[HUMAN].team
+	for k in 2:
+		var team := mine if k == 0 else 1 - mine
+		var y := at.y + 6 + k * 12
+		_text(Vector2(at.x, y + 7), "Your crew" if k == 0 else "Rivals", 8, QUIET)
+		var bar := Rect2(Vector2(at.x + 54, y), Vector2(132, 7))
+		draw_rect(bar, FELT_RIM)
+		var level := heat.level(team)
+		var color := QUIET if level < Heat.WARNING else (GOLD if level < Heat.FINE else HOT)
+		draw_rect(Rect2(bar.position, Vector2(bar.size.x * minf(level, Heat.EJECT) / Heat.EJECT, bar.size.y)), color)
+		for line in [Heat.WARNING, Heat.FINE]:
+			var x: float = bar.position.x + bar.size.x * line / Heat.EJECT
+			draw_line(Vector2(x, y - 1), Vector2(x, y + 8), TEXT)
 
 
 func _draw_seat(i: int, showdown: bool) -> void:
@@ -310,7 +379,7 @@ func _draw_seat(i: int, showdown: bool) -> void:
 	var toward := (c - p).normalized()
 	var badge := Rect2(p - Vector2(48, 15), Vector2(96, 30))
 	var team_color := YOUR_CREW if s.team == t.seats[HUMAN].team else RIVALS
-	if s.stack == 0 and s.hand_bet == 0 and t.hand_over:
+	if s.ejected or (s.stack == 0 and s.hand_bet == 0 and t.hand_over):
 		team_color = team_color.darkened(0.6)
 	if i == t.to_act:
 		draw_rect(badge.grow(2), GOLD)
@@ -318,6 +387,8 @@ func _draw_seat(i: int, showdown: bool) -> void:
 	_text(badge.position + Vector2(5, 11), s.name, 10, TEXT)
 	_text(badge.position + Vector2(91, 11), "%d" % s.stack, 10, TEXT, false, true)
 	var status: String = "folded" if s.folded else last_action.get(i, "")
+	if s.ejected:
+		status = "thrown out"
 	_text(badge.position + Vector2(5, 25), status, 8, QUIET)
 
 	# Hole cards, on the table side of the badge.
