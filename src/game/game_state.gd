@@ -11,6 +11,12 @@ extends RefCounted
 ## The party is stored as roster indices, not Animals: the roster only
 ## grows (nobody is released in the demo), so an index stays valid, and the
 ## save file needs no object references.
+##
+## Tutorial progress (Rosie's lessons, src/tutorial/): whether she's offered
+## them yet, so a new game asks once and never again, and whether you've
+## finished them. Both were added after saves existed: a save without them
+## is from someone already past the start, so it loads as offered (no
+## surprise lesson on Continue) and not done (the diner still offers it).
 
 const VERSION := 1
 const PARTY_SIZE := 2  ## animals who sit with you; you are the third seat
@@ -28,6 +34,8 @@ var facing := Vector2i.DOWN
 var heal_map := "diner"  ## where a blackout wakes you
 var heal_cell := Vector2i.ZERO
 var seen_intro := false
+var tutorial_offered := false  ## Rosie has asked "want me to show you?" (asked once, at the start)
+var tutorial_done := false  ## you played the lessons to the end
 
 
 ## A new run: the Owl and the Raccoon from the table demo, standing outside
@@ -150,6 +158,8 @@ func to_dict() -> Dictionary:
 		"heal_map": heal_map,
 		"heal_cell": [heal_cell.x, heal_cell.y],
 		"seen_intro": seen_intro,
+		"tutorial_offered": tutorial_offered,
+		"tutorial_done": tutorial_done,
 	}
 
 
@@ -189,6 +199,8 @@ static func from_dict(d: Dictionary) -> GameState:
 		s.heal_map = WorldMap.HEAL_MAP
 		s.heal_cell = WorldMap.HEAL_CELL
 	s.seen_intro = bool(d.get("seen_intro", true))
+	s.tutorial_offered = bool(d.get("tutorial_offered", true))
+	s.tutorial_done = bool(d.get("tutorial_done", false))
 	return s
 
 
