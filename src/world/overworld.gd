@@ -367,7 +367,7 @@ func _interact() -> void:
 			var data: Dictionary = npc_data[n]
 			var lines: Array = data["lines"]
 			if data["id"] == "rosie" and state.bracelets.size() > 0:
-				lines = ["The Mossbank bracelet! Pie for the champ, on the house."]
+				lines = ["The Mossbank bracelet! Pie for the champ. On the house. (Not that House, hon.)"]
 			await dialog.say(lines, str(data.get("name", str(data["id"]).capitalize())))
 			if data["id"] == "rosie":
 				await _rest_at_diner()
@@ -392,7 +392,7 @@ func _rest_at_diner() -> void:
 	await get_tree().create_timer(0.6).timeout
 	Game.save()
 	await _fade_in(0.4)
-	await dialog.say(["Your crew is fed, rested, and ready to play."], "Rosie")
+	await dialog.say(["There. Pie all round. Your crew is fed, rested and itching to play."], "Rosie")
 
 
 func _intro() -> void:
@@ -400,10 +400,10 @@ func _intro() -> void:
 	for a in state.party_animals():
 		names.append("%s the %s" % [a.name, Species.get_info(a.species)["display"]])
 	await dialog.say([
-		"Mossbank. Your crew is %s, and they're itching to play." % " and ".join(names),
-		"The Mossbank Open is tonight, at the hall at the far end of Ridge Road (east of town).",
-		"Rival crews wait along the road. Walk into their sight and they'll deal you in.",
-		"Arrows, WASD, D-pad or stick to walk. A, Enter or Space to talk. Start or Tab for the menu.",
+		"Morning, Mossbank! Your crew: %s. They've practised all week." % " and ".join(names),
+		"Tonight is the Mossbank Open, at the Tournament Hall, east along Ridge Road.",
+		"Rival crews wait on the road. Step into their sight and they'll deal you in.",
+		"Walk: arrows, WASD, D-pad or stick. Talk: A, Enter or Space. Menu: Start or Tab.",
 	])
 
 
@@ -429,7 +429,7 @@ func _open_start_menu() -> void:
 			_make_followers(player.cell, player.facing)
 		elif pick == 1:
 			Game.save()
-			await dialog.say(["Your progress has been saved. (The game also saves itself at every door and after every match.)"])
+			await dialog.say(["Saved! (The game also saves itself at every door and after every match.)"])
 		elif pick == 2:
 			await options_screen.open(Game.settings)
 		else:
@@ -551,11 +551,11 @@ func _physics_process(_delta: float) -> void:
 func _after_win(crew: Dictionary) -> void:
 	var reward := state.win_against(crew["id"], crew["reward"])
 	var title := _crew_title(crew)
-	await dialog.say(["You beat %s! They pay up: $%d." % [crew["name"], reward], crew["after"]], title)
+	await dialog.say(["You beat %s! They grumble and pay up: $%d." % [crew["name"], reward], crew["after"]], title)
 	if crew.has("bracelet"):
 		state.add_bracelet(crew["bracelet"])
 		Game.save()
-		await dialog.say(["You won the Mossbank Open! The Regulars hand over the Mossbank bracelet."])
+		await dialog.say(["You won the Mossbank Open! The Regulars hand over the bracelet. Slowly."])
 		await demo_complete.open(state, _road_crew_count())
 		return
 	await _offer_recruit(crew)
@@ -585,11 +585,11 @@ func _offer_recruit(crew: Dictionary) -> void:
 	node.queue_free()
 	Sfx.play(&"win_pot")  # until there's a proper recruit jingle
 	Sfx.voice(a.species)
-	await dialog.say(["%s joins your crew! Choose who sits with you from Crew in the Start menu (Start or Tab)." % a.name])
+	await dialog.say(["%s joins your crew! Pick who sits with you under Crew (Start or Tab)." % a.name])
 
 
 func _blackout(crew: Dictionary) -> void:
-	await dialog.say(["%s cleaned you out..." % _crew_title(crew), "You stagger back toward town, and everything goes dark."])
+	await dialog.say(["%s cleaned you out." % _crew_title(crew), "You wander back toward town, pockets flapping, and everything goes dark..."])
 	await _fade_out(0.6)
 	var lost := state.blackout()
 	_load_map(state.map_id, state.cell, state.facing)
@@ -597,8 +597,8 @@ func _blackout(crew: Dictionary) -> void:
 	await get_tree().create_timer(0.4).timeout
 	await _fade_in(0.6)
 	await dialog.say([
-		"Rough night, hon? You're at Rosie's. You dropped $%d on the way." % lost,
-		"Your crew's had some pie. They're ready to go again whenever you are."], "Rosie")
+		"Rough night, hon? You're at Rosie's. Your wallet's $%d lighter." % lost,
+		"Your crew's had pie and a little cry. They're ready when you are."], "Rosie")
 
 
 func _road_crew_count() -> int:

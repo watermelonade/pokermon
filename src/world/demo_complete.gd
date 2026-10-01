@@ -50,7 +50,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), UiKit.BG)
 	var cx := size.x / 2
 	UiKit.text(self, Vector2(cx, 64), "Demo complete!", 24, UiKit.GOLD, 1)
-	UiKit.text(self, Vector2(cx, 88), "You won the Mossbank Open and its bracelet.", 10, UiKit.TEXT, 1)
+	UiKit.text(self, Vector2(cx, 88), "You won the Mossbank Open. The bracelet is yours. So is the bragging.", 10, UiKit.TEXT, 1)
 	# The bracelet: a gold ring with a felt-green stone, turning slowly.
 	var c := Vector2(cx, 150)
 	var squash := 0.55 + 0.25 * sin(_t * 1.5)
@@ -66,7 +66,7 @@ func _draw() -> void:
 		if id != "mossbank_regulars":
 			beaten += 1
 	var lines := [
-		"Rival crews beaten on Ridge Road: %d of %d" % [beaten, crews_total],
+		"Ridge Road crews beaten: %d of %d" % [beaten, crews_total],
 		"Animals in your crew: %d" % state.roster.size(),
 		"Money: $%d" % state.money,
 	]
@@ -81,5 +81,5 @@ func _draw() -> void:
 	for i in n:
 		var at := Vector2(cx - n * 20 + i * 40 + 4, 296)
 		Critter.paint(self, String(state.roster[i].species), Vector2i.DOWN, at, 2.0)
-	UiKit.text(self, Vector2(cx, size.y - 30), "Thanks for playing. The next town is still being built.", 8, UiKit.QUIET, 1)
+	UiKit.text(self, Vector2(cx, size.y - 30), "Thanks for playing! The next town is still being built. Somewhere, a dog shuffles a deck.", 8, UiKit.QUIET, 1)
 	UiKit.text(self, Vector2(cx, size.y - 16), "Press A to keep exploring", 10, UiKit.GOLD if int(_t * 2) % 2 == 0 else UiKit.TEXT, 1)

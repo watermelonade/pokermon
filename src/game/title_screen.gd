@@ -96,7 +96,7 @@ func _draw() -> void:
 	for k in 3:
 		_card(c + Vector2(-34 + k * 24, -12))
 	UiKit.text(self, Vector2(cx, 62), "A Friend in Need", 32, UiKit.GOLD, 1)
-	UiKit.text(self, Vector2(cx, 84), "a team hold'em adventure", 10, UiKit.QUIET, 1)
+	UiKit.text(self, Vector2(cx, 84), "a team hold'em adventure. the animals are trying their best.", 10, UiKit.QUIET, 1)
 	# Menu.
 	var items := _options if not _confirming else ["Yes, start over", "No"]
 	var top := 312.0

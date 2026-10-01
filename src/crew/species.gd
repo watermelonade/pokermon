@@ -13,7 +13,7 @@ const CATALOG := {
 	&"owl": {
 		"display": "Owl",
 		"style": PlayStyle.Kind.ROCK,
-		"tell": "Hoots softly when it likes its cards",
+		"tell": "Hoots softly, despite itself, when it likes its cards",
 		"individuals": ["Sage", "Hoot", "Bramble", "Pip"],
 	},
 	&"raccoon": {
@@ -25,25 +25,25 @@ const CATALOG := {
 	&"goose": {
 		"display": "Goose",
 		"style": PlayStyle.Kind.MANIAC,
-		"tell": "Honks at a good flop",
+		"tell": "Can't help honking at a good flop",
 		"individuals": ["Honk", "Gertie", "Gander", "Waddles"],
 	},
 	&"cat": {
 		"display": "Cat",
 		"style": PlayStyle.Kind.SHARK,
-		"tell": "Its tail flicks with a strong hand",
+		"tell": "Its tail flicks with a strong hand (it thinks you can't see)",
 		"individuals": ["Duchess", "Whiskers", "Tom", "Mittens"],
 	},
 	&"squirrel": {
 		"display": "Squirrel",
 		"style": PlayStyle.Kind.CALLING_STATION,
-		"tell": "Stacks and restacks its chips when it's going to call",
+		"tell": "Stacks and restacks its chips before it calls",
 		"individuals": ["Nutmeg", "Acorn", "Hazel", "Chitter"],
 	},
 	&"possum": {
 		"display": "Possum",
 		"style": PlayStyle.Kind.ROCK,
-		"tell": "Goes perfectly still with a monster hand",
+		"tell": "Goes perfectly, suspiciously still with a monster hand",
 		"individuals": ["Marlo", "Dusty", "Pudding", "Graves"],
 	},
 }
