@@ -41,6 +41,11 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Held from the start: choosing Continue or New game changes the scene,
+	# which takes this node out of the tree at once, and get_viewport() is
+	# null after that (a script error on every start, found by
+	# tools/playtest.gd).
+	var viewport := get_viewport()
 	var d := UiKit.menu_dir(event)
 	if d.y != 0:
 		_cursor = wrapi(_cursor + d.y, 0, 2 if _confirming else _options.size())
@@ -51,7 +56,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_cursor = _options.find("New game")
 	else:
 		return
-	get_viewport().set_input_as_handled()
+	viewport.set_input_as_handled()
 
 
 func _choose() -> void:
