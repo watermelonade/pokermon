@@ -173,6 +173,42 @@ seen_intro_false part_only part_newer_main_truncated`, and since demo 2
 `alone_before_table`. The damaged batch is also lenient about the deck and
 gate checks, which a damaged deck legitimately breaks.
 
+## Runs on demo 2 (2026-10-01: the opening, the open table)
+
+`tools/test.sh soak` (R-PLAY), JOBS=4, on demo4/playtest with the world
+branch at 35a0bae merged: **pass**, 537 s of wall clock in all.
+
+- **20 fast runs** (seeds 1-20, `--pt-start=mix`: 10 and 20 play on from a
+  pre-demo save): all passed, all completed the demo (median 258 game
+  seconds to the bracelet, longest 778; median 75 s of wall clock a run,
+  longest 101). The 18 new games all found the four Aces (median 42 game
+  seconds), went through the gate onto the Mill Road (62 s), reached
+  Mossbank (70 s) and got Sage and Bandit from the open table (135 s). In
+  all: 54 Aces picked up and 18 given by Mags, 21 refusals at the gate, 76
+  times a dog alone stood in a crew's sight (none dealt it in), 77
+  open-table sessions (25 by random presses, 3 quit while seated), 175
+  cash hands, 221 encounters, 540 quit-and-continues, 7,691 saves read
+  back. Both pre-demo saves loaded past the opening (52 cards, opening
+  done, roster, party and place kept) and finished the demo.
+- **1 real run** (seed 1001, every crew match at the real table, chips
+  200, a quarter by random presses): passed, completed the demo in 64 s
+  of wall clock (the table's clock is the frame delta now; it took 20-40
+  minutes before), 4 real matches and one open-table session.
+- **Kill torture**, 10 kills (0.3-6.3 s into a run, a third while saving
+  100 or 2,000 extra times a frame), each followed by a load check that
+  now also holds the deck and the taken pickups to the floor: 10 passed.
+- Seed 7 (an open-table session in its first 15,000 frames) run twice
+  gives the same frames, final save and session: each table gets a seed
+  from the run's.
+- **Damaged saves** (`tools/playtest.sh damaged`, 51 kinds now, on a
+  post-opening save): all load and play on with no script error; 45 of 51
+  finished the demo. `pre_demo` and `pre_demo_alone` load past the opening
+  (the latter gets the starters back). `deck_dupes` loads with a 2-card
+  deck (see "What it found").
+
+Before the soak passed, 20 runs on an earlier version of these changes had
+2 failures, both the driver's own (below, 3): fixed, and both seeds pass.
+
 ## Runs so far (2026-10-01, on the fixes below)
 
 - **200 runs with skipped matches** (seeds 1-200, `--pt-after=120`): 37 min
@@ -237,7 +273,50 @@ Fixed (each with a test in `tests/test_save_safety.gd` where it's logic):
    unreadable (a crash between removing the old save and renaming, where
    the platform won't rename over a file).
 
-Reported, not fixed (in code other work owns this round):
+On demo 2 (2026-10-01), reported, not fixed (the game is other agents'
+work this round); nothing it found blocks the soak:
+
+1. **A save between the first sit and Sage and Bandit joining reads back
+   different** (every first session: 16 of 18 new games in the first 20
+   runs; noted as `crew_join_pending`). `OpenTable.play` saves after the
+   cash-out with `met_open_table` true and an empty roster, then the pair
+   join (and are saved) only after the cash-out line and their two lines.
+   The file loads with them already in the crew (`GameState.from_dict`
+   restores the pair for a run past the open table), so a quit during
+   those three lines (the window closing, a crash, a Deck suspend that
+   never comes back) gives Continue a crew that joined silently, and the
+   Binder loses where you met them ("Mossbank, at the open table"). Harmless
+   to progress; `_crew_joins` could run before that save, or the save
+   could wait for it. Replay (the note at frame 6418):
+   `XDG_DATA_HOME=$(mktemp -d) godot --headless --fixed-fps 60 --path . -s tools/playtest.gd -- --pt-seed=1 --pt-after=120 --pt-verbose`
+2. **Two forfeits at the open table before the crew joins strand the
+   dog** (`stranded` note; not hit in the soak). Quitting while seated
+   forfeits the buy-in by design (OpenTable's docstring), and the first
+   sit only counts once you get up (any finished session, win or lose,
+   brings the crew). Start with $200, quit seated twice, and you have $0,
+   no crew, a table that won't
+   seat you and crews that won't deal a dog alone in: the demo can't be
+   finished. Needs two window closes at the table; a design call (a
+   cheaper seat when broke, or the pair joining on the first sit down).
+3. **The quit run's open table finishes in the next frame** (seeds 6 and
+   18 of the first batch, `--pt-start=mix`): leaving the table emits
+   `left`, and OpenTable waits one frame before the cash-out. Quit in that
+   frame and the stack is forfeit like a quit while seated (a real quit
+   ends the process, so nothing else happens); under the playtester, whose
+   "quit" is a scene change, the old coroutine then cashed out into a
+   GameState nobody held and logged it. The driver now ignores that line;
+   the forfeit is by design, but it's a one-frame window where you've
+   left the table and still lose your stack.
+4. **A damaged deck is kept as it is** (`--pt-damage=deck_dupes`: a deck
+   of `[51, 51, 51, 0, 0]` loads as 2 cards; `deck_short_in_town`: 48
+   cards, standing in Mossbank). `from_dict` refills only a missing or
+   non-array deck; one that lost non-Ace cards can never reach 52, so a
+   run standing in Sootbridge could never pass the gate. Only through a
+   damaged file. Replay: `XDG_DATA_HOME=$(mktemp -d) godot --headless
+   --fixed-fps 60 --path . -s tools/playtest.gd -- --pt-seed=47
+   --pt-damage=deck_dupes --pt-lenient=deck_size,deck_cards,deck_pickups,gate_bypassed`
+
+Earlier rounds, reported, not fixed (in code other work owns this round):
 
 - **Closing during the blackout dialog skips the blackout** (64 times in
   200 runs): the last save is from before the match, so Continue puts you
