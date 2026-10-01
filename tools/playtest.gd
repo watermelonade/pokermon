@@ -8,28 +8,40 @@ extends SceneTree
 ##       -s tools/playtest.gd -- --pt-seed=7
 ##
 ## docs/PLAYTEST.md has the flags, the batch scripts (tools/playtest.sh) and
-## what's been found. In short, it walks (goal-directed walks to doors, crews,
-## townsfolk, signs and the hall, plus random wandering and wall bumps),
-## talks to everyone, opens the start menu and its screens and backs out,
-## saves, picks random menu options, recruits or declines, quits and
-## continues through the title (with or without saving first), and either
-## skips matches (deciding each one's result at random, like
-## --match-result) or plays them for real (a bot in your seat, or random
-## presses on the table's menu).
+## what's been found. In short, it plays demo 2 from the new game: the intro
+## (dialogs, A or B), then the dog alone in Sootbridge with a 48-card deck.
+## It walks (goal-directed walks to the Aces lying about, to Mags who gives
+## one, at the gate with and without the full deck, along the Mill Road, to
+## doors, crews, townsfolk, signs and the hall, plus random wandering and
+## wall bumps), talks to everyone, sits at Mossbank's open table (a bot in
+## your seat for a few hands, or random presses that leave with Start or B),
+## opens the start menu and its screens and backs out, saves, picks random
+## menu options, recruits or declines, quits and continues through the title
+## (with or without saving first), and either skips crew matches (deciding
+## each one's result at random, like --match-result) or plays them for real
+## (a bot in your seat, or random presses on the table's menu).
 ##
 ## What it checks, failing the run with the seed and a replay command:
 ## - script errors (a Logger, as tests/run_tests.gd installs);
 ## - softlocks: nothing on screen changes for 30 game seconds outside a
-##   table, or for 90 real seconds at one;
+##   table, or for 90 game seconds at one;
 ## - the player standing in a wall, off the map, on someone, or out of step
 ##   with the save state; no door reachable from where you stand;
 ## - every save: the file must read back identical to the state just saved;
 ## - quit-and-continue: the run must come back exactly as it was saved;
-## - money never negative; the party always full (2) and pointing at real
-##   roster animals, the followers matching it; nobody in the roster who
-##   wasn't a starter or in a crew you beat; nobody twice;
+## - money never negative; the party empty while the roster is (the dog
+##   alone, before the open table), else full (2) where the roster allows,
+##   pointing at real roster animals, the followers matching it; nobody in
+##   the roster but Sage and Bandit (the open table's two) and animals from
+##   crews you beat; nobody twice; Sage and Bandit there once you've sat;
+## - the deck: 48 to 52 cards, only ever growing, only Aces missing, 52
+##   exactly when all four Aces (three pickups and Mags's) are taken, a
+##   taken pickup never drawn again, and never past Sootbridge's gate with
+##   fewer than 52;
+## - no crew ever deals in a dog with no crew;
 ## - after each match: a win pays the reward and marks the crew beaten, a
-##   loss wakes you at the diner with half your money;
+##   loss wakes you at the diner with half your money; after each open-table
+##   session: money = before - buy-in + the stack you left with;
 ## - the bracelet only with the tournament beaten, and the reverse.
 ##
 ## Why a SceneTree script and not a mode in the game: it drives the real
@@ -39,9 +51,10 @@ extends SceneTree
 ## fields to know what's on screen (always through get(), so a rename makes
 ## the driver blind, not crash). Why headless with --fixed-fps: every frame
 ## is then exactly 1/60 s of game time however fast it runs, so the
-## overworld runs at hundreds of times real speed and a run with skipped
-## matches replays exactly from its seed. Real matches don't: the table runs
-## on the wall clock (see the time-scale note in docs/PLAYTEST.md).
+## overworld runs at hundreds of times real speed and a run replays exactly
+## from its seed. The table's clock follows the frame delta too (TableView
+## _now), so real tables run as fast as the CPU allows; only a run with real
+## matches against the wall-clock budget (--pt-seconds) can differ.
 
 const TITLE_SCENE := "res://scenes/title.tscn"
 const WORLD_SCENE := "res://scenes/world/overworld.tscn"
@@ -51,11 +64,16 @@ const BUSY := 1
 const TABLE := 2
 const FLOW_HUMAN := 1  ## TableView.Flow
 const FLOW_HAND_DONE := 2
+const FLOW_MATCH_DONE := 3
 const DIRS: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
 const DIR_ACTION := {Vector2i.UP: "move_up", Vector2i.DOWN: "move_down", Vector2i.LEFT: "move_left", Vector2i.RIGHT: "move_right"}
 const SOFTLOCK_FRAMES := 1800  ## 30 game seconds with nothing changing
-const TABLE_STALL_MS := 90000
-const TABLE_MATCH_MS := 900000  ## a real match longer than 15 minutes is a failure too
+## At a table, in game frames (the table's clock is the frame delta): 90
+## game seconds unchanged is a softlock, a match over 15 game minutes too.
+const TABLE_STALL_FRAMES := 60 * 90
+const TABLE_MATCH_FRAMES := 60 * 60 * 15
+## Mossbank's open table (WorldMap.OPEN_TABLE): who may join from it.
+const OPEN_TABLE_CREW := [["owl", 0], ["raccoon", 0]]
 
 
 class Watch:
@@ -109,10 +127,12 @@ var p_close := 0.0015  ## per frame, outside walking: close the window right now
 var p_focus := 0.002  ## per frame: the window loses focus (which saves)
 var lenient := {}  ## failure kinds only noted, not failed (damaged saves are allowed to be odd)
 var after_complete := 300  ## decisions to keep playing after the demo-complete screen
-var start := "new"
+var start := "new"  ## new, continue, old (a pre-demo save), or mix (old every 10th seed)
 var damage := ""
 var keep_going := false
 var save_spam := 0
+var p_cash_human := 0.3  ## an open-table session played by random presses rather than a bot
+var cash_hands_max := 4  ## a bot in your seat gets up after 1 to this many hands
 
 # Driver state.
 var ops: Array = []  ## queued primitive inputs while walking: see _do_ops
@@ -128,7 +148,12 @@ var noted_cutoffs := {}
 var stats := {"decisions": 0, "closes": 0, "focus_saves": 0, "continue_moved": 0, "steps": 0, "encounters": 0, "wins": 0, "losses": 0, "real_matches": 0,
 	"recruits": 0, "saves": 0, "reloads": 0, "talks": 0, "menus": 0, "doors": 0, "bumps": 0,
 	"maps": {}, "demo_complete": false, "reached_hall": false, "title_new_declined": 0,
-	"match_ms": [], "frames_to_complete": 0}
+	"match_ms": [], "frames_to_complete": 0,
+	# Demo 2's opening and the open table.
+	"old_save": false, "aces": 0, "pickups": 0, "gifts": 0, "gate_refusals": 0, "gate_walks": 0,
+	"frames_to_deck": 0, "frames_to_mill_road": 0, "frames_to_town": 0, "frames_to_crew": 0,
+	"cash_sessions": 0, "cash_human": 0, "cash_hands": 0, "cash_net": 0, "cash_forfeits": 0,
+	"cash_offers": 0, "cash_declined": 0, "alone_in_sight": 0}
 var last_saved := ""  ## the last save file's contents, normalized
 var reload_expect := ""  ## after a quit: what Continue must bring back
 var want_new_game := false
@@ -137,7 +162,8 @@ var sig_hash := 0
 var sig_frame := 0
 var table_seen: Object = null
 var table_started_ms := 0
-var table_sig_ms := 0
+var table_started_frame := 0
+var table_sig_frame := 0
 var table_frames := 0  ## frames spent at real tables: not counted against --pt-frames
 var table_hand := 0
 var in_table := false
@@ -149,6 +175,19 @@ var encounter_crew := ""
 var completed_at_decision := -1
 var prev_mode := -1
 var settings_before := {}
+var from_old_save := false  ## the run began from a save written before demo 2 (no deck)
+var deck_max := 0  ## the most cards held so far: the deck only grows
+var inside_gate := {}  ## map id -> {cell: true} reachable from the start with the gates shut
+var opening_ids: Array[String] = []  ## the four Aces' pickup ids (ground and gift)
+var cash := {}  ## the open-table session in progress: money before, buy-in, first sit
+var cash_mode := "auto"  ## how this session is played: auto (a bot) or human (random presses)
+var cash_target := 0  ## human mode: leave after this many hands
+var cash_stack := -1  ## your stack at the cash table, last seen
+var join_expected := false  ## the first sit is over: Sage and Bandit must be in the roster
+var money_seen := -1  ## money at the last checked frame (the buy-in is checked against it)
+var gate_dialog_seen := false
+var alone_cell := Vector2i(-999, -999)
+var stranded_noted := false
 
 
 func _init() -> void:
@@ -174,6 +213,10 @@ func _init() -> void:
 	damage = args.get("damage", "")
 	keep_going = args.has("keep-going")
 	save_spam = int(args.get("save-spam", "0"))
+	p_cash_human = float(args.get("cash-human", str(p_cash_human)))
+	cash_hands_max = maxi(1, int(args.get("cash-hands", str(cash_hands_max))))
+	if start == "mix":
+		start = "old" if seed_value % 10 == 0 else "new"
 	started_ms = Time.get_ticks_msec()
 	node_added.connect(_on_node_added)
 	process_frame.connect(_tick)
@@ -195,9 +238,19 @@ func _setup() -> void:
 			SaveFile.erase(game.save_path)
 		"continue":
 			pass  # whatever the slot holds (the kill torture continues its own runs)
+		"old":
+			_write_damaged("pre_demo")  # a save from before demo 2: no deck fields
 	if damage:
 		_write_damaged(damage)
-	if start == "continue" or damage:
+	opening_ids = _opening_ids()
+	inside_gate = _inside_gate()
+	if FileAccess.file_exists(game.save_path):
+		# A save without a deck is from before demo 2: a run past the opening
+		# whose roster (the old starters) and pickups (none) follow the old rules.
+		var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(game.save_path))
+		from_old_save = raw is Dictionary and raw.has("roster") and not raw.has("deck")
+		stats["old_save"] = from_old_save
+	if start != "new" or damage:
 		_check_slot_on_disk("start")
 	_log("start %s seed %d%s" % [start, seed_value, (" damage " + damage) if damage else ""])
 	change_scene_to_file(TITLE_SCENE)
@@ -239,6 +292,7 @@ func _tick() -> void:
 			# (a mashed A can start an encounter on its first free frame).
 			last_world = scene
 			_check_continue()
+			_check_old_save_loaded()
 		_check_softlock(scene)
 		if not done:
 			_check_world(scene)
@@ -287,8 +341,8 @@ func _act_world(ow: Node) -> void:
 		if mode == WALK:
 			_on_walk_again(ow)
 		prev_mode = mode
-	# At a real table frames are real-time sixtieths: far rarer there, or no
-	# match would ever finish.
+	# Far rarer at a table, or few matches would ever finish (a table runs
+	# many more frames than the walk between two of them).
 	var at_table: bool = ow.get("table") != null
 	if mode != WALK and rng.randf() < p_close * (0.01 if at_table else 1.0):
 		# Closing the window saves (Game._notification) and quits, mid-dialog,
@@ -306,8 +360,9 @@ func _act_world(ow: Node) -> void:
 		return
 	if in_table:  # (a freed table compares equal to null, so a flag)
 		in_table = false
-		stats["match_ms"].append(Time.get_ticks_msec() - table_started_ms)
-		_log("table closed after %d s" % ((Time.get_ticks_msec() - table_started_ms) / 1000))
+		if not cash:  # crew matches and lessons (an open-table session has its own stats)
+			stats["match_ms"].append(Time.get_ticks_msec() - table_started_ms)
+		_log("table closed after %d s (%d game s)" % [(Time.get_ticks_msec() - table_started_ms) / 1000, (frame - table_started_frame) / 60])
 		table_seen = null
 		table_hand = 0
 	if cooldown > 0:
@@ -366,28 +421,35 @@ func _other_screen(ow: Node) -> String:
 
 ## Real matches: a bot plays your seat (autoplay) or the driver presses
 ## random buttons. A is pressed between hands (skipping the pause) and when
-## the match is over. The table runs on the wall clock, so the frame rate is
-## capped meanwhile instead of spinning.
+## the match is over. The table's clock is the frame delta, so headless it
+## runs as fast as the CPU allows (it used to be the wall clock, and this
+## slept 15 ms a frame to keep from spinning).
 func _act_table(_ow: Node, table: Object) -> void:
 	_release_move()
-	# Engine.max_fps doesn't hold headless with --fixed-fps: sleep instead,
-	# about a 60 Hz frame (the table's clock is the wall clock anyway).
-	OS.delay_msec(15)
 	table_frames += 1
-	var now := Time.get_ticks_msec()
 	var hand: int = table.get("match_").get("table").get("hand_number")
 	if hand != table_hand:
 		table_hand = hand
 		_log("table: hand %d" % hand)
+		if table.get("cash_game"):
+			stats["cash_hands"] += 1
 	if table != table_seen:
 		table_seen = table
 		in_table = true
-		table_started_ms = now
-		table_sig_ms = now
-		stats["real_matches"] += 1
-		_log("table: %s, %d chips, %s" % [table_mode, int(table.get("starting_chips")), "max %d hands" % int(table.get("max_hands"))])
-	if now - table_started_ms > TABLE_MATCH_MS:
-		_fail("match_too_long", "a real match ran %d s" % ((now - table_started_ms) / 1000))
+		table_started_ms = Time.get_ticks_msec()
+		table_started_frame = frame
+		table_sig_frame = frame
+		if table.get("cash_game"):
+			_log("table: open table, %s, buy-in %d, %d seats" % [cash_mode, int(table.get("buy_in")), (table.get("setup") as Array).size()])
+			_check_cash_seats(table)
+		else:
+			stats["real_matches"] += 1
+			_log("table: %s, %d chips, %s" % [table_mode, int(table.get("starting_chips")), "max %d hands" % int(table.get("max_hands"))])
+	if frame - table_started_frame > TABLE_MATCH_FRAMES:
+		_fail("match_too_long", "a real match ran %d game s" % ((frame - table_started_frame) / 60))
+		return
+	if table.get("cash_game"):
+		_act_cash(table)
 		return
 	if cooldown > 0:
 		cooldown -= 1
@@ -412,19 +474,96 @@ func _act_table(_ow: Node, table: Object) -> void:
 	if flow == FLOW_HAND_DONE and rng.randf() < 0.7:
 		_press("ui_accept")
 	elif flow == FLOW_HUMAN and table_mode == "human":
+		_random_table_press()
+
+
+## Your turn, played by a restless thumb: moves, A, B, raise sizes,
+## signals (a cash table ignores them), help.
+func _random_table_press() -> void:
+	var r := rng.randf()
+	if r < 0.45:
+		_press(["ui_left", "ui_right", "ui_up", "ui_down"][rng.randi_range(0, 3)])
+	elif r < 0.8:
+		_press("ui_accept")
+	elif r < 0.86:
+		_press("ui_cancel")
+	elif r < 0.92:
+		_press(["raise_more", "raise_less"][rng.randi_range(0, 1)])
+	elif r < 0.97:
+		_press("signal_%d" % rng.randi_range(1, 4))
+	else:
+		_press("help")
+
+
+## Mossbank's open table (TableView.cash_game). With a bot in your seat
+## ("auto") the table gets up by itself after cash-hands hands, or when you
+## bust or clean the table out, and A takes the banner; between hands A
+## skips the pause. "human": random presses on your turn, now and then
+## Start mid-hand (leave once the hand is over) or Start / B between hands,
+## which opens "Leave the table?"; that's answered at random (leave, Stay,
+## or B) until enough hands are played, then it's leave.
+func _act_cash(table: Object) -> void:
+	var t: Object = table.get("match_").get("table")
+	var you: Object = (t.get("seats") as Array)[0]
+	if not table.get("_left_sent"):
+		cash_stack = int(you.get("stack"))
+	if cooldown > 0:
+		cooldown -= 1
+		return
+	cooldown = rng.randi_range(3, 12)
+	if table.call("is_waiting_to_continue"):
+		_log("open table: over (%s), A" % str(table.get("_match_banner")))
+		_press("ui_accept")
+		return
+	var flow: int = table.get("_flow")
+	var played: int = int(t.get("hand_number"))
+	if table.get("_leave_open"):
+		var want_leave := cash_mode == "auto" or played >= cash_target or rng.randf() < 0.3
+		var cursor: int = table.get("_leave_cursor")
 		var r := rng.randf()
-		if r < 0.45:
-			_press(["ui_left", "ui_right", "ui_up", "ui_down"][rng.randi_range(0, 3)])
-		elif r < 0.8:
-			_press("ui_accept")
-		elif r < 0.86:
+		if r < 0.1:
+			_log("open table: B at the leave prompt")
 			_press("ui_cancel")
-		elif r < 0.92:
-			_press(["raise_more", "raise_less"][rng.randi_range(0, 1)])
-		elif r < 0.97:
-			_press("signal_%d" % rng.randi_range(1, 4))
+		elif cursor == (0 if want_leave else 1):
+			_log("open table: %s after %d hands" % ["leave" if cursor == 0 else "stay", played])
+			_press("ui_accept")
 		else:
-			_press("help")
+			_press(["ui_up", "ui_down"][rng.randi_range(0, 1)])
+		return
+	if cash_mode == "auto":
+		if flow == FLOW_HAND_DONE and rng.randf() < 0.7:
+			_press("ui_accept")
+		return
+	if flow == FLOW_HAND_DONE:
+		var r := rng.randf()
+		if played >= cash_target and r < 0.8:
+			_press("menu" if rng.randf() < 0.5 else "ui_cancel")
+		elif r < 0.08:
+			_press("menu" if rng.randf() < 0.5 else "ui_cancel")  # ask, maybe stay
+		elif r < 0.6:
+			_press("ui_accept")
+	elif flow == FLOW_HUMAN:
+		if played >= cash_target and rng.randf() < 0.1:
+			_press("menu")  # leave once this hand is over
+		else:
+			_random_table_press()
+	elif rng.randf() < 0.02:
+		_press("menu")  # mid-hand, a bot to act: ask to leave after it
+
+
+## The seats at an open table: you (the dog) at seat 0, then its players,
+## none of whom has joined you.
+func _check_cash_seats(table: Object) -> void:
+	var setup: Array = table.get("setup")
+	if setup.is_empty() or setup[0].get("animal") == null or setup[0]["animal"].species != &"dog":
+		_fail("cash_seats", "seat 0 at the open table isn't the dog: %s" % [setup.slice(0, 1)])
+		return
+	for i in range(1, setup.size()):
+		var a: Animal = setup[i]["animal"]
+		if game.state.has_animal(a.species, a.name):
+			_fail("cash_seats", "%s sits at the open table but is in your crew" % a.name)
+		if setup[i]["team"] == setup[0]["team"]:
+			_fail("cash_seats", "%s is on your team at the open table" % a.name)
 
 
 func _act_options(options: Control) -> void:
@@ -464,6 +603,13 @@ func _act_menu(menu: Control) -> void:
 			# Any option (Crew, Save, Options, Close...), or B / Start to close.
 			var r := rng.randf()
 			target = -1 if r < 0.12 else (-2 if r < 0.2 else rng.randi_range(0, options.size() - 1))
+		elif str(menu.get("_title")).begins_with("Sit in?"):
+			# The open table's seat: mostly yes (the crew comes from there).
+			stats["cash_offers"] += 1
+			var r := rng.randf()
+			target = 0 if r < 0.7 else (1 if r < 0.9 else -1)
+			if target != 0:
+				stats["cash_declined"] += 1
 		else:
 			target = rng.randi_range(0, options.size() - 1) if rng.randf() < 0.85 else -1
 		if target == -1:
@@ -570,26 +716,50 @@ func _plan(ow: Node) -> void:
 		ops.append({"op": "hold", "action": DIR_ACTION[d], "frames": rng.randi_range(1, 60)})
 	elif r < 0.25:
 		ops.append({"op": "wait", "frames": rng.randi_range(5, 60)})
-	elif r < 0.45:
+	elif r < 0.42:
 		_go_talk(ow)
-	elif r < 0.55:
+	elif r < 0.50:
 		_go_door(ow)
-	elif r < 0.62:
+	elif r < 0.56:
 		_go_random(ow)
-	elif r < 0.72 and m.id == "town":
+	elif r < 0.66 and m.id == "town":
 		_go_crew(ow)
-	elif r < 0.76:
+	elif r < 0.66 and not m.pickups().is_empty():
+		_go_pickup(ow, true)  # any of them, taken ones too: a taken card stays gone
+	elif r < 0.70:
 		_go_vacated(ow)
+	elif r < 0.74 and not m.gates.is_empty():
+		_go_gate(ow)
+	elif r < 0.78 and m.id == "town":
+		_go_open_table(ow)
 	else:
 		_go_progress(ow)
 	if ops.is_empty():
 		ops.append({"op": "wait", "frames": rng.randi_range(1, 10)})
 
 
+## Toward the end of the demo: the Aces (Mags's, the ones lying about,
+## the washhouse), through the gate, along the Mill Road, a seat at the
+## open table (the crew comes from there), then Ridge Road and the hall.
 func _go_progress(ow: Node) -> void:
 	var m: WorldMap = ow.get("map")
+	var state: GameState = game.state
 	match m.id:
+		"sootbridge", "washhouse":
+			if not state.has_full_deck():
+				if _go_pickup(ow, false) or _go_giver(ow):
+					return
+				for w: Dictionary in m.warps:  # the rest are elsewhere (the washhouse)
+					if w["to"] != "mill_road" and _path_to(ow, [w["cell"]], "progress: the Aces are elsewhere, door to %s" % w["to"]):
+						return
+				_go_random(ow)
+				return
+			_go_warp_to(ow, "mill_road" if m.id == "sootbridge" else "sootbridge", "progress: out of town")
+		"mill_road":
+			_go_warp_to(ow, "town" if state.has_full_deck() else "sootbridge", "progress: along the Mill Road")
 		"town":
+			if state.party.is_empty() and _go_open_table(ow):
+				return
 			for w: Dictionary in m.warps:
 				if w["to"] == "hall":
 					_path_to(ow, [w["cell"]], "progress: the hall")
@@ -604,6 +774,74 @@ func _go_progress(ow: Node) -> void:
 			_go_door(ow)
 		_:
 			_go_door(ow)
+
+
+func _go_warp_to(ow: Node, to: String, why: String) -> bool:
+	var m: WorldMap = ow.get("map")
+	var cells: Array = []
+	for w: Dictionary in m.warps:
+		if w["to"] == to:
+			cells.append(w["cell"])
+	if _path_to(ow, cells, "%s (to %s)" % [why, to]):
+		stats["doors"] += 1
+		return true
+	return false
+
+
+## A card lying on this map: one still waiting (`any`: or one already
+## taken, to step on its spot again: nothing must happen). Stepping on it
+## takes it (the overworld's _arrived), so the walk ends there.
+func _go_pickup(ow: Node, any: bool) -> bool:
+	var m: WorldMap = ow.get("map")
+	var state: GameState = game.state
+	var cells: Array = []
+	for p: Dictionary in m.pickups():
+		if any or state.pickup_waiting(p["id"], p["card"]):
+			cells.append(p["cell"])
+	if cells.is_empty():
+		return false
+	var pick: Vector2i = cells[rng.randi_range(0, cells.size() - 1)]
+	return _path_to(ow, [pick], "to the card at %s%s" % [pick, "" if any else " (waiting)"])
+
+
+## The townsperson with an Ace for you (Mags), while it's still hers to give.
+func _go_giver(ow: Node) -> bool:
+	var state: GameState = game.state
+	for n: Object in ow.get("npc_nodes"):
+		var data: Dictionary = (ow.get("npc_data") as Dictionary).get(n, {})
+		if data.has("gives_card") and state.pickup_waiting(data["gives_card"]["id"], data["gives_card"]["card"]):
+			if _talk_to(ow, n.get("cell"), "to %s for the card" % data["id"]):
+				stats["talks"] += 1
+				return true
+	return false
+
+
+## Into Sootbridge's gate, whatever the deck: with Aces missing the step is
+## refused with a line and you stay on the town side (checked every frame:
+## gate_bypassed); with all 52 you walk through.
+func _go_gate(ow: Node) -> void:
+	var m: WorldMap = ow.get("map")
+	var cells: Array = []
+	for g: Dictionary in m.gates:
+		cells.append_array(g["cells"])
+	if _path_to(ow, cells, "into the gate (%d cards)" % game.state.deck.size()):
+		stats["gate_walks"] += 1
+
+
+## One of the open table's players, to be offered a seat.
+func _go_open_table(ow: Node) -> bool:
+	var data: Dictionary = ow.get("npc_data")
+	var targets: Array = []
+	for n: Object in ow.get("npc_nodes"):
+		if (data.get(n, {}) as Dictionary).has("open_table"):
+			targets.append(n.get("cell"))
+	if targets.is_empty():
+		return false
+	var t: Vector2i = targets[rng.randi_range(0, targets.size() - 1)]
+	if _talk_to(ow, t, "to the open table's player at %s" % t):
+		stats["talks"] += 1
+		return true
+	return false
 
 
 ## Somewhere a townsperson or crew member stands when the map loads but
@@ -792,6 +1030,13 @@ func _reload(ow: Node, save: bool, closing := false) -> void:
 		elif expect["won"]:
 			_note("recruit_skipped", "closed during the win dialogs against %s: Continue has them beaten, the recruit offer is gone" % expect["crew"])
 		expect = {}
+	if cash:
+		# Quit while seated: the buy-in was saved when you sat down, the stack
+		# in front of you is forfeit (OpenTable's docstring), and the first sit
+		# didn't happen as far as the crew goes.
+		stats["cash_forfeits"] += 1
+		_note("cash_forfeited", "quit at the open table: the $%d buy-in is gone, Continue has you standing by the table" % int(cash["buy_in"]))
+		cash = {}
 	title_detour = rng.randf() < 0.3
 	_log("quit%s and continue (expect %s)" % [" after saving" if save else " without saving", _brief(reload_expect)])
 	ops.clear()
@@ -803,11 +1048,47 @@ func _reload(ow: Node, save: bool, closing := false) -> void:
 # --- What the game says -------------------------------------------------------
 
 func _on_game_line(line: String) -> void:
+	var state: GameState = game.state
 	if line.begins_with("encounter: "):
 		encounter_crew = line.substr(11).get_slice(" ", 0)
-		encounter_money = game.state.money
+		encounter_money = state.money
 		stats["encounters"] += 1
 		_log(line)
+		if state.party.is_empty():
+			_fail("spotted_alone", "a crew dealt in a dog with no crew: %s" % line)
+	elif line.begins_with("picked up ") or line.begins_with("given "):
+		# A card taken: the deck grew by exactly one (the frame checks hold
+		# the rest: 52 iff all four taken, never drawn again).
+		stats["pickups" if line.begins_with("picked") else "gifts"] += 1
+		_log(line)
+		if state.deck.size() != deck_max + 1:
+			_fail("deck_pickup", "%s: the deck went from %d to %d cards" % [line, deck_max, state.deck.size()])
+		deck_max = maxi(deck_max, state.deck.size())
+		if state.has_full_deck() and not stats["frames_to_deck"]:
+			stats["frames_to_deck"] = frame
+	elif line.begins_with("open table: sat down for $"):
+		var buy_in := int(line.get_slice("$", 1))
+		cash = {"before": money_seen, "buy_in": buy_in, "first": not state.met_open_table}
+		stats["cash_sessions"] += 1
+		_log(line)
+		if state.money != money_seen - buy_in:
+			_fail("cash_buy_in", "sat down for $%d with $%d: money is now $%d" % [buy_in, money_seen, state.money])
+	elif line.begins_with("open table: left with "):
+		var chips := int(line.substr(22).get_slice(" ", 0))
+		_log(line)
+		if cash.is_empty():
+			_fail("cash_money", "left the open table without having sat down: " + line)
+			return
+		var want: int = cash["before"] - cash["buy_in"] + chips
+		if state.money != want:
+			_fail("cash_money", "open table: $%d before, $%d buy-in, left with %d: money is $%d, not $%d"
+				% [cash["before"], cash["buy_in"], chips, state.money, want])
+		if cash_stack >= 0 and chips != cash_stack:
+			_fail("cash_money", "open table: left with %d but the stack in front of you was %d" % [chips, cash_stack])
+		stats["cash_net"] += chips - int(cash["buy_in"])
+		if cash["first"]:
+			join_expected = true
+		cash = {}
 	elif line.begins_with("match against "):
 		var crew_id := line.substr(14).get_slice(":", 0)
 		var won := line.ends_with("won")
@@ -818,9 +1099,25 @@ func _on_game_line(line: String) -> void:
 		_log(line)
 
 
+## A table is being added (before its _ready): who plays your seat, and a
+## seed for its deal and bots from the run's own, so a run with tables
+## replays from its seed too (TableView reads Game.dev_args "seed").
 func _on_node_added(node: Node) -> void:
 	var s: Script = node.get_script()
-	if s and s.resource_path == TABLE_SCRIPT and table_mode == "auto":
+	if s == null or s.resource_path != TABLE_SCRIPT:
+		return
+	game.dev_args["seed"] = str(rng.randi_range(1, 1 << 30))
+	if node.get("cash_game"):
+		# The open table: a bot for a few hands, or random presses.
+		cash_mode = "human" if rng.randf() < p_cash_human else "auto"
+		cash_target = rng.randi_range(1, cash_hands_max)
+		game.dev_args["cash-hands"] = str(cash_target)
+		cash_stack = -1
+		if cash_mode == "auto":
+			node.set("autoplay", true)
+		else:
+			stats["cash_human"] += 1
+	elif table_mode == "auto":
 		node.set("autoplay", true)
 
 
@@ -832,6 +1129,13 @@ func _on_walk_again(ow: Node) -> void:
 	if expect:
 		_check_match_outcome(state)
 		expect = {}
+	if join_expected:
+		# After the first sit, win or lose: Sage and Bandit are in the crew.
+		join_expected = false
+		for e: Array in OPEN_TABLE_CREW:
+			var a := Species.individual(StringName(e[0]), e[1])
+			if not state.has_animal(a.species, a.name):
+				_fail("crew_join", "the first sit at the open table is over and %s isn't in the roster %s" % [a.name, _roster_names(state)])
 	if state.bracelets.has("mossbank") and completed_at_decision < 0:
 		completed_at_decision = stats["decisions"]
 		stats["demo_complete"] = true
@@ -868,6 +1172,26 @@ func _moved_off_taken_cell(saved_norm: String, state: GameState) -> String:
 
 func _cell_json(cell: Vector2i) -> String:
 	return '"cell":' + JSON.stringify([cell.x, cell.y])
+
+
+func _allowed_open_table(a: Animal) -> bool:
+	for e: Array in OPEN_TABLE_CREW:
+		if a.species == StringName(e[0]) and a.name == Species.individual(StringName(e[0]), e[1]).name:
+			return true
+	return false
+
+
+## The state just saved has sat at the open table with nobody in the roster,
+## and the file loads with Sage and Bandit seated, all else the same.
+func _crew_join_pending(want: String, got: String) -> bool:
+	var a: Dictionary = JSON.parse_string(want)
+	var b: Dictionary = JSON.parse_string(got)
+	if not a.get("met_open_table", false) or not (a.get("roster", []) as Array).is_empty():
+		return false
+	for k in ["roster", "party", "seen", "recruited"]:
+		a.erase(k)
+		b.erase(k)
+	return JSON.stringify(a, "", true) == JSON.stringify(b, "", true)
 
 
 func _only_bracelets_added(want: String, got: String) -> bool:
@@ -907,6 +1231,31 @@ func _check_continue() -> void:
 		reload_expect = ""
 
 
+## A run from a pre-demo save (--pt-start=old): the first world it loads is
+## past the opening: all 52 cards, opening_done, the roster and party, map
+## and cell as the old save had them (GameState.from_dict, S-OLD).
+func _check_old_save_loaded() -> void:
+	if start != "old" or stats.has("old_save_checked"):
+		return
+	stats["old_save_checked"] = true
+	var state: GameState = game.state
+	var problems: Array[String] = []
+	if not state.has_full_deck():
+		problems.append("%d cards" % state.deck.size())
+	if not state.opening_done:
+		problems.append("opening not done")
+	if _roster_names(state) != str(["Sage", "Bandit", Species.individual(&"goose", 0).name]):
+		problems.append("roster %s" % _roster_names(state))
+	if str(state.party) != str([0, 1]):
+		problems.append("party %s" % [state.party])
+	if state.map_id != "town" or state.cell != Vector2i(40, 12):
+		problems.append("at %s %s" % [state.map_id, state.cell])
+	if problems:
+		_fail("old_save_load", "a pre-demo save loaded wrong: " + ", ".join(problems))
+	else:
+		_log("the pre-demo save loaded past the opening")
+
+
 func _check_match_outcome(state: GameState) -> void:
 	var e := expect
 	if e["won"]:
@@ -928,7 +1277,11 @@ func _check_match_outcome(state: GameState) -> void:
 
 func _on_saved() -> void:
 	stats["saves_written"] = stats.get("saves_written", 0) + 1
-	stats["recruits"] = maxi(stats["recruits"], game.state.roster.size() - 2)
+	var recruits := 0
+	for a in game.state.roster:
+		if not _allowed_open_table(a):
+			recruits += 1
+	stats["recruits"] = maxi(stats["recruits"], recruits)
 	var want := _norm(game.state.to_dict())
 	var path: String = game.save_path
 	var loaded := SaveFile.read(path)
@@ -947,6 +1300,13 @@ func _on_saved() -> void:
 		b.erase("party")
 		if JSON.stringify(a, "", true) == JSON.stringify(b, "", true):
 			got = want
+	if got != want and _crew_join_pending(want, got):
+		# Saved between getting up from the first sit (met_open_table, the
+		# cash-out) and Sage and Bandit joining (the next save, after their
+		# lines): the load seats them (GameState.from_dict), without the
+		# Binder's "where you met it".
+		_note("crew_join_pending", "saved after the first sit, before Sage and Bandit joined; the load adds them")
+		got = want
 	if got != want and _only_bracelets_added(want, got):
 		# Saved between beating the Regulars and the bracelet (the window
 		# closed during the win dialog): the load gives the bracelet.
@@ -963,7 +1323,8 @@ func _on_saved() -> void:
 		# lag behind it, never claim more).
 		var floor := FileAccess.open(path + ".floor", FileAccess.WRITE)
 		if floor:
-			floor.store_string(JSON.stringify({"beaten": game.state.beaten.keys(), "roster": game.state.roster.size()}))
+			floor.store_string(JSON.stringify({"beaten": game.state.beaten.keys(), "roster": game.state.roster.size(),
+				"deck": game.state.deck.size(), "taken": game.state.taken_pickups.keys()}))
 			floor.close()
 
 
@@ -983,10 +1344,15 @@ func _check_world(ow: Node) -> void:
 	stats["maps"][m.id] = true
 	if m.id == "hall":
 		stats["reached_hall"] = true
+	money_seen = state.money
+	_check_deck_grows(state)
+	_check_milestones(state, m)
+	_check_gate_dialog(ow, state, m)
 	if mode != WALK or ow.get("_moving"):
 		return
 	var player: Object = ow.get("player")
 	var cell: Vector2i = player.get("cell")
+	_check_opening(ow, state, m, cell)
 	if cell != state.cell or m.id != state.map_id:
 		_fail("position_desync", "player at %s %s, state says %s %s" % [m.id, cell, state.map_id, state.cell])
 	if not m.in_bounds(cell):
@@ -1018,6 +1384,126 @@ func _check_world(ow: Node) -> void:
 			_note("hall_cut_off", "the hall door can't be reached from %s past the crews standing at %s (a door resets them)" % [cell, _live_bodies(ow).keys()])
 
 
+## The deck only grows (a pickup is saved the moment it's taken, so not
+## even a quit without saving loses one).
+func _check_deck_grows(state: GameState) -> void:
+	if state.deck.size() < deck_max:
+		_fail("deck_shrank", "the deck went from %d cards to %d" % [deck_max, state.deck.size()])
+	deck_max = maxi(deck_max, state.deck.size())
+
+
+## How far the run has got, for the stats (game frames from the start).
+func _check_milestones(state: GameState, m: WorldMap) -> void:
+	var aces := 0
+	for id in opening_ids:
+		if state.taken_pickups.has(id):
+			aces += 1
+	stats["aces"] = maxi(stats["aces"], aces)
+	if m.id == "mill_road" and not stats["frames_to_mill_road"]:
+		stats["frames_to_mill_road"] = frame
+	if m.id == "town" and not stats["frames_to_town"]:
+		stats["frames_to_town"] = frame
+	if state.met_open_table and not stats["frames_to_crew"]:
+		stats["frames_to_crew"] = frame
+
+
+## The gate's line on screen: you walked into it short of Aces (counted),
+## never with all 52.
+func _check_gate_dialog(ow: Node, state: GameState, m: WorldMap) -> void:
+	var dialog: Control = ow.get("dialog")
+	var lines: Variant = dialog.get("_lines")
+	var showing := false
+	if dialog.visible and lines is Array:
+		for g: Dictionary in m.gates:
+			if (lines as Array).has(g["text"]):
+				showing = true
+	if showing and not gate_dialog_seen:
+		stats["gate_refusals"] += 1
+		_log("the gate says no (%d cards)" % state.deck.size())
+		if state.has_full_deck():
+			_fail("gate_refused", "the gate refused a dog holding all 52 cards")
+	gate_dialog_seen = showing
+
+
+## While walking: the gate holds (with Aces missing you're never anywhere
+## you can't reach from the start with the gates shut), the cards on the
+## ground are exactly the ones still waiting, the open table's players who
+## joined you no longer stand there, and a dog alone in a crew's sight is
+## left alone (spotted_alone fails on the encounter itself; this counts it).
+func _check_opening(ow: Node, state: GameState, m: WorldMap, cell: Vector2i) -> void:
+	if not state.has_full_deck() and not (inside_gate.get(m.id, {}) as Dictionary).has(cell):
+		_fail("gate_bypassed", "on %s at %s holding %d cards: that's past Sootbridge's gate" % [m.id, cell, state.deck.size()])
+	var drawn: Dictionary = ow.get("pickup_nodes")
+	for p: Dictionary in m.pickups():
+		var waiting := state.pickup_waiting(p["id"], p["card"])
+		if drawn.has(p["id"]) and not waiting:
+			_fail("pickup_reappeared", "the card %s at %s is drawn on %s but already taken" % [p["id"], p["cell"], m.id])
+		elif waiting and not drawn.has(p["id"]):
+			_fail("pickup_hidden", "the card %s at %s is waiting but not drawn on %s" % [p["id"], p["cell"], m.id])
+	var data: Dictionary = ow.get("npc_data")
+	for n: Object in ow.get("npc_nodes"):
+		if WorldMap.npc_joined(data.get(n, {}), state):
+			_fail("joined_still_standing", "%s joined you but still stands at %s" % [data[n]["id"], n.get("cell")])
+	if state.party.is_empty() and cell != alone_cell:
+		alone_cell = cell
+		if not m.spotter(cell, state.beaten).is_empty():
+			stats["alone_in_sight"] += 1
+	if state.roster.is_empty() and state.money < int(WorldMap.OPEN_TABLE["buy_in"]) and not stranded_noted:
+		stranded_noted = true
+		_note("stranded", "a dog alone with $%d, under the open table's $%d buy-in: no crew will ever play it, so the demo can't be finished"
+			% [state.money, int(WorldMap.OPEN_TABLE["buy_in"])])
+
+
+## The four Aces' pickup ids: the ones lying about and the one given.
+func _opening_ids() -> Array[String]:
+	var out: Array[String] = []
+	var aces := GameState.opening_missing_cards()
+	for map_id: String in WorldMap.MAPS:
+		var data: Dictionary = WorldMap.MAPS[map_id]
+		for p: Dictionary in data.get("pickups", []):
+			if aces.has(int(p["card"])):
+				out.append(p["id"])
+		for n: Dictionary in data["npcs"]:
+			if n.has("gives_card") and aces.has(int(n["gives_card"]["card"])):
+				out.append(n["gives_card"]["id"])
+	return out
+
+
+## Every cell you can stand on, map by map, from the start cell with every
+## gate shut (through doors, not through gate cells): with Aces missing,
+## the dog is always somewhere in here.
+func _inside_gate() -> Dictionary:
+	var out := {}
+	var queue: Array = [[WorldMap.START_MAP, WorldMap.START_CELL]]
+	var head := 0
+	while head < queue.size():
+		var map_id: String = queue[head][0]
+		var c: Vector2i = queue[head][1]
+		head += 1
+		if not WorldMap.MAPS.has(map_id):
+			continue
+		var m := WorldMap.get_map(map_id)
+		if not out.has(map_id):
+			out[map_id] = {}
+		var seen: Dictionary = out[map_id]
+		if seen.has(c) or not m.tile_walkable(c) or not m.gate_at(c).is_empty():
+			continue
+		seen[c] = true
+		var w := m.warp_at(c)
+		if not w.is_empty():
+			queue.append([w["to"], w["to_cell"]])
+		for d in DIRS:
+			queue.append([map_id, c + d])
+	return out
+
+
+func _roster_names(state: GameState) -> String:
+	var names: Array[String] = []
+	for a in state.roster:
+		names.append(a.name)
+	return str(names)
+
+
 func _warp_cells(m: WorldMap) -> Array:
 	var out: Array = []
 	for w: Dictionary in m.warps:
@@ -1035,14 +1521,22 @@ func _check_state(state: GameState, mid_sequence: bool) -> void:
 			_fail("roster_duplicate", "%s is in the roster twice" % key)
 		seen[key] = true
 		if not _allowed_animals(state).has(key):
-			_fail("roster_stranger", "%s is in the roster but wasn't a starter or in a beaten crew" % key)
+			_fail("roster_stranger", "%s is in the roster but isn't Sage or Bandit or from a beaten crew" % key)
 	for i in state.party:
 		if i < 0 or i >= state.roster.size():
 			_fail("party_index", "party seat points at roster %d of %d" % [i, state.roster.size()])
 			return
 	if not mid_sequence:
-		if state.party.size() != GameState.PARTY_SIZE:
+		# The dog alone has nobody to seat; from the open table on, two.
+		if state.party.size() != mini(GameState.PARTY_SIZE, state.roster.size()):
 			_fail("party_size", "%d animals seated (roster %d)" % [state.party.size(), state.roster.size()])
+		if not from_old_save and not state.met_open_table and not state.roster.is_empty():
+			_fail("crew_early", "a crew before the open table: %s" % _roster_names(state))
+		if state.met_open_table:
+			for e: Array in OPEN_TABLE_CREW:
+				var a := Species.individual(StringName(e[0]), e[1])
+				if not state.has_animal(a.species, a.name):
+					_fail("crew_missing", "sat at the open table, but %s isn't in the roster %s" % [a.name, _roster_names(state)])
 		var uniq := {}
 		for i in state.party:
 			uniq[i] = true
@@ -1053,11 +1547,39 @@ func _check_state(state: GameState, mid_sequence: bool) -> void:
 	for id: String in state.beaten:
 		if _crew(id).is_empty():
 			_fail("beaten_unknown", "beaten has %s, which isn't a crew" % id)
+	_check_deck(state)
+
+
+## The deck (docs/DEMO_SPEC.md S-DECK, S-PICK): 48 to 52 cards, only the
+## Aces ever missing, and each Ace held exactly when its pickup (or Mags's
+## gift) has been taken, so 52 iff all four. A pre-demo save holds all 52
+## with nothing taken.
+func _check_deck(state: GameState) -> void:
+	var n := state.deck.size()
+	if n < GameState.DECK_SIZE - 4 or n > GameState.DECK_SIZE:
+		_fail("deck_size", "the deck holds %d cards" % n)
+	var aces := GameState.opening_missing_cards()
+	for c in state.missing_cards():
+		if not aces.has(c):
+			_fail("deck_cards", "the deck is missing %s, which isn't an Ace" % GameState.card_name(c))
+	for id: String in state.taken_pickups:
+		if WorldMap.pickup_card(id) < 0:
+			_fail("pickup_unknown", "taken_pickups has %s, which no map has" % id)
+	if from_old_save:
+		if not state.has_full_deck():
+			_fail("deck_size", "a pre-demo save's run holds %d cards, not 52" % n)
+		return
+	for id in opening_ids:
+		var card := WorldMap.pickup_card(id)
+		if state.taken_pickups.has(id) != state.deck.has(card):
+			_fail("deck_pickups", "%s is %s but the %s is %s the deck" % [id, "taken" if state.taken_pickups.has(id) else "not taken",
+				GameState.card_name(card), "in" if state.deck.has(card) else "not in"])
 
 
 func _allowed_animals(state: GameState) -> Dictionary:
 	var out := {}
-	for a in GameState.fresh().roster:
+	for e: Array in OPEN_TABLE_CREW:  # Sage and Bandit, from the open table (a pre-demo save's starters)
+		var a := Species.individual(StringName(e[0]), e[1])
 		out["%s:%s" % [a.species, a.name]] = true
 	for id: String in state.beaten:
 		var crew := _crew(id)
@@ -1076,7 +1598,7 @@ func _crew(id: String) -> Dictionary:
 
 
 ## Nothing on screen has changed for too long: a softlock. A table gets
-## longer, on the wall clock, since its bots think in real time.
+## longer (its bots think for a while, the pause between hands).
 func _check_softlock(ow: Node) -> void:
 	var parts: Array = [ow.get("mode"), ow.get("map").id, ow.get("fade").color.a]
 	for n: Node in ow.get("actors").get_children():
@@ -1091,16 +1613,15 @@ func _check_softlock(ow: Node) -> void:
 	if table != null:
 		var t: Object = table.get("match_").get("table")
 		var tparts := [table.get("_flow"), t.get("hand_number"), t.get("to_act"), t.call("pot"), table.get("_help_open"),
-			table.get("_menu_open"), table.get("_raise_open")]
+			table.get("_menu_open"), table.get("_raise_open"), table.get("_leave_open"), table.get("_left_sent")]
 		h = str(tparts).hash()
-		var now := Time.get_ticks_msec()
 		if h != sig_hash:
 			sig_hash = h
-			table_sig_ms = now
-		elif now - table_sig_ms > TABLE_STALL_MS:
-			var stuck := (now - table_sig_ms) / 1000
-			table_sig_ms = now  # once per stretch
-			_fail("softlock_table", "the table hasn't changed for %d s (flow %s)" % [stuck, str(tparts)])
+			table_sig_frame = frame
+		elif frame - table_sig_frame > TABLE_STALL_FRAMES:
+			var stuck := (frame - table_sig_frame) / 60
+			table_sig_frame = frame  # once per stretch
+			_fail("softlock_table", "the table hasn't changed for %d game s (flow %s)" % [stuck, str(tparts)])
 		sig_frame = frame
 		return
 	if h != sig_hash:
@@ -1134,6 +1655,11 @@ func _check_slot_on_disk(when: String) -> void:
 					_fail("progress_lost", "crew %s was beaten in an earlier save and isn't now" % id)
 			if s.roster.size() < int(before.get("roster", 0)):
 				_fail("progress_lost", "roster shrank from %d to %d" % [int(before.get("roster", 0)), s.roster.size()])
+			if s.deck.size() < int(before.get("deck", 0)):
+				_fail("progress_lost", "the deck shrank from %d to %d cards" % [int(before.get("deck", 0)), s.deck.size()])
+			for id: Variant in before.get("taken", []):
+				if not s.taken_pickups.has(str(id)):
+					_fail("progress_lost", "the card %s was taken in an earlier save and isn't now" % id)
 	elif start == "continue" and not damage and main_exists:
 		_fail("save_lost", "the save is there but doesn't read: %s" % FileAccess.get_file_as_string(path).left(200))
 	elif start == "continue" and not damage and part_exists and FileAccess.file_exists(path + ".floor"):
@@ -1142,10 +1668,22 @@ func _check_slot_on_disk(when: String) -> void:
 
 # --- Damaged saves --------------------------------------------------------------
 
-## A save that's been through some progress (a crew beaten, a goose recruited,
+## A save that's been through some progress (the four Aces, the open table
+## sat at and Sage and Bandit with you, a crew beaten, a goose recruited,
 ## money won), then broken one way. Kinds are listed in docs/PLAYTEST.md.
+## "pre_demo" is no damage: the same save as written before demo 2 (no
+## deck, pickups, opening or open table), which must load past the opening
+## (--pt-start=old plays from one).
 func _write_damaged(kind: String) -> void:
 	var s := GameState.fresh()
+	for c in GameState.opening_missing_cards():
+		s.collect_card(c)
+	for id in _opening_ids():
+		s.taken_pickups[id] = true
+	s.seen_intro = true
+	s.tutorial_offered = true
+	s.opening_done = true
+	s.join_open_table_crew()
 	s.win_against("pond_hecklers", 120)
 	s.recruit(Species.individual(&"goose", 0))
 	s.map_id = "town"
@@ -1205,6 +1743,29 @@ func _write_damaged(kind: String) -> void:
 			d["roster"][1]["bond"] = 99
 		"unbeaten_member_in_roster": d["roster"].append({"species": "cat", "name": Species.individual(&"cat", 0).name, "bond": 0.2})
 		"seen_intro_false": d["seen_intro"] = false
+		"pre_demo":
+			for k in ["deck", "taken_pickups", "opening_done", "met_open_table"]:
+				d.erase(k)
+		"pre_demo_alone":  # an impossible old save: nobody in the roster
+			for k in ["deck", "taken_pickups", "opening_done", "met_open_table"]:
+				d.erase(k)
+			d["roster"] = []
+			d["party"] = []
+			d["beaten"] = []
+		"deck_short_in_town": d["deck"] = (d["deck"] as Array).slice(0, 48)  # past the gate without the Aces
+		"deck_garbage": d["deck"] = "fifty-two"
+		"deck_dupes": d["deck"] = [51, 51, 51, 0, 0]
+		"deck_oob": (d["deck"] as Array).append_array([52, -1, 99])
+		"taken_unknown": (d["taken_pickups"] as Array).append("ace_on_the_moon")
+		"alone_met_table":  # sat at the table, nobody with you (closed before they joined)
+			d["roster"] = []
+			d["party"] = []
+			d["beaten"] = []
+		"alone_before_table":
+			d["roster"] = []
+			d["party"] = []
+			d["beaten"] = []
+			d["met_open_table"] = false
 		"part_only": raw = "PART_ONLY"
 		"part_newer_main_truncated": raw = "PART_AND_BROKEN_MAIN"
 		_:

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Batch runs of the playtester (tools/playtest.gd). See docs/PLAYTEST.md.
 #
-#   tools/playtest.sh runs COUNT [FIRST_SEED] [--pt-flags...]   skipped matches (fast)
+#   tools/playtest.sh runs COUNT [FIRST_SEED] [--pt-flags...]   skipped matches (fast); every 10th seed
+#                                                              plays on from a pre-demo save
 #   tools/playtest.sh real COUNT [FIRST_SEED] [--pt-flags...]   real matches at the table
 #   tools/playtest.sh kill COUNT [FIRST_SEED]                   kill -9 at random moments, then Continue
 #   tools/playtest.sh damaged [--pt-flags...]                   every kind of damaged save
@@ -85,7 +86,9 @@ all_unknown_species roster_dict roster_one roster_dupes party_oob party_negative
 party_three party_strings money_negative money_string money_huge cell_wall cell_oob cell_string
 cell_crew_home cell_recruit_home cell_door map_unknown heal_wall heal_oob heal_map_unknown
 beaten_unknown beaten_regulars_no_bracelet bracelet_only facing_zero facing_weird bond_weird
-unbeaten_member_in_roster seen_intro_false part_only part_newer_main_truncated"
+unbeaten_member_in_roster seen_intro_false part_only part_newer_main_truncated
+pre_demo pre_demo_alone deck_short_in_town deck_garbage deck_dupes deck_oob taken_unknown
+alone_met_table alone_before_table"
 
 damaged() {
 	mkdir -p "$OUT/damaged"
@@ -94,8 +97,9 @@ damaged() {
 		n=$((n + 1))
 		echo "$n $kind"
 	# Lenient about what a damaged save legitimately carries in (strangers in
-	# the roster, unknown crews, a bracelet without the win).
-	done | xargs -P "$JOBS" -n 2 bash -c 'one_run damaged "$0" 300 --pt-damage="$1" --pt-frames=20000 --pt-lenient=roster_stranger,beaten_unknown,bracelet '"$*"
+	# the roster, unknown crews, a bracelet without the win, a deck that
+	# breaks the opening's rules or is short past the gate).
+	done | xargs -P "$JOBS" -n 2 bash -c 'one_run damaged "$0" 300 --pt-damage="$1" --pt-frames=20000 --pt-lenient=roster_stranger,beaten_unknown,bracelet,deck_size,deck_cards,deck_pickups,pickup_unknown,gate_bypassed,crew_early '"$*"
 }
 
 summary() {
@@ -124,6 +128,17 @@ for kind in sorted(os.listdir(root)):
         if done:
             fr = sorted(s["frames_to_complete"] for s in done)
             print(f"   game time to complete: median {fr[len(fr)//2]/60:.0f}s, max {fr[-1]/60:.0f}s")
+        new = [s for s in stats if not s.get("old_save")]
+        def med(key):
+            v = sorted(s[key] for s in new if s.get(key))
+            return f"{len(v)}/{len(new)} (median {v[len(v)//2]/60:.0f}s)" if v else f"0/{len(new)}"
+        if new:
+            print(f"   opening (new games): all four Aces {med('frames_to_deck')}, Mill Road {med('frames_to_mill_road')}, "
+                  f"Mossbank {med('frames_to_town')}, crew from the open table {med('frames_to_crew')}")
+        print(f"   opening totals: {tot('pickups')} cards picked up, {tot('gifts')} given, {tot('gate_refusals')} gate refusals, "
+              f"{tot('alone_in_sight')} times alone in a crew's sight; {sum(1 for s in stats if s.get('old_save'))} runs from a pre-demo save")
+        print(f"   open table: {tot('cash_sessions')} sessions ({tot('cash_human')} by random presses, {tot('cash_forfeits')} quit while seated), "
+              f"{tot('cash_hands')} hands, net {tot('cash_net'):+d} chips; {tot('cash_offers')} seat offers, {tot('cash_declined')} declined")
         print(f"   totals: {tot('steps')} steps, {tot('encounters')} encounters ({tot('wins')} won, {tot('losses')} lost), "
               f"{tot('real_matches')} real matches, {tot('recruits')} recruits, {tot('talks')} talks, {tot('doors')} doors, "
               f"{tot('menus')} start menus, {tot('reloads')} quit+continue, {tot('saves_written')} saves checked")
@@ -143,10 +158,10 @@ EOF
 cmd=${1:-}
 shift || true
 case "$cmd" in
-	runs) batch runs "${1:-20}" "${2:-1}" 600 "${@:3}" ;;
+	runs) batch runs "${1:-20}" "${2:-1}" 600 --pt-start=mix "${@:3}" ;;
 	real) batch real "${1:-4}" "${2:-1001}" 3600 --pt-real=1 --pt-human=0.25 --pt-after=40 --pt-chips=200 --pt-seconds=3300 "${@:3}" ;;
 	kill) kill_torture "${1:-50}" "${2:-1}" ;;
 	damaged) damaged "$@" ;;
 	summary) summary "${1:-$OUT}" ;;
-	*) sed -n '2,13p' "$0"; exit 2 ;;
+	*) sed -n '2,14p' "$0"; exit 2 ;;
 esac
