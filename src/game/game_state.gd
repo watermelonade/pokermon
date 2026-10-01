@@ -66,6 +66,19 @@ var found_at := {}  ## species id (String) -> where you first met one (for the B
 ## yours (interception: src/crew/code_book.gd). Kept so a rematch remembers.
 var codebook := CodeBook.new()
 
+# --- Demo 2: the opening (docs/DEMO_SPEC.md, "Interfaces fixed up front") ---
+# STUB (demo 2): the world and opening agent fills these in. Until then
+# they do nothing: a new game starts as before, and none of them is saved.
+
+## The cards the dog wakes up without: the four Aces went down the manhole
+## with its owner (Card.parse format).
+const OPENING_MISSING := ["As", "Ah", "Ad", "Ac"]
+
+var deck: Array[int] = []  ## the cards you hold (Card ints); a new game holds 48
+var taken_pickups := {}  ## pickup id (String) -> true, once taken
+var opening_done := false  ## past the opening (the deck is complete and you've left Sootbridge)
+var met_open_table := false  ## you've sat at Mossbank's open table at least once
+
 
 ## A new run: the Owl and the Raccoon from the table demo, standing outside
 ## your house in Mossbank.
@@ -247,6 +260,43 @@ func blackout() -> int:
 func add_bracelet(id: String) -> void:
 	if not bracelets.has(id):
 		bracelets.append(id)
+
+
+# --- Demo 2: the deck, pickups and the open table's crew -----------------------
+
+## Adds `card` to the deck if it's missing: true if it was added, false if
+## you already hold it.
+## STUB (demo 2): the world and opening agent fills it in.
+func collect_card(_card: int) -> bool:
+	return false
+
+
+## True exactly when all 52 cards are held.
+## STUB (demo 2): the world and opening agent fills it in.
+func has_full_deck() -> bool:
+	return false
+
+
+## The cards not in the deck, lowest first.
+## STUB (demo 2): the world and opening agent fills it in.
+func missing_cards() -> Array[int]:
+	return []
+
+
+## Takes the pickup (or the townsperson's gift) with this id: its card goes
+## into the deck and the id is recorded, once. Returns the card, or -1 if
+## it's already taken or there's no such pickup.
+## STUB (demo 2): the world and opening agent fills it in.
+func take_pickup(_id: String) -> int:
+	return -1
+
+
+## After your first sit at the open table: Sage (owl) and Bandit (raccoon)
+## join the roster and the party. Returns who joined; empty if nobody (a
+## second call, or they're already yours).
+## STUB (demo 2): the world and opening agent fills it in.
+func join_open_table_crew() -> Array[Animal]:
+	return []
 
 
 ## Who sits where for TableView.setup: you in seat 0, then teams alternate

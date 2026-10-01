@@ -320,6 +320,30 @@ func crew_by_id(crew_id: String) -> Dictionary:
 	return {}
 
 
+# --- Demo 2: pickups, gates, the open table (docs/DEMO_SPEC.md) -----------------
+
+## The cards lying on this map: [{"id", "cell", "card"}] from the map's
+## "pickups" (all of them; which are taken is the run's business,
+## GameState.taken_pickups). An Ace a townsperson gives is the npc entry's
+## "gives_card" instead.
+## STUB (demo 2): the world and opening agent fills it in.
+func pickups() -> Array:
+	return []
+
+
+## The gate covering `cell` ({"cells", "requires", "text"}), or {}.
+## STUB (demo 2): the world and opening agent fills it in.
+func gate_at(_cell: Vector2i) -> Dictionary:
+	return {}
+
+
+## The townsfolk on this map who sit at an open table: npc entries with an
+## "open_table" ({"id", "buy_in", "players", "dealer"}).
+## STUB (demo 2): the world and opening agent fills it in.
+func open_tables() -> Array:
+	return []
+
+
 ## Where a crew stands at home: the leader, then its two shoulders.
 ## Where each member stands at home: the leader on `cell`, then at its
 ## shoulders, then further out on alternate sides (a boss crew of four puts
@@ -424,8 +448,11 @@ func view_cells(from: Vector2i, facing: Vector2i, distance: int, occupied := {})
 
 ## The first unbeaten crew that can see `player_cell` from its home spot,
 ## or {}. Other crews and townsfolk block the view; the player's own
-## followers don't (they walk behind).
-func spotter(player_cell: Vector2i, beaten: Dictionary) -> Dictionary:
+## followers don't (they walk behind). `party_size` is how many animals
+## sit with you: a dog on its own (0) is nobody a crew would deal in.
+## STUB (demo 2): party_size is ignored until the world and opening agent
+## fills it in; the default (a full party) is how every caller works today.
+func spotter(player_cell: Vector2i, beaten: Dictionary, _party_size := GameState.PARTY_SIZE) -> Dictionary:
 	var occupied := occupied_cells()
 	for c: Dictionary in crews:
 		if c["sight"] <= 0 or beaten.has(c["id"]):

@@ -119,6 +119,15 @@ signal finished(won: bool)
 ## an embedding scene applies and saves the outcome here, so quitting while
 ## the result is on screen can't undo a loss. `finished` is the A press after.
 signal decided(won: bool)
+## A cash game (Mossbank's open table, CashMatch): emitted once, when you
+## leave between hands or the match ends, with the chips you walk away with.
+## STUB (demo 2): the open-table agent emits it.
+signal left(chips: int)
+
+## A cash game instead of a crew match: every seat for itself, leave after
+## any hand. Set before adding the scene to the tree.
+## STUB (demo 2): the open-table agent makes the table honour it.
+var cash_game := false
 
 ## Who sits where, in seat order: {"name": String, "team": int, "animal":
 ## Animal or null for you}. Seat 0 must be you.
