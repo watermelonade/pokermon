@@ -11,8 +11,14 @@ This is the starter project: the poker rules, the hand evaluator, the AI play
 styles, team signals, a playable placeholder 3v3 table, and a demo loop
 around it: a title screen, the starter town of Mossbank and Ridge Road, four
 rival crews who spot you and deal you in, recruiting, blackouts, saving, and
-the town's tournament. No art yet (everything is drawn from code); the first
-goal is to find out whether one table is fun.
+the town's tournament. The first goal is to find out whether one table is fun.
+
+**Art:** placeholder pixel art in a GBA-era top-down style (Endesga 32
+palette): the six species, the player and townsfolk as 4-direction walk
+sheets, portraits, and overworld and interior tiles. It's generated from text
+grids by `tools/make_art.gd`, so it can be tweaked in a text editor until it's
+redrawn in Aseprite; see [assets/README.md](assets/README.md). To look at it
+all: `godot --path . res://scenes/dev/art_preview.tscn`.
 
 ## Running it
 
@@ -356,6 +362,10 @@ process is frozen without notice, so the protection is saving often).
 | `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |
 | `src/world/dialog_box.gd`, `choice_menu.gd`, `party_screen.gd`, `options_screen.gd`, `demo_complete.gd`, `ui_kit.gd` | The overworld's screens (text box, Start menu, crew, options, the end) and their shared look |
 | `src/game/settings.gd` | Text speed and volume, in `user://settings.cfg`, apart from the save |
+| `src/ui/sprites.gd` | Loads the art by name (species, portraits, tiles, walk animations); null when a file is missing |
+| `assets/` | Placeholder art and its palette, generated from the text grids in `assets/src/` (see assets/README.md) |
+| `tools/make_art.gd` | Regenerates every PNG in assets/ from the grids |
+| `scenes/dev/art_preview.tscn` | Shows all the art: characters walking, tiles, buildings, a small town at 1x |
 | `tests/` | Test runner and tests |
 | `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
@@ -372,5 +382,5 @@ process is frozen without notice, so the protection is saving often).
    number of matches before the Open?
 2. Recheck the type chart (`tools/simulate.gd --cycle` on fresh seeds) after any change to the bot or the styles.
 3. Play against each dealer: is Heat a choice you weigh, or just a tax?
-4. Real art: an Aseprite palette, the Aseprite Wizard plugin, animal sprites at the seats.
+4. Real art: redraw the placeholders in Aseprite with assets/palette.gpl (assets/README.md says how), maybe via the Aseprite Wizard plugin.
 5. GodotSteam, then a default Steam Input configuration so the back buttons reach the game (docs/STEAM_DECK.md section 2).
