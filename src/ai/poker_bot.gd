@@ -23,6 +23,13 @@ extends RefCounted
 ## code runs, so decisions and random draws are exactly as before (the
 ## type chart depends on it; tests/test_interception.gd holds a golden log).
 ##
+## A boss crew plays as one while its leader runs it (`knows_crew_cards`,
+## set by TeamMatch.set_leader; "our signals are older than you"): each
+## member knows its live teammates' cards. It weighs its hand against the
+## opponents only, with its teammates' cards out of the deck, and steps
+## aside for any teammate whose hand is better, so the crew plays its best
+## hand of up to six against your three.
+##
 ## Leaderless (boss crews, TeamMatch.leaderless): once its crew's leader
 ## busts, a goon stops signalling (nobody's calling the plays) and plays
 ## scared: tighter, half the bluffs, half the loose calls (lose_leader). It
@@ -38,6 +45,7 @@ var heat: Heat  ## set by TeamMatch; null = nobody watching
 var interception: Interception  ## set by TeamMatch; read only while enabled
 var equity_iterations := 120
 var leaderless := false  ## its crew's leader is out: see lose_leader()
+var knows_crew_cards := false  ## a boss crew with its leader: see the top
 var rng := RandomNumberGenerator.new()
 var _signalled_street := -1
 var _bluffing_hand := -1  ## hand number of this bot's latest bluff
@@ -65,6 +73,7 @@ func lose_leader() -> void:
 	if leaderless:
 		return
 	leaderless = true
+	knows_crew_cards = false
 	style = style.duplicate()
 	style.tightness *= LEADERLESS_TIGHTNESS
 	style.bluff_rate *= LEADERLESS_BLUFFS
@@ -91,7 +100,13 @@ func decide(table: HoldemTable, me: int, talk: TableTalk) -> Dictionary:
 		return _check_or_fold()  # soft play
 
 	var others := opponents + teammates.size()
-	var equity := Equity.estimate(seat.hole, table.board, others, equity_iterations, rng)
+	var crew_cards: Array[int] = []
+	if knows_crew_cards and not leaderless:
+		for t in teammates:
+			crew_cards.append_array(table.seats[t].hole)
+		others = opponents  # teammates aren't competition, and their cards are out of the deck
+	var equity := Equity.estimate(seat.hole, table.board, others, equity_iterations, rng, crew_cards)
+	var crew_better := crew_cards and _teammate_better(table, me, teammates, opponents, equity)
 	var heard := {}  ## seat -> meanings this crew intercepted and understood
 	if interception and interception.enabled:
 		heard = interception.readings(seat.team)
@@ -131,7 +146,7 @@ func decide(table: HoldemTable, me: int, talk: TableTalk) -> Dictionary:
 			elif sig == TableTalk.Sig.ATTACK:
 				asked_to_attack = true
 
-	if teammate_strong and not value:
+	if crew_better or (teammate_strong and not value):
 		return _check_or_fold()  # step aside for the teammate
 	if value:
 		if legal["can_raise"] and rng.randf() < style.aggression:
@@ -163,6 +178,19 @@ func decide(table: HoldemTable, me: int, talk: TableTalk) -> Dictionary:
 	if not caught_bluffing and rng.randf() < style.stickiness:
 		return _call()
 	return _check_or_fold()
+
+
+## A boss crew member's check (knows_crew_cards): does a live teammate
+## hold a better hand against the opponents than ours (`mine`)?
+func _teammate_better(table: HoldemTable, me: int, teammates: Array[int], opponents: int, mine: float) -> bool:
+	for t in teammates:
+		var dead: Array[int] = table.seats[me].hole.duplicate()
+		for u in teammates:
+			if u != t:
+				dead.append_array(table.seats[u].hole)
+		if Equity.estimate(table.seats[t].hole, table.board, opponents, equity_iterations, rng, dead) > mine:
+			return true
+	return false
 
 
 ## 0..1: how sure we are that whoever made the bet never backs down. A

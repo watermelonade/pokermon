@@ -309,7 +309,7 @@ func _new_match() -> void:
 		match_.add_player(setup[i]["name"], setup[i]["team"], int(setup[i].get("chips", starting_chips)), bot)
 	_leader = BossTable.leader_seat(setup)
 	if _leader >= 0:
-		match_.leaders[setup[_leader]["team"]] = _leader
+		match_.set_leader(setup[_leader]["team"], _leader)
 		# Deferred: TeamMatch reports it from the hand's end, before this
 		# table has booked the payout it should come after.
 		match_.leader_lost.connect(_on_leader_lost, CONNECT_DEFERRED)

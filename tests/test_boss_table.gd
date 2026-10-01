@@ -93,6 +93,27 @@ func test_setup_carries_teams_chips_and_the_leader() -> void:
 		check_eq(s["team"], 0 if s["name"] in ["You", "Sage", "Bandit"] else 1, s["name"])
 
 
+func test_a_led_boss_crew_plays_its_best_hand() -> void:
+	check_eq(_goon_with_kings(true), A.FOLD, "Kings step aside: the leader holds Aces, and the crew knows it")
+	check(_goon_with_kings(false) != A.FOLD, "on its own cards, a goon plays Kings")
+
+
+## What a goon (seat 1, Kings) does when its leader (seat 2) holds Aces.
+func _goon_with_kings(led: bool) -> int:
+	var m := TeamMatch.new(1)
+	m.add_player("You", 0, 1000, null)
+	m.add_player("Goon", 1, 1000, PokerBot.new(PlayStyle.preset(K.SHARK), 7))
+	m.add_player("Boss", 1, 1000, null)
+	m.add_player("Other", 0, 1000, null)
+	if led:
+		m.set_leader(1, 2)
+	check_eq(m.bots[1].knows_crew_cards, led)
+	m.start_hand(Card.parse_many("Kh Ac 7d 2c Ks As 8d 3c 9h 4s Jd 5c Qh"))
+	m.table.act(A.CALL)  # seat 3
+	m.table.act(A.CALL)  # you
+	return m.bots[1].decide(m.table, 1, m.talk)["action"]
+
+
 ## A 3-seat match: you (seat 0, 1000), the boss leader (seat 1) and a goon
 ## (seat 2, 1000), both bots, the leader on `leader_chips`.
 func _leader_match(leader_chips: int) -> TeamMatch:
@@ -100,7 +121,7 @@ func _leader_match(leader_chips: int) -> TeamMatch:
 	m.add_player("You", 0, 1000, null)
 	m.add_player("Boss", 1, leader_chips, PokerBot.new(PlayStyle.preset(K.ROCK), 11))
 	m.add_player("Goon", 1, 1000, PokerBot.new(PlayStyle.preset(K.SHARK), 12))
-	m.leaders = {1: 1}
+	m.set_leader(1, 1)
 	return m
 
 
@@ -122,6 +143,7 @@ func test_busting_the_leader_leaves_the_goons_leaderless() -> void:
 	check_eq(m.leaderless, {1: 1}, "its crew went leaderless on hand 1")
 	check_eq(lost, [1], "and the table was told, once")
 	check(m.bots[2].leaderless and m.bots[1].leaderless, "every bot on the crew knows")
+	check(not m.bots[2].knows_crew_cards, "and the crew stops playing as one")
 	check(not m.is_over(), "the goon plays on: busting the boss isn't catching it")
 	m.start_hand()
 	m.table.act(A.FOLD)
@@ -183,7 +205,7 @@ func test_a_whole_boss_match_keeps_every_chip() -> void:
 			var bot := PokerBot.new(PlayStyle.preset(kinds[i % kinds.size()]), 100 + i)
 			bot.equity_iterations = 40
 			m.add_player(seats[i]["name"], seats[i]["team"], seats[i]["chips"], bot)
-		m.leaders[1] = BossTable.leader_seat(seats)
+		m.set_leader(1, BossTable.leader_seat(seats))
 		m.heat.dealer = Dealer.preset(Dealer.Kind.BOUGHT)
 		m.max_hands = 300
 		var w := m.run_to_end()

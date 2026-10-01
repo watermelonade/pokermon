@@ -10,11 +10,13 @@ extends RefCounted
 ## plenty for a bot that's meant to be beatable (about +-4% at worst).
 
 
-static func estimate(hole: Array, board: Array, opponents: int, iterations: int, rng: RandomNumberGenerator) -> float:
+## `dead`: other cards known to be out of play (a boss crew's teammates'
+## hands, PokerBot.knows_crew_cards); with none it draws exactly as before.
+static func estimate(hole: Array, board: Array, opponents: int, iterations: int, rng: RandomNumberGenerator, dead: Array = []) -> float:
 	if opponents <= 0:
 		return 1.0
 	var known := {}
-	for c: int in hole + board:
+	for c: int in hole + board + dead:
 		known[c] = true
 	var pool: Array[int] = []
 	for c in 52:

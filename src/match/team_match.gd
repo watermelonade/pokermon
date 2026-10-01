@@ -11,9 +11,10 @@ extends RefCounted
 ## big-stack leader and short-stacked goons.
 ##
 ## The leader rule: a crew in `leaders` that loses its leader to a bust
-## goes `leaderless` (from the next hand on): its bots stop signalling and
-## play scared (PokerBot.lose_leader: tighter, fewer bluffs, fewer loose
-## calls). Losing it to the floor (thrown out) ends the match instead, as
+## goes `leaderless` (from the next hand on): its bots stop signalling,
+## stop playing as one (while the leader runs the crew, each member knows
+## its teammates' cards: PokerBot.knows_crew_cards) and play scared
+## (PokerBot.lose_leader: tighter, fewer bluffs, fewer loose calls). Losing it to the floor (thrown out) ends the match instead, as
 ## below. Only boss crews have a leader in the game; with no `leaders` set
 ## nothing here changes, so the 3v3 type chart is untouched.
 ##
@@ -92,6 +93,16 @@ func _apply_ejections() -> void:
 	for seat in heat.pending_ejections:
 		removed_chips += table.eject(seat)
 	heat.pending_ejections.clear()
+
+
+## Makes `seat` its crew's leader: catching it ends the match, busting it
+## leaves the crew leaderless (see the top), and while it plays its crew
+## plays as one (PokerBot.knows_crew_cards). Call after adding the seats.
+func set_leader(team: int, seat: int) -> void:
+	leaders[team] = seat
+	for i in table.seats.size():  # its crew plays as one while it leads (PokerBot.knows_crew_cards)
+		if table.seats[i].team == team and bots[i] != null:
+			bots[i].knows_crew_cards = true
 
 
 ## A crew whose leader just busted loses its nerve: every bot on it is
