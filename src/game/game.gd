@@ -21,7 +21,7 @@ extends Node
 ##                         A to press confirm, M for the menu, W to wait
 ##   --at=map,x,y          start there; --beaten=all or id,id; --money=N;
 ##                         --recruit=cat:0,goose:1 adds roster animals
-##   --show=party|demo_complete   open a screen once the world is up
+##   --show=start|party|options|demo_complete   open a screen once the world is up
 ##   --screenshot=/abs.png --shot-after=SECONDS   save the screen and quit
 ## The table's own flags (--autoplay, --dealer=) still reach an embedded
 ## table, so --autoplay lets a bot play your seat in a scripted run.
@@ -33,6 +33,7 @@ const TABLE_SCENE := "res://scenes/table.tscn"
 signal saved
 
 var state: GameState
+var settings: Settings
 var save_path := SaveFile.DEFAULT_PATH
 var dev_auto := false
 var dev_choice := 0
@@ -47,6 +48,8 @@ func _ready() -> void:
 		dev_args[kv[0]] = kv[1] if kv.size() > 1 else ""
 	if dev_args.has("save-slot"):
 		save_path = "user://%s.json" % dev_args["save-slot"]
+	settings = Settings.load_from()
+	settings.apply()
 	dev_auto = dev_args.has("auto")
 	dev_choice = int(dev_args.get("choice", "0"))
 	_screenshot_if_asked.call_deferred()

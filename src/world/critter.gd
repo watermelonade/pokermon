@@ -82,16 +82,19 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var lift := 0.0
-	if _walking and int(_bob / 0.08) % 2 == 1:
-		lift = -1.0
+	# Walk cycle: a frame every 0.08s (two per step). Sheets step through
+	# their walk frames; placeholders bob and swap feet.
+	var phase := int(_bob / 0.08) if _walking else -1
 	var tex := SpriteBank.character(sprite_id)
 	if tex:
-		var region := SpriteBank.character_region(tex)
+		var frames := SpriteBank.frame_count(tex)
+		var frame := 0 if phase < 0 or frames == 1 else 1 + phase % (frames - 1)
+		var lift := -1.0 if frames == 1 and phase % 2 == 1 else 0.0
+		var region := SpriteBank.frame_region(tex, facing, frame)
 		var at := Vector2(int((WorldMap.TILE - region.size.x) / 2), WorldMap.TILE - region.size.y + lift)
 		draw_texture_rect_region(tex, Rect2(at, region.size), region)
 	else:
-		Critter.paint(self, sprite_id, facing, Vector2(0, lift))
+		Critter.paint(self, sprite_id, facing, Vector2(0, -1.0 if phase % 2 == 1 else 0.0), 1.0, phase)
 	if alert:
 		draw_rect(Rect2(4, -14, 9, 12), Color("f4ecd8"))
 		draw_rect(Rect2(4, -14, 9, 12), INK, false)
@@ -106,14 +109,18 @@ func _draw() -> void:
 
 ## A placeholder of `id` in a 16x16 box at `at`, scaled by `s` (the party
 ## screen draws them bigger). Rough on purpose: shapes that read at 16px.
-static func paint(ci: CanvasItem, id: String, dir: Vector2i, at := Vector2.ZERO, s := 1.0) -> void:
+static func paint(ci: CanvasItem, id: String, dir: Vector2i, at := Vector2.ZERO, s := 1.0, step := -1) -> void:
 	var look: Array = LOOKS.get(id, [Color("888888"), Color("cccccc")])
 	var body: Color = look[0]
 	var detail: Color = look[1]
 	var r := func(x: float, y: float, w: float, h: float, c: Color) -> void:
 		ci.draw_rect(Rect2(at + Vector2(x, y) * s, Vector2(w, h) * s), c)
-	# Shadow.
+	# Shadow, and feet that take turns while walking (step 0, 1, 2...).
 	r.call(3, 14, 10, 2, Color(0, 0, 0, 0.25))
+	var foot := body.darkened(0.45)
+	var swap := 0 if step < 0 else (1 if step % 2 == 0 else -1)
+	r.call(5, 13 + maxi(swap, 0), 2, 2, foot)
+	r.call(9, 13 + maxi(-swap, 0), 2, 2, foot)
 	var human := id == "player" or id == "npc_cook" or id == "npc_kid" or id == "npc_dealer"
 	if human:
 		var top := 1.0 if id != "npc_kid" else 4.0

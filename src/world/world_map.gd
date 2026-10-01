@@ -102,7 +102,7 @@ const MAPS := {
 			{"id": "bertram", "name": "Old Bertram", "sprite": "npc_badger", "cell": Vector2i(30, 9), "facing": Vector2i.DOWN, "lines": [
 				"Off to Ridge Road? Rival crews wait along it, and they don't let anyone by for free.",
 				"Walk into a crew's line of sight and they'll deal you in. Beat them, and one of them might join you.",
-				"Press Start (or Tab) to choose which two of your animals sit with you."]},
+				"Press Start (or Tab) and pick Crew to choose which two of your animals sit with you."]},
 			{"id": "kid", "name": "Juniper, age 9", "sprite": "npc_kid", "cell": Vector2i(12, 13), "facing": Vector2i.UP, "lines": [
 				"My mom says the dealer at the hall has been asleep since before I was born.",
 				"So you can signal your crew all you like in there!"]},

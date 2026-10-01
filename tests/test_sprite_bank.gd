@@ -26,3 +26,15 @@ func test_every_tile_and_character_has_a_placeholder() -> void:
 	for map_id: String in WorldMap.ids():
 		for n: Dictionary in WorldMap.get_map(map_id).npcs:
 			check(Critter.LOOKS.has(n["sprite"]), "%s has placeholder colours" % n["sprite"])
+
+
+func test_a_sheet_walks_and_faces() -> void:
+	# 3 frames across (standing + 2 walking), 4 rows of 24 (down, up, left, right).
+	var sheet := ImageTexture.create_from_image(Image.create(48, 96, false, Image.FORMAT_RGBA8))
+	check_eq(SpriteBank.frame_count(sheet), 3)
+	check_eq(SpriteBank.frame_region(sheet, Vector2i.DOWN, 0), Rect2(0, 0, 16, 24))
+	check_eq(SpriteBank.frame_region(sheet, Vector2i.UP, 1), Rect2(16, 24, 16, 24))
+	check_eq(SpriteBank.frame_region(sheet, Vector2i.RIGHT, 2), Rect2(32, 72, 16, 24))
+	var single := ImageTexture.create_from_image(Image.create(16, 16, false, Image.FORMAT_RGBA8))
+	check_eq(SpriteBank.frame_count(single), 1)
+	check_eq(SpriteBank.frame_region(single, Vector2i.LEFT, 1), Rect2(0, 0, 16, 16), "one image is every frame")

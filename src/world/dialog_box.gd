@@ -1,7 +1,7 @@
 class_name DialogBox
 extends Control
 ## The text box along the bottom of the screen: one line at a time, typed
-## out, A to finish the line or go on. `await dialog.say([...])` returns when
+## out at the speed set in Options, A to finish the line or go on. `await dialog.say([...])` returns when
 ## the last line is dismissed, so encounter scripts read top to bottom.
 ##
 ## Input arriving in the same frame the box opens is ignored: the A press
@@ -11,7 +11,6 @@ extends Control
 
 signal line_done
 
-const CHARS_PER_SECOND := 60.0
 const HEIGHT := 70.0
 
 var _lines: Array[String] = []
@@ -55,7 +54,7 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	if _shown < _current().length():
-		_shown = minf(_current().length(), _shown + delta * CHARS_PER_SECOND)
+		_shown = minf(_current().length(), _shown + delta * Game.settings.chars_per_second())
 		queue_redraw()
 	elif Game.dev_auto and Time.get_ticks_msec() > _auto_at:
 		line_done.emit()

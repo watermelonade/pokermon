@@ -33,8 +33,13 @@ you; lose and you wake up at Rosie's Diner with half your money, and the
 crew will deal you in again. Two of the crews block the road; the other
 two can be walked around. In the hall, talk to the Mossbank Regulars to
 play the Open (the dealer's asleep); winning gives you the first bracelet
-and the demo-complete screen. Start (or Tab) opens your crew: pick which
-two animals sit with you.
+and the demo-complete screen. Start (or Tab) opens the menu: Crew (pick
+which two animals sit with you), Save, Options (text speed, volume).
+
+The look and feel is a handheld RPG of the Game Boy Advance era: grid
+steps with a walk cycle, a "!" when a crew spots you, a bordered text box
+along the bottom, a diner for a healing centre, a Start menu in the corner.
+Inspired by, never copied: every name, map and drawing here is original.
 
 The game saves itself after every match, at every door, and when the
 window loses focus; Continue on the title picks up from there. Saves are
@@ -47,7 +52,7 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 | Walk | arrows or WASD | D-pad or left stick |
 | Talk, read, confirm | Enter / Space | A |
 | Back | Esc | B |
-| Your crew (party screen) | Tab / Esc | Start |
+| Menu (Crew, Save, Options) | Tab / Esc | Start |
 
 | Table | Keyboard | Controller / Steam Deck |
 | --- | --- | --- |
@@ -77,7 +82,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-64 tests, about 8 seconds. They cover hand ranking, equity against known odds
+65 tests, about 10 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up),
 side pots, split pots and odd chips, busted seats, a 600-hand random-play run
 that checks no chip is ever created or lost, full bot matches, soft play
@@ -91,7 +96,7 @@ can, and that beaten crews don't block the road; and for the run: seating
 for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
 including damaged and missing saves; and that missing art falls back to
-placeholders and a sprite strip is cut to its first frame. The runner fails any test that logs a script
+placeholders and a sprite sheet is cut into walk frames and facings. The runner fails any test that logs a script
 error (GDScript has no exceptions, so a crashing test would otherwise pass).
 CI runs the same thing on every push (`.github/workflows/tests.yml`).
 
@@ -121,7 +126,7 @@ xvfb-run godot --path . --rendering-driver opengl3 -- --save-slot=dev --new --sk
 
 Drop `--match-result` and add `--autoplay --chips=60` to play the real
 table with a bot in your seat (a few minutes). `--show=party`,
-`--show=demo_complete`, `--recruit=cat:1`, `--beaten=all` and
+`--show=start`, `--show=options`, `--show=demo_complete`, `--recruit=cat:1`, `--beaten=all` and
 `--money=` jump to a state; any dev flag also prints what happens
 (encounters, results, saves) to the terminal.
 
@@ -250,7 +255,8 @@ process is frozen without notice, so the protection is saving often).
 | `src/world/map_view.gd` | Paints a map: tile art if present, placeholders if not |
 | `src/world/critter.gd` | Anyone walking around; placeholder animals drawn from rectangles |
 | `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |
-| `src/world/dialog_box.gd`, `choice_menu.gd`, `party_screen.gd`, `demo_complete.gd`, `ui_kit.gd` | The overworld's screens and their shared look |
+| `src/world/dialog_box.gd`, `choice_menu.gd`, `party_screen.gd`, `options_screen.gd`, `demo_complete.gd`, `ui_kit.gd` | The overworld's screens (text box, Start menu, crew, options, the end) and their shared look |
+| `src/game/settings.gd` | Text speed and volume, in `user://settings.cfg`, apart from the save |
 | `tests/` | Test runner and tests |
 | `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, input-map writer |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |

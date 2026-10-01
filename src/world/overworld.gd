@@ -38,6 +38,7 @@ var camera: Camera2D
 var dialog: DialogBox
 var menu: ChoiceMenu
 var party_screen: PartyScreen
+var options_screen: OptionsScreen
 var demo_complete: DemoComplete
 var table_layer: CanvasLayer
 var fade: ColorRect
@@ -70,6 +71,12 @@ func _ready() -> void:
 	match Game.dev("show"):
 		"party":
 			_open_party()
+		"start":
+			_open_start_menu()
+		"options":
+			mode = Mode.BUSY
+			await options_screen.open(Game.settings)
+			mode = Mode.WALK
 		"demo_complete":
 			mode = Mode.BUSY
 			await demo_complete.open(state, _road_crew_count())
@@ -102,6 +109,8 @@ func _build() -> void:
 	ui.add_child(menu)
 	party_screen = PartyScreen.new()
 	ui.add_child(party_screen)
+	options_screen = OptionsScreen.new()
+	ui.add_child(options_screen)
 	demo_complete = DemoComplete.new()
 	ui.add_child(demo_complete)
 	fade = ColorRect.new()
@@ -307,7 +316,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_interact()
 	elif event.is_action_pressed("menu"):
 		get_viewport().set_input_as_handled()
-		_open_party()
+		_open_start_menu()
 
 
 func _interact() -> void:
@@ -353,7 +362,7 @@ func _intro() -> void:
 		"Mossbank. Your crew is %s, and they're itching to play." % " and ".join(names),
 		"The Mossbank Open is tonight, at the hall at the far end of Ridge Road (east of town).",
 		"Rival crews wait along the road. Walk into their sight and they'll deal you in.",
-		"Arrows, WASD, D-pad or stick to walk. A, Enter or Space to talk. Start or Tab for your crew.",
+		"Arrows, WASD, D-pad or stick to walk. A, Enter or Space to talk. Start or Tab for the menu.",
 	])
 
 
@@ -365,6 +374,27 @@ func _crew_title(crew: Dictionary) -> String:
 	if nodes and nodes[0] != null:
 		return "%s, of %s" % [leader.name, crew["name"]]
 	return title
+
+
+## Start: a small menu in the corner, as on a handheld. It stays open until
+## Close (or B, or Start again), so you can seat your crew and then save.
+func _open_start_menu() -> void:
+	mode = Mode.BUSY
+	var pick := 0
+	while true:
+		pick = await menu.choose("", ["Crew", "Save", "Options", "Close"], 3, true, pick)
+		if pick == 0:
+			await party_screen.open(state)
+			_make_followers(player.cell, player.facing)
+		elif pick == 1:
+			Game.save()
+			await dialog.say(["Your progress has been saved. (The game also saves itself at every door and after every match.)"])
+		elif pick == 2:
+			await options_screen.open(Game.settings)
+		else:
+			break
+	Game.save()
+	mode = Mode.WALK
 
 
 func _open_party() -> void:
@@ -447,8 +477,15 @@ signal _table_done(won: bool)
 ## The table reports a finished match on the A press that dismisses it; the
 ## same press must not also reach the overworld (it'd talk to whoever is in
 ## front of you), so it's marked handled and the table freed next frame.
+##
+## The table stays in the tree until the end of the frame, and would emit
+## again on a second A press in that frame, so it stops listening first.
 func _on_table_finished(won: bool) -> void:
 	get_viewport().set_input_as_handled()
+	if table == null:
+		return
+	table.set_process_unhandled_input(false)
+	table.finished.disconnect(_on_table_finished)
 	table.queue_free()
 	table = null
 	await get_tree().process_frame
@@ -458,7 +495,9 @@ func _on_table_finished(won: bool) -> void:
 ## In dev runs, --auto presses A when a real (--autoplay) match ends, so a
 ## scripted run gets back to the overworld.
 func _physics_process(_delta: float) -> void:
-	if table and Game.dev_auto and table.match_ and table.match_.is_over() and table._waiting_for_next:
+	if table and Game.dev_auto and table.match_ and table.match_.is_over() and table._waiting_for_next \
+			and not table.has_meta("auto_pressed"):
+		table.set_meta("auto_pressed", true)  # once: extra presses would skip the next dialog
 		_press("ui_accept")
 
 
@@ -497,7 +536,7 @@ func _offer_recruit(crew: Dictionary) -> void:
 	var node: Critter = nodes[i]
 	nodes[i] = null
 	node.queue_free()
-	await dialog.say(["%s joins your crew! Press Start (or Tab) to choose who sits with you." % a.name])
+	await dialog.say(["%s joins your crew! Choose who sits with you from Crew in the Start menu (Start or Tab)." % a.name])
 
 
 func _blackout(crew: Dictionary) -> void:
