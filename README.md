@@ -81,6 +81,7 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 | Raise size: min, half pot, pot, 2x pot, all-in | Q / E | LB / RB |
 | In the raise picker: one big blind more / less | up / down | D-pad up / down |
 | Signal your teammates | 1 2 3 4 | back buttons L4 R4 L5 R5 |
+| Fake a signal (for rival eyes; your teammates ignore it) | Shift + 1-4 | hold LB + a back button |
 | Help card (controls, signals, Heat) | H or F1 | Select |
 | Next hand (it also moves on by itself) | Enter | A |
 | Tutorial: next line / skip the lesson | Enter / Tab | A / Start |
@@ -88,7 +89,11 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 You are seat "You". Your crew (teal) is the Owl (Rock) and the Raccoon
 (Bluffer); the rivals (rust) are the Goose (Maniac), Cat (Shark) and Squirrel
 (Calling Station). Your teammates' signals pop up over their heads. The rival
-crew signals too, but you can't see theirs yet.
+crew signals too, in its own code: when your crew catches one, it pops up
+over the rival with an eye ("ear ?"), and once a showdown has shown what
+that gesture meant, with its meaning ("ear: weak"). The panel top left is
+what you've cracked of their code, and which of your gestures they've
+cracked (a fake only fools a crew that knows the gesture).
 
 A watchful dealer runs the table. Both crews' Heat shows top right, and the
 bottom left says what your next signal would cost. At 40 Heat the dealer
@@ -144,7 +149,10 @@ going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
 between teammates, signals, and Heat: what signals cost, cooling, one
 warning per episode, fines, ejections, bought dealers, catching a boss, and
-careful animals going quiet. For the overworld: every
+careful animals going quiet; and interception: noticing odds against the
+formula, crew codes, learning at a showdown (not from a fold or a fake),
+fakes, bots reacting to what they read, the code book through JSON, and a
+golden action log showing bot matches unchanged with it off. For the overworld: every
 map is rectangular and closed, everyone stands somewhere they can stand,
 doors lead somewhere free, line of sight (straight ahead, stopped by walls
 and bodies), the walk-up path, that two crews can't be snuck past and two
@@ -193,7 +201,7 @@ CI runs the same thing on every push (`.github/workflows/tests.yml`).
 godot --headless --path . -s tools/verify_evaluator.gd        # all 2,598,960 five-card hands
 godot --headless --path . -s tools/soak_rules.gd -- 50000 1 --bots=60   # rules fuzzing soak, plus bot matches under a strict dealer
 godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style balance, 40 matches a pairing, seed 7
-godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=)
+godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=, --interception)
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
 godot --headless --path . -s tools/heat_report.gd -- 30 1 STRICT     # how often a dealer warns, fines, ejects each style
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
@@ -369,6 +377,73 @@ signalling and get fined and thrown out. Open design question: is that the
 point (a strict city favours careful crews, like weather in Pokemon), or
 should careless styles get something back under a watchful dealer?
 
+**Interception** (reading the other crew's signals; `src/crew/interception.gd`
+has the rules and why). Each gesture gets one roll per animal on the other
+crew: attentiveness (owl 0.8, cat 0.75, raccoon 0.55, possum 0.5, squirrel
+0.3, goose 0.2, you 0.4) x 0.25 x n, where n is the crew's nth signal this
+hand. Each crew signals in its own code, so a noticed gesture means
+nothing until the sender's cards are shown at a showdown; then it's learned
+for good (kept in a CodeBook for the save). Fakes (Shift or LB held) are
+ignored by your teammates and believed by rivals who have cracked that
+gesture. Bots facing a bet from a seat read as strong / weak move their
+equity 15% down / up, and bluff 15% more often into a pot where an
+opponent said weak.
+
+At the demo table (you, Owl, Raccoon vs Goose, Cat, Squirrel; a Shark bot
+in your seat; 40 road matches of 20 hands, scratch measurement):
+
+| Dealer | Rival signals a match | You notice | Gestures you learn a match | Your crew's signals | Rivals notice | Gestures they learn |
+| --- | --- | --- | --- | --- | --- | --- |
+| Street (none) | 18.2 | 45% | 1.15 | 19.1 | 37% | 0.62 |
+| Watchful | 10.2 | 45% | 0.93 | 8.5 | 28% | 0.20 |
+| Strict | 6.6 | 37% | 0.62 | 4.8 | 27% | 0.05 |
+
+So under the watchful dealer you see about four of the rivals' signals in
+a road match and crack one gesture in three matches out of four (the first,
+when it comes, at a median of hand 6). Bots only ever say "strong" and
+"weak", so two gestures per crew is all there is to learn from them. LOOK
+was 0.15 at first: 25% noticed and 0.6 gestures learned a match, which
+looked too little to play with (a judgement from the numbers, not from
+playing). The rivals watch worse than your crew
+(a goose and a squirrel) and rarely crack your code inside one match, so a
+fake mostly pays off in a rematch, once the CodeBook carries over: an open
+design question is whether that's the right pace.
+
+**Off, nothing changes.** `tools/simulate.gd -- 8 123 --cycle` prints the
+same output before and after interception existed, and
+`tests/test_interception.gd` checks two full bot matches (one under a
+watchful dealer) against action logs recorded before it: every action,
+amount and signal identical. Interception keeps its own RNG and draws
+nothing while off.
+
+**On, the cycle** (`tools/simulate.gd -- 60 <seed> --cycle --interception`,
+seeds 70001-70004, against the same seeds with it off: 240 matches a link):
+
+| Link | Off | On |
+| --- | --- | --- |
+| Bluffer beats Rock | 57.0% | 52.8% |
+| Rock beats Maniac | 56.3% | 56.8% |
+| Maniac beats Shark | 58.5% | 57.8% |
+| Shark beats Calling Station | 62.5% | 63.0% |
+| Calling Station beats Bluffer | 59.5% | 58.0% |
+
+38% of bot signals were noticed and both crews cracked each other's two
+gestures in almost every match (2.0 learned a match: bot matches run 44
+hands). Every link still holds; only Bluffer > Rock moved more than a
+point, and at 240 matches a link (about 3 points of noise each, 4.5 for a
+difference) that isn't measurable yet. A bigger run of that link (`-- 200 70005
+--pairs=BLUFFER-ROCK`, 200 matches each way) gave 57% off and 49% on, so
+across both, 57% and 51%: likely real, about 2 standard errors. Where it
+comes from (a scratch tally over 60 matches): the Bluffer tells its crew
+"I'm weak" and then bluffs, and in the 68 hands where a Rock faced a bet
+from a Bluffer it had overheard saying "weak", the Rock crew came out
++189 chips a hand. The reverse barely happens (the Rock rarely signals
+weak and then bets). That's the mechanic doing what it says, a bluffer
+who tells its crew it's weak gets called, but it does weaken the type
+chart's thinnest link when both crews intercept. If interception is ever
+on in bot-vs-bot play (rival crews among themselves, say), the Bluffer
+wants a reason to stay quiet when bluffing (a fake "strong", or caution).
+
 **The table on screen:** checked with screenshots under a virtual display:
 the preflop decision, a showdown (the right hand wins, the busted seat greys
 out). Not checked: how it feels to play, on a real Steam Deck, or with a real
@@ -477,6 +552,10 @@ skip is tested headless only).
 | `src/crew/play_style.gd` | The five styles (Rock, Maniac, Shark, Calling Station, Bluffer) as numbers |
 | `src/crew/table_talk.gd` | Signals between teammates, and misreads when the bond is weak |
 | `src/crew/table_reads.gd` | What a watchful player learns: who re-raises when bet into |
+| `src/crew/interception.gd` | Reading the other crew's signals: noticing, learning codes at showdowns, fakes; off unless a match turns it on |
+| `src/crew/crew_code.gd` | Each crew's private code (gesture for each meaning), derived from its id |
+| `src/crew/code_book.gd` | What each crew has learned of other crews' codes; JSON-safe for the save |
+| `src/ui/intercept_overlay.gd` | Draws intercepted signals, the code panel and fakes over the table |
 | `src/ai/poker_bot.gd` | An AI seat: equity + style, soft play, reacts to signals |
 | `src/match/team_match.gd` | Crew vs crew: rising blinds, fines and ejections, who's out, who won |
 | `src/match/dealer.gd` | Who's watching: street (nobody), asleep, relaxed, watchful, strict, bought |

@@ -15,6 +15,11 @@ extends RefCounted
 ## crew's `leaders` seat is thrown out, that crew loses on the spot: catching
 ## the boss counts as beating them. The default dealer is nobody, which is
 ## also what the play styles were tuned under.
+##
+## Interception (reading the other crew's signals, src/crew/interception.gd)
+## is off by default for the same reason: the type chart was tuned without
+## it, and while off it changes nothing. The table turns it on for matches
+## you play in; `tools/simulate.gd --interception` measures it.
 
 const BLIND_LEVELS := [
 	[5, 10], [10, 20], [15, 30], [25, 50], [50, 100], [75, 150],
@@ -26,6 +31,7 @@ var bots: Array[PokerBot] = []  ## null entries are human-controlled seats
 var talk := TableTalk.new()
 var reads := TableReads.new()
 var heat := Heat.new()
+var interception := Interception.new()  ## off until enabled: see Interception
 var leaders := {}  ## team -> seat; catching a leader ends the match
 var removed_chips := 0  ## chips that left the game with ejected seats
 var hands_per_level := 8
@@ -37,9 +43,11 @@ func _init(seed_value := 0) -> void:
 		# Hashed: Godot's RNG gives similar streams for similar seeds, and
 		# matches seeded 1, 2, 3... came out correlated (see PokerBot).
 		table.rng.seed = hash(seed_value)
+		interception.rng.seed = hash("interception:%d" % seed_value)
 	table.hand_started.connect(func(_button: int) -> void: talk.clear())
 	reads.watch(table)
 	heat.watch(table, talk)
+	interception.watch(table, talk)
 	table.hand_finished.connect(func(_result: Dictionary) -> void: _apply_ejections())
 
 
@@ -48,6 +56,7 @@ func add_player(player_name: String, team: int, chips: int, bot: PokerBot) -> vo
 	if bot:
 		bot.table_reads = reads
 		bot.heat = heat
+		bot.interception = interception
 	bots.append(bot)
 
 

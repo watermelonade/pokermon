@@ -8,6 +8,13 @@ extends RefCounted
 ## misreads it as a different one. That's what makes bond worth training.
 ## Every signal is also a gesture the dealer might see: Heat listens for
 ## `gesture_made` (src/match/heat.gd).
+##
+## Rival crews may be watching too (Interception): they see the gesture, not
+## the meaning, and each crew has its own code (CrewCode). A signal can be
+## sent as a fake, meant only for rivals who have cracked the code: the
+## crew agreed on a cue for "this one's for show" (holding LB or Shift with
+## the signal button), so teammates ignore it while it still costs Heat like
+## any other gesture.
 
 signal gesture_made(from_seat: int, sig: int)
 
@@ -21,7 +28,7 @@ enum Sig {
 const GESTURES := ["Touch nose", "Scratch ear", "Stack chips", "Tip hat"]
 const MEANINGS := ["I'm strong", "I'm weak", "Raise behind me", "Let me have it"]
 
-## Every signal sent this hand: {from, sig, street}.
+## Every signal sent this hand: {from, sig, street, fake}.
 var sent: Array[Dictionary] = []
 ## How each reader took each signal, so a misread stays the same misread.
 var _perceived := {}
@@ -32,8 +39,9 @@ func clear() -> void:
 	_perceived.clear()
 
 
-func send(from_seat: int, sig: Sig, street: int) -> void:
-	sent.append({"from": from_seat, "sig": sig, "street": street})
+## `fake`: for show, for rival eyes only; teammates don't act on it.
+func send(from_seat: int, sig: Sig, street: int, fake := false) -> void:
+	sent.append({"from": from_seat, "sig": sig, "street": street, "fake": fake})
 	gesture_made.emit(from_seat, sig)
 
 
@@ -42,7 +50,7 @@ func send(from_seat: int, sig: Sig, street: int) -> void:
 func read_from(reader: int, from_seat: int, bond: float, rng: RandomNumberGenerator) -> Array[Sig]:
 	var out: Array[Sig] = []
 	for i in sent.size():
-		if sent[i]["from"] != from_seat:
+		if sent[i]["from"] != from_seat or sent[i].get("fake", false):
 			continue
 		var key := Vector2i(reader, i)
 		if not _perceived.has(key):

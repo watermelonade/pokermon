@@ -113,6 +113,7 @@ var starting_chips := 1000
 ## Caps the match at this many hands (the crew with more chips wins), for
 ## road games; 0 plays until a crew is out. Set before adding to the tree.
 var max_hands := 0
+var codebook: CodeBook  # interception: rival codes learned so far (a CodeBook the save keeps); null = this table only
 
 var match_: TeamMatch
 var last_action := {}  ## seat -> short text under its name
@@ -170,6 +171,7 @@ var _coach_held := false  ## the coach held the flow last frame
 ## The coach's walk sheet, held here: a texture loaded inside _draw and let
 ## go is freed before the frame renders, and drew as a white block.
 var _coach_sprite: Texture2D
+var _intercept: InterceptOverlay  # interception: rival signals your crew catches, drawn over the table
 
 
 func _ready() -> void:
@@ -212,6 +214,7 @@ func _ready() -> void:
 	if tutorial:
 		_coach_sprite = Sprites.sheet(TutorialScript.COACH_SPRITE)
 	_rng.seed = hash(_seed) if _seed else int(Time.get_ticks_usec())
+	_intercept = InterceptOverlay.attach(self)  # interception:
 	_new_match()
 	if shot_path:
 		_take_screenshots(shot_path, shot_after, shots, shot_every)
@@ -262,6 +265,10 @@ func _new_match() -> void:
 		match_.add_player(setup[i]["name"], setup[i]["team"], starting_chips, bot)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
 	match_.max_hands = tutorial.hands() if tutorial else max_hands
+	if tutorial == null:
+		# interception: on for every match you play in; off in Rosie's lessons,
+		# which are scripted down to exact Heat values and need a clean table.
+		_intercept.watch(match_, setup, HUMAN, codebook)
 	var t := match_.table
 	t.hand_started.connect(_on_hand_started)
 	t.action_taken.connect(_on_action)
@@ -627,7 +634,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("signal_%d" % (i + 1)):
 			if tutorial and not tutorial.on_signal(i, _now()):
 				continue  # it would overheat your crew: the coach says so instead
-			_send_signal(i)
+			_send_signal(i, InterceptOverlay.is_fake_press(event))  # interception: LB/Shift held = a fake
 	if _flow == Flow.HUMAN and _menu_open and _menu.enabled[CommandMenu.Item.RAISE]:
 		# The bumpers size the raise from the menu too; the Raise item shows it.
 		var dir := 0
@@ -639,8 +646,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			raise_to = RaiseSizes.step(_sizes, raise_to, dir)
 
 
-func _send_signal(sig: int) -> void:
-	match_.talk.send(HUMAN, sig as TableTalk.Sig, match_.table.street)
+func _send_signal(sig: int, fake := false) -> void:
+	match_.talk.send(HUMAN, sig as TableTalk.Sig, match_.table.street, fake)
 	_show_new_signals()
 
 
