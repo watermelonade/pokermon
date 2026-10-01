@@ -17,6 +17,11 @@ extends Node2D
 ## finished(won) signal, frees it, and carries on from the same spot. Win:
 ## money and a recruit; lose: wake at the diner with half your money.
 ##
+## Tutorial: a new game ends its intro with Rosie offering her table
+## lessons (src/tutorial/), once (GameState.tutorial_offered); after that
+## they're on her menu at the diner. They play at the embedded table like a
+## match, but nothing is won or lost: only finishing them is remembered.
+##
 ## Dev flags are parsed by the Game autoload (see src/game/game.gd).
 
 enum Mode { WALK, BUSY, TABLE }
@@ -71,6 +76,7 @@ func _ready() -> void:
 	if not state.seen_intro:
 		state.seen_intro = true
 		await _intro()
+		await _offer_tutorial()
 		Game.save()
 		_area = ""
 		_show_area()  # the banner timed out behind the intro
@@ -87,6 +93,10 @@ func _ready() -> void:
 		"demo_complete":
 			mode = Mode.BUSY
 			await demo_complete.open(state, _road_crew_count())
+			mode = Mode.WALK
+		"tutorial":
+			mode = Mode.BUSY
+			await _play_tutorial()
 			mode = Mode.WALK
 
 
@@ -385,7 +395,10 @@ func _interact() -> void:
 ## it's the reassurance of the ritual, a save, and the diner as the place a
 ## blackout wakes you.
 func _rest_at_diner() -> void:
-	var pick := await menu.choose("Rest your crew in a booth?", ["Yes", "No"], 1)
+	var pick := await menu.choose("What'll it be, hon?", ["Rest in a booth", "A table lesson", "Nothing"], 2)
+	if pick == 1:
+		await _play_tutorial()
+		return
 	if pick != 0:
 		return
 	await _fade_out(0.4)
@@ -444,6 +457,58 @@ func _open_party() -> void:
 	_make_followers(player.cell, player.facing)
 	Game.save()
 	mode = Mode.WALK
+
+
+# --- Rosie's table lessons --------------------------------------------------
+
+## Asked once, at the end of a new game's intro. Scripted --auto runs skip it
+## unless --tutorial asks for it, so they don't sit down at a table nobody
+## is playing.
+func _offer_tutorial() -> void:
+	if state.tutorial_offered or (Game.dev_auto and not Game.dev_args.has("tutorial")):
+		return
+	state.tutorial_offered = true
+	await dialog.say([
+		"Yoo-hoo! Over here, hon! Rosie, from the diner.",
+		"New to the tables? I'll show you how they work. Five minutes, pie after."], "Rosie")
+	var pick := await menu.choose("Take Rosie's table lesson?", ["Yes, show me", "No thanks"], 1)
+	if pick == 0:
+		await _play_tutorial()
+	else:
+		await dialog.say(["Suit yourself, hon. I'm at the diner whenever you want a lesson."], "Rosie")
+
+
+## The lessons at the embedded table, with your seated crew. Like
+## _play_match, minus the stakes: no money, no blackout, and skipping (Start)
+## just brings you back.
+func _play_tutorial() -> void:
+	state.tutorial_offered = true
+	var lessons := TableTutorial.new()
+	await _fade_out(0.2)
+	if Game.dev("match-result"):  # scripted runs that skip tables skip this one too
+		lessons.completed = Game.dev("match-result") == "win"
+		await get_tree().create_timer(0.4).timeout
+		await _fade_in(0.2)
+	else:
+		table = TABLE_SCENE.instantiate()
+		table.tutorial = lessons
+		table.setup = TutorialScript.setup_for(state.party_animals())
+		table.starting_chips = TutorialScript.CHIPS
+		table.embedded = true
+		table.finished.connect(_on_table_finished)
+		mode = Mode.TABLE
+		_hud.queue_redraw()
+		table_layer.add_child(table)
+		fade.color.a = 0.0
+		await _table_done
+		mode = Mode.BUSY
+	state.tutorial_done = state.tutorial_done or lessons.completed
+	Game.save()
+	Game.dev_log("tutorial: %s" % ("finished" if lessons.completed else "skipped"))
+	if lessons.completed:
+		await dialog.say(["Look at you, hon! A natural. Mostly.", "Come by for pie, win or lose. Or another lesson."], "Rosie")
+	else:
+		await dialog.say(["Fair enough, hon. I'm at the diner if you want another go."], "Rosie")
 
 
 # --- Encounters -------------------------------------------------------------

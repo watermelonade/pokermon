@@ -41,12 +41,24 @@ extends Control
 ## dev flags except --autoplay (the embedding scene sets the dealer and
 ## takes its own screenshots). With no `setup`, the demo crews below play.
 ##
+## Tutorial: set `tutorial` (a TableTutorial, src/tutorial/) before adding
+## the scene and it plays Rosie's five set-up lessons instead of a match.
+## The hooks are the `tutorial` checks below: each hand comes from the
+## lesson's stacked deck, the animals are ScriptedBots, the coach's lines
+## take over the text box (CoachBox) and hold the flow the way the help card
+## does (bots wait, your menu waits, the next hand waits) until A. Start
+## (or Tab) offers to skip; an embedded tutorial then emits `finished` at
+## once. With no tutorial set none of this runs.
+##
 ## Dev flags (after `--`): --autoplay lets a bot play your seat,
 ## --dealer=STRICT (or STREET, ASLEEP, RELAXED, WATCHFUL, BOUGHT) picks the
 ## dealer, --screenshot=path.png saves the screen after --shot-after=seconds
 ## and quits; --shots=N with --shot-every=seconds saves N frames instead
 ## (path_0.png, path_1.png...), for checking motion; --seed=N makes the deal
 ## and the bots repeatable; --help-open starts with the help card shown.
+## --tutorial plays the tutorial, --lesson=N starts it at lesson N (1-5),
+## --coach-auto=S moves the coach on by itself after S seconds a line (for
+## screenshots; --autoplay implies it).
 
 const YOUR_CREW := Color("2f6f6a")
 const RIVALS := Color("7a3b2e")
@@ -149,6 +161,15 @@ var _sizes: Array[Dictionary] = []
 var _rng := RandomNumberGenerator.new()
 var _seed := 0
 var _finished_sent := false  ## `finished` fires once, even on a double A
+## The tutorial, when this table is one (see the top); null for a match.
+var tutorial: TableTutorial = null
+var _coach_auto := -1.0  ## seconds before a coach line moves on by itself; <0: waits for A
+var _coach_line := {}  ## the coach line on screen, to time its typing
+var _coach_since := 0.0
+var _coach_held := false  ## the coach held the flow last frame
+## The coach's walk sheet, held here: a texture loaded inside _draw and let
+## go is freed before the frame renders, and drew as a white block.
+var _coach_sprite: Texture2D
 
 
 func _ready() -> void:
@@ -176,8 +197,20 @@ func _ready() -> void:
 			_seed = int(arg.get_slice("=", 1))
 		elif arg == "--help-open":
 			_help_open = true
+		elif arg == "--tutorial" and tutorial == null:
+			tutorial = TableTutorial.new()
+		elif arg.begins_with("--lesson="):
+			if tutorial == null:
+				tutorial = TableTutorial.new()
+			tutorial.start_lesson = clampi(int(arg.get_slice("=", 1)) - 1, 0, TutorialScript.count() - 1)
+		elif arg.begins_with("--coach-auto="):
+			_coach_auto = float(arg.get_slice("=", 1))
+	if autoplay and _coach_auto < 0.0:
+		_coach_auto = 1.2
 	if setup.is_empty():
-		setup = demo_setup()
+		setup = TutorialScript.setup_for([]) if tutorial else demo_setup()
+	if tutorial:
+		_coach_sprite = Sprites.sheet(TutorialScript.COACH_SPRITE)
 	_rng.seed = hash(_seed) if _seed else int(Time.get_ticks_usec())
 	_new_match()
 	if shot_path:
@@ -212,17 +245,23 @@ func _set_controls_visible(on: bool) -> void:
 func _new_match() -> void:
 	var seed_value := _seed if _seed else int(Time.get_unix_time_from_system())
 	match_ = TeamMatch.new(seed_value)
+	if tutorial and tutorial.lesson_index >= 0:  # a rematch: the lessons from the top
+		var start := tutorial.start_lesson
+		tutorial = TableTutorial.new()
+		tutorial.start_lesson = start
 	for i in setup.size():
 		var animal: Animal = setup[i]["animal"]
 		var bot: PokerBot = null
 		var bot_seed := i + 1 + (_seed * 7919 if _seed else int(Time.get_ticks_usec()))
-		if animal:
+		if tutorial:
+			bot = tutorial.make_bot(i, autoplay)
+		elif animal:
 			bot = animal.make_bot(bot_seed)
 		elif autoplay:
 			bot = PokerBot.new(PlayStyle.preset(PlayStyle.Kind.SHARK), bot_seed)
 		match_.add_player(setup[i]["name"], setup[i]["team"], starting_chips, bot)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
-	match_.max_hands = max_hands
+	match_.max_hands = tutorial.hands() if tutorial else max_hands
 	var t := match_.table
 	t.hand_started.connect(_on_hand_started)
 	t.action_taken.connect(_on_action)
@@ -231,13 +270,13 @@ func _new_match() -> void:
 	match_.talk.gesture_made.connect(_on_gesture)
 	match_.heat.warned.connect(func(team: int, _seat: int) -> void:
 		_sound(&"dealer_warning")
-		_dealer_says("Dealer to %s: \"Hands where I can see them.\"" % _crew_name(team)))
+		_dealer_says("Dealer to %s: \"Paws where I can see them.\"" % _crew_name(team)))
 	match_.heat.fined.connect(func(team: int, _seat: int) -> void:
 		_sound(&"fine")
 		_dealer_says("The floor fines %s: a dead big blind each, next hand." % _crew_name(team)))
 	match_.heat.ejection_called.connect(func(_team: int, seat: int) -> void:
 		_sound(&"ejection")
-		_dealer_says("%s is thrown out after this hand!" % ("You are" if seat == HUMAN else t.seats[seat].name)))
+		_dealer_says("You're thrown out after this hand!" if seat == HUMAN else "%s is thrown out after this hand!" % t.seats[seat].name))
 	_feed.clear()
 	alert = ""
 	_heat_shown.clear()
@@ -250,7 +289,7 @@ func _new_match() -> void:
 ## waiting for A to continue. Public so an embedding scene can tell (the
 ## overworld's scripted runs press A for you then) without reading internals.
 func is_waiting_to_continue() -> bool:
-	return _flow == Flow.MATCH_DONE and _now() >= _match_banner_at and not _finished_sent
+	return _flow == Flow.MATCH_DONE and _now() >= _match_banner_at and not _finished_sent and not _coach_holding()
 
 
 func _crew_name(team: int) -> String:
@@ -303,8 +342,13 @@ func _next_hand() -> void:
 	_turn_seat = -1
 	banner = ""
 	last_action.clear()
-	match_.start_hand()  # deals: _on_hand_started books the cards' flights
-	_say("Hand %d. Blinds %d/%d." % [match_.table.hand_number, match_.table.small_blind, match_.table.big_blind], INK_SOFT)
+	if tutorial:
+		match_.start_hand(tutorial.begin_hand(match_))  # the lesson's stacked deal
+		_say("Lesson %d of %d: %s." % [tutorial.lesson_number(), TutorialScript.count(), tutorial.lesson()["title"]], INK_SOFT)
+		_coach("hand_start", {})
+	else:
+		match_.start_hand()  # deals: _on_hand_started books the cards' flights
+		_say("Hand %d. Blinds %d/%d." % [match_.table.hand_number, match_.table.small_blind, match_.table.big_blind], INK_SOFT)
 	_advance_flow()
 
 
@@ -316,6 +360,7 @@ func _advance_flow() -> void:
 	var now := _now()
 	if t.hand_over:
 		_turn_seat = -1
+		_coach("hand_over", {}, maxf(now, _motion.cursor))
 		if match_.is_over() or t.seats[HUMAN].ejected:
 			_flow = Flow.MATCH_DONE
 			_match_banner = _match_result()
@@ -341,6 +386,8 @@ func _advance_flow() -> void:
 
 
 func _match_result() -> String:
+	if tutorial:
+		return tutorial.result_text()
 	var w := match_.winner()
 	var text := "Your crew wins the match!" if w == 0 else ("The rival crew wins." if w == 1 else "A draw.")
 	if match_.table.seats[HUMAN].ejected:
@@ -363,12 +410,21 @@ func _process(delta: float) -> void:
 				bubbles.erase(seat)
 	_update_heat_bars(delta)
 	_play_due_sounds(now)
-	if not _help_open:
+	var held := _coach_holding()
+	if tutorial:
+		_coach_tick(now)
+		held = _coach_holding()
+		if _coach_held and not held:
+			_resume_after_pause(now)
+		_coach_held = held
+		if held:
+			_hold_overlays(delta)
+	if not _help_open and not held:
 		match _flow:
 			Flow.BOT_THINKING:
 				_bot_turn(now)
 			Flow.HUMAN:
-				if not _menu_open and now >= _controls_at:
+				if not _menu_open and now >= _controls_at and not _coach("your_turn", {"street": match_.table.street}):
 					_start_human_turn()
 			Flow.HAND_DONE:
 				if now >= _next_hand_at:
@@ -387,6 +443,8 @@ func _bot_turn(now: float) -> void:
 		if now < _decide_at:
 			return
 		var seat := t.to_act
+		if seat == HUMAN and _coach("your_turn", {"street": t.street}):
+			return  # --autoplay in the tutorial: the coach still talks your seat through it
 		_choice = match_.bots[seat].decide(t, seat, match_.talk)
 		_show_new_signals()
 		_maybe_tell(seat, AnimalTells.Moment.THINKING, _choice["action"])
@@ -422,6 +480,11 @@ func _start_human_turn() -> void:
 	_menu.enabled[CommandMenu.Item.FOLD] = not legal["can_check"]  # folding when checking is free is never right
 	_menu.enabled[CommandMenu.Item.RAISE] = legal["can_raise"]
 	_menu.reset()
+	if tutorial:  # the cursor starts on what the coach suggests
+		var hint := tutorial.suggest(HUMAN)
+		_menu.cursor = maxi(0, CommandMenu.ORDER.find(hint["item"]))
+		if hint["item"] == CommandMenu.Item.RAISE:
+			raise_to = clampi(hint["raise_to"], legal["min_raise_to"], legal["max_raise_to"])
 	_set_controls_visible(true)
 	_sound(&"your_turn")
 
@@ -437,6 +500,10 @@ func _human_act(action: int) -> void:
 ## The command menu and help, driven by the ui_* actions (D-pad, stick,
 ## arrows; A / Enter; B / Escape).
 func _input(event: InputEvent) -> void:
+	if tutorial and event.is_action_pressed("menu") and not event.is_action_pressed("ui_cancel"):
+		tutorial.request_skip(_now())  # Start or Tab; Escape stays "back"
+		get_viewport().set_input_as_handled()
+		return
 	if _is_help_toggle(event):
 		_toggle_help()
 		get_viewport().set_input_as_handled()
@@ -445,6 +512,11 @@ func _input(event: InputEvent) -> void:
 		if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_accept"):
 			_sound(&"ui_back")
 			_toggle_help()
+		if event.is_pressed():
+			get_viewport().set_input_as_handled()
+		return
+	if _coach_showing():
+		_coach_input(event)
 		if event.is_pressed():
 			get_viewport().set_input_as_handled()
 		return
@@ -507,15 +579,32 @@ func _toggle_help() -> void:
 	var now := _now()
 	if _help_open:
 		return
-	# Whoever was about to act gets a moment after the card closes.
-	if _act_at < INF:
-		_act_at = maxf(_act_at, now + 0.3)
-	_next_hand_at = maxf(_next_hand_at, now + 1.0)
+	_resume_after_pause(now)
 	if _flow == Flow.HUMAN and now >= _controls_at and not _menu_open:
 		_start_human_turn()
 
 
+## While the coach talks, the tell puff and signal bubbles she's talking
+## about stay up instead of fading on the clock.
+func _hold_overlays(delta: float) -> void:
+	for seat: int in _tells:
+		_tells[seat][1] += delta
+	for seat: int in bubbles:
+		bubbles[seat][1] += int(delta * 1000.0)
+
+
+## Whoever was about to act gets a moment after the help card or the coach
+## lets go, and the next hand doesn't start the instant they do.
+func _resume_after_pause(now: float) -> void:
+	if _act_at < INF:
+		_act_at = maxf(_act_at, now + 0.3)
+	_decide_at = maxf(_decide_at, now + 0.2)
+	_next_hand_at = maxf(_next_hand_at, now + 1.0)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if _coach_holding():
+		return  # A mustn't start the next hand over the coach's next line
 	if event.is_action_pressed("ui_accept"):
 		if _flow == Flow.MATCH_DONE and _now() >= _match_banner_at:
 			if embedded:
@@ -536,8 +625,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	for i in 4:
 		if event.is_action_pressed("signal_%d" % (i + 1)):
-			match_.talk.send(HUMAN, i as TableTalk.Sig, t.street)
-			_show_new_signals()
+			if tutorial and not tutorial.on_signal(i, _now()):
+				continue  # it would overheat your crew: the coach says so instead
+			_send_signal(i)
 	if _flow == Flow.HUMAN and _menu_open and _menu.enabled[CommandMenu.Item.RAISE]:
 		# The bumpers size the raise from the menu too; the Raise item shows it.
 		var dir := 0
@@ -547,6 +637,101 @@ func _unhandled_input(event: InputEvent) -> void:
 			dir = -1
 		if dir:
 			raise_to = RaiseSizes.step(_sizes, raise_to, dir)
+
+
+func _send_signal(sig: int) -> void:
+	match_.talk.send(HUMAN, sig as TableTalk.Sig, match_.table.street)
+	_show_new_signals()
+
+
+# --- The tutorial's coach ---------------------------------------------------
+
+
+## Tells the tutorial what just happened (TableTutorial.event); true if the
+## coach has something to say, which holds the flow until it's said.
+func _coach(kind: String, info: Dictionary, at := -1.0) -> bool:
+	if tutorial == null:
+		return false
+	tutorial.event(kind, info, at if at >= 0.0 else _now())
+	return tutorial.has_lines()
+
+
+func _coach_holding() -> bool:
+	return tutorial != null and tutorial.has_lines()
+
+
+func _coach_showing() -> bool:
+	return tutorial != null and tutorial.showing(_now())
+
+
+func _coach_cps() -> float:
+	return Game.settings.chars_per_second() if Game.settings else 60.0
+
+
+func _coach_typed(now: float) -> int:
+	return int((now - _coach_since) * _coach_cps())
+
+
+## Times the line on screen's typing, moves it on in --coach-auto runs, and
+## ends a skipped tutorial.
+func _coach_tick(now: float) -> void:
+	if tutorial.skipped:
+		_end_skipped_tutorial()
+		return
+	if not tutorial.showing(now):
+		return
+	if not is_same(tutorial.coach_lines[0], _coach_line):
+		_coach_line = tutorial.coach_lines[0]
+		_coach_since = now
+	var text := tutorial.current_text()
+	if _coach_auto >= 0.0 and now - _coach_since > text.length() / _coach_cps() + _coach_auto:
+		_coach_press_a()
+
+
+## A finishes the typing, then moves on (or, on a line asking for a signal,
+## has the coach make it for you). B answers no to "skip?". The four signals
+## answer a line that asks for one.
+func _coach_input(event: InputEvent) -> void:
+	var now := _now()
+	if event.is_action_pressed("ui_accept"):
+		if _coach_typed(now) < tutorial.current_text().length():
+			_coach_since = now - 1000.0  # all of it, now
+		else:
+			_sound(&"ui_confirm")
+			_coach_press_a()
+	elif event.is_action_pressed("ui_cancel"):
+		_sound(&"ui_back")
+		tutorial.press_b()
+	elif tutorial.current_wait().begins_with("signal:"):
+		for i in 4:
+			if event.is_action_pressed("signal_%d" % (i + 1)) and tutorial.on_signal(i, now):
+				_send_signal(i)
+
+
+func _coach_press_a() -> void:
+	var sig := tutorial.press_a(_now())
+	if sig >= 0:
+		_send_signal(sig)
+	if tutorial.skipped:
+		_end_skipped_tutorial()
+
+
+## Skipping ends the tutorial on the spot: an embedded one reports back
+## (TableTutorial.skipped tells the embedding scene why); on its own the
+## table says so and offers it again on A.
+func _end_skipped_tutorial() -> void:
+	if _flow == Flow.MATCH_DONE and _match_banner == tutorial.result_text():
+		return
+	if embedded:
+		if not _finished_sent:
+			_finished_sent = true
+			finished.emit(false)
+		return
+	_set_controls_visible(false)
+	_flow = Flow.MATCH_DONE
+	_match_banner = tutorial.result_text()
+	_match_banner_at = _now()
+	_say("%s A: start again." % _match_banner, INK_SOFT)
 
 
 # --- What the table tells us ------------------------------------------------
@@ -584,8 +769,12 @@ func _maybe_tell(seat: int, moment: AnimalTells.Moment, action: int, at := -1.0)
 	if animal == null or _told.has(seat):
 		return
 	var s := match_.table.seats[seat]
-	if not AnimalTells.fires(animal.species, moment, s.hole, match_.table.board, action, _rng.randf()):
+	# The tutorial shows the one tell its lesson is about, every time, and no other.
+	var roll := tutorial.tell_roll(seat, match_.table.street) if tutorial else _rng.randf()
+	if not AnimalTells.fires(animal.species, moment, s.hole, match_.table.board, action, roll):
 		return
+	if tutorial:
+		tutorial.note_tell(seat)
 	_told[seat] = true
 	_tells[seat] = [AnimalTells.puff(animal.species), at if at >= 0.0 else _now()]
 	if AnimalTells.TELLS[animal.species]["when"] == AnimalTells.When.MONSTER:
@@ -662,6 +851,7 @@ func _on_action(seat: int, action: int, amount: int) -> void:
 			_motion.add(&"muck", now + k * 0.04, MUCK, {"from": from, "to": _layout_center(), "size": card_size})
 	_snapshot_bets()
 	_maybe_tell(seat, AnimalTells.Moment.ACTED, action)
+	_coach("acted", {"seat": seat, "action": action, "street": t.street}, now + 0.4)
 
 
 ## "Honk raises to 60!", "You fold." For the text box.
@@ -669,7 +859,7 @@ func _action_line(seat: int, action: int, amount: int) -> String:
 	var s := match_.table.seats[seat]
 	var you := seat == HUMAN
 	if s.all_in and action != HoldemTable.Action.FOLD:
-		return "%s all-in! (%d)" % ["You go" if you else s.name + " goes", s.street_bet]
+		return "%s all-in for %d!" % ["You go" if you else s.name + " goes", s.street_bet]
 	match action:
 		HoldemTable.Action.FOLD:
 			return "You fold." if you else "%s folds." % s.name
@@ -1001,7 +1191,9 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 	if bubbles.has(i):
 		var text: String = bubbles[i][0]
 		var w := UiFont.small().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, S).x + 8
-		var r := Rect2(Vector2(clampf(p.x - w / 2, 2, size.x - w - 2), badge.position.y - 14).floor(), Vector2(w, 11))
+		# Over the badge, except yours: your cards sit above your badge.
+		var top: float = geom["cards"].y if i == HUMAN else badge.position.y
+		var r := Rect2(Vector2(clampf(p.x - w / 2, 2, size.x - w - 2), top - 14).floor(), Vector2(w, 11))
 		draw_rect(r, TEXT)
 		draw_rect(Rect2(Vector2(p.x - 1, r.end.y), Vector2(3, 2)), TEXT)
 		_text(r.position + Vector2(4, 8), text, S, ROOM)
@@ -1025,6 +1217,8 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 			# The dealer's eyes on this seat, big enough to catch from the
 			# corner of your eye: 2x, on a dark plate.
 			var at := Vector2(badge.end.x - 26, badge.position.y - 12)
+			if i == HUMAN:  # above your cards, beside your bubble, not over a card
+				at = Vector2(p.x + 24, geom["cards"].y - 14)
 			draw_rect(Rect2(at - Vector2(2, 2), Vector2(26, 14)), PANEL)
 			draw_rect(Rect2(at - Vector2(2, 2), Vector2(26, 14)), HOT, false)
 			_draw_eyes(at, 0, false, 2)
@@ -1050,7 +1244,7 @@ func _draw_hud(now: float) -> void:
 		var cost := match_.heat.cost_of_next(HUMAN)
 		var hot := match_.heat.level(t.seats[HUMAN].team) + cost >= Heat.FINE
 		_text(Vector2(lx, ly + 46), "Next signal: +%d Heat" % roundi(cost), S, HOT if hot else QUIET)
-	_text(Vector2(size.x - 6, ly + 46), "Select: help", S, QUIET, false, true)
+	_text(Vector2(size.x - 6, ly + 46), "Start: skip lesson   Select: help" if tutorial else "Select: help", S, QUIET, false, true)
 	_draw_heat(Rect2(size.x - 196, 4, 192, 42), now)
 
 	var me := t.seats[HUMAN]
@@ -1066,7 +1260,7 @@ func _draw_hud(now: float) -> void:
 		_text(cards_at + Vector2(CARD_YOURS.x * 2 + 8, 20), readout, L, GOLD)
 
 	_draw_text_box(now, readout)
-	if _menu_open:
+	if _menu_open and not _coach_showing():  # Start mid-turn: the skip question takes the whole box
 		_draw_menu(now)
 
 
@@ -1079,13 +1273,28 @@ func _draw_text_box(now: float, readout: String) -> void:
 	var border := PixelFrame.BLUE
 	if alert and fmod(now, 0.4) < 0.2 and Time.get_ticks_msec() < _alert_until - 2500:
 		border = HOT  # the dealer just spoke
+	if _coach_showing():
+		var typed := _coach_typed(now)
+		var text := tutorial.current_text()
+		var hint := ""
+		var wait := tutorial.current_wait()
+		if wait == "signal:any":
+			hint = "1-4 / back buttons: signal    A: Rosie does it"
+		elif wait.begins_with("signal:"):
+			var k := int(wait.get_slice(":", 1))
+			hint = "%d / %s: %s    A: Rosie does it" % [k + 1, ["L4", "R4", "L5", "R5"][k], TableTalk.GESTURES[k].to_lower()]
+		elif tutorial.current_wait() == "skip":
+			hint = "A: skip    B: keep going"
+		CoachBox.draw(self, r, TutorialScript.COACH, _coach_sprite, text, typed,
+				hint, typed >= text.length() and fmod(now, 0.6) < 0.4)
+		return
 	PixelFrame.panel(self, r, CREAM, border, 3)
 	var x := r.position.x + 12
 	var width := r.size.x - 24
 	if _flow == Flow.HUMAN and _menu_open:
 		width = MENU_BOX.position.x - x - 8
 		var legal := match_.table.legal()
-		_text(Vector2(x, r.position.y + 21), "What will you do?", L, INK)
+		_text(Vector2(x, r.position.y + 21), "Your move.", L, INK)
 		var owe := "%d to call." % legal["to_call"] if legal["to_call"] > 0 else "Checking is free."
 		if _raise_open:
 			owe = "Raise to how much?"
@@ -1234,6 +1443,8 @@ func _draw_help() -> void:
 		["Raise: up / down", "one big blind more / less"],
 		["Select    H", "this card"],
 	]
+	if tutorial:
+		rows.append(["Start     Tab", "skip the lesson"])
 	for row: Array in rows:
 		_text(Vector2(x, y), row[0], L, INK)
 		_text(Vector2(col, y), row[1], L, INK_SOFT)
@@ -1252,7 +1463,7 @@ func _draw_help() -> void:
 	for line: String in [
 		"Each signal adds Heat, more if your crew already",
 		"signalled this hand. 40: a warning. 70: a fine.",
-		"100: the signaller is thrown out (you: you lose).",
+		"100: the signaller's thrown out. If that's you, you lose.",
 		"And watch the animals: each kind has a tell.",
 	]:
 		_text(Vector2(x, y), line, L, INK_SOFT)

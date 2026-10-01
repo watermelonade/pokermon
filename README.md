@@ -72,6 +72,7 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 | Signal your teammates | 1 2 3 4 | back buttons L4 R4 L5 R5 |
 | Help card (controls, signals, Heat) | H or F1 | Select |
 | Next hand (it also moves on by itself) | Enter | A |
+| Tutorial: next line / skip the lesson | Enter / Tab | A / Start |
 
 You are seat "You". Your crew (teal) is the Owl (Rock) and the Raccoon
 (Bluffer); the rivals (rust) are the Goose (Maniac), Cat (Shark) and Squirrel
@@ -85,6 +86,39 @@ signaller is thrown out after the hand; if that's you, your crew forfeits.
 Try another dealer with `godot --path . -- --dealer=STRICT` (or STREET,
 ASLEEP, RELAXED, BOUGHT).
 
+### The tutorial
+
+A new game ends its intro with Rosie (from the diner) offering to show you
+how the tables work; after that it's on her menu at the diner ("A table
+lesson"), as often as you like. It's five set-up hands at her back table,
+about five minutes, one lesson each, taught by doing:
+
+1. **The table**: your cards and the gold words saying what you hold, the
+   command menu; you raise a pair of Kings, your teammate folds out of your
+   way (soft play), and three Kings win.
+2. **A teammate's signal**: Bandit touches his nose ("I'm strong") and
+   raises; you step aside with a good hand and the chips stay in the crew.
+3. **Your signal**: two Aces; Rosie asks you to touch your nose (1 / L4),
+   and both teammates fold hands they'd have played.
+4. **Tells**: Scraps the Raccoon raises the river and rubs its paws (the
+   raccoon's bluffing tell); your pair of 9s calls and wins.
+5. **Heat**: a strict dealer sits down; you signal twice in one hand (20,
+   then +40), the dealer warns your crew, and Rosie explains fines (70) and
+   ejection (100). A third signal would cost +60, so it's refused with an
+   explanation: the tutorial never fines or throws you out.
+
+Rosie talks in the table's text box, and the table waits for A while she
+does (bots don't act, your menu doesn't open). The menu cursor starts on
+what she suggests, but you can play anything: every scripted animal copes,
+and her lines change with what you did. Start (or Tab) offers to skip.
+Nothing is won or lost; the save remembers that you were offered it and
+whether you finished. To play it on its own: `godot --path .
+scenes/table.tscn -- --tutorial` (`--lesson=3` jumps to a lesson,
+`--coach-auto=1` moves Rosie on by herself; `--autoplay` plays your seat
+the way she suggests). In a scripted overworld run, `--tutorial` takes the
+offer (`--auto` runs skip it otherwise) and `--show=tutorial` opens it at
+once.
+
 ## Tests
 
 ```
@@ -93,7 +127,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-106 tests, about 15 seconds. They cover hand ranking, equity against known odds
+119 tests, about 15 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -108,6 +142,17 @@ for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
 including damaged and missing saves; and that missing art falls back to
 placeholders and a sprite sheet is cut into walk frames and facings.
+
+The tutorial (`tests/test_tutorial.gd`, 13 tests): each lesson deals its
+cards from the right button; following Rosie produces each lesson's
+situation (your teammate folds to your raise; Bandit signals and wins; both
+teammates fold to your signal; Scraps raises the river with a hand that is
+its bluffing tell, and calling wins; two signals under the strict dealer
+warn but don't fine); five other ways of playing every hand (always fold,
+call, shove...) still finish all five lessons with no chips made or lost,
+no fine and no ejection; signals that would reach a fine are refused;
+skipping; every line fits the text box; and saves from before the tutorial
+load as already offered.
 
 Then the randomized ones (`tests/test_table_fuzz.gd`). `tests/table_fuzzer.gd`
 plays 6,000 hands at random tables (2-9 seats, stacks from 1 chip up, legal
@@ -378,6 +423,28 @@ glance, the match-over text, and an embedded match freed the moment
 Still not checked: how the pacing feels in real time, a real controller,
 the Deck's screen.
 
+**The tutorial:** checked with screenshots under a virtual display (in
+/tmp/claude-0/agents2/tutorial/ when they were made): Rosie's intro over the
+first deal, the menu opening on her suggestion (RAISE 40), Bandit's "touch
+nose" bubble with her explanation, the "press 1 / L4" prompt and your own
+bubble after it, Scraps' paw-rub puff on the river and her line about it,
+the dealer's warning in the box before her "Hear that?", the help card's
+skip row, and the offer at the end of a new game's intro. One scripted run
+went from a new game through the offer and all five lessons (a bot in your
+seat following her advice, her lines moving on 1.2s after typing out) back
+to town in 2 min 47 s, with the save showing the tutorial done and the
+money unchanged. She says about 45 lines; read at a person's pace (4-5s
+each) plus deciding, that's an estimated five to seven minutes, not timed.
+Screenshots found three things, now fixed: the coach's figure drew as a
+white block (a texture loaded inside `_draw` is freed before the frame
+renders: the table now holds it), your own signal bubble and the dealer's
+glance at you covered your cards, and her next line covered the dealer's
+warning (she now waits 1.6s after a signal). Not checked: how the pacing
+feels to someone reading at their own speed, a real controller or the
+Deck's back buttons (A on a signal prompt has Rosie do it, so an unmapped
+Deck can't get stuck), and pressing Start mid-lesson on a real device (the
+skip is tested headless only).
+
 ## Layout
 
 | Path | What it is |
@@ -424,6 +491,10 @@ the Deck's screen.
 | `src/ui/animal_tells.gd` | When each species' tell shows |
 | `src/ui/animal_art.gd` | An animal's picture at its seat, or a placeholder |
 | `src/ui/ui_font.gd` | The two pixel fonts, at their crisp sizes |
+| `src/tutorial/tutorial_script.gd` | Rosie's five lessons as data: each one's button, cards, board, how every seat plays, and her lines |
+| `src/tutorial/table_tutorial.gd` | Runs the lessons at the table: deals them, keeps the coach's lines, refuses signals that would overheat you, skipping |
+| `src/tutorial/scripted_bot.gd` | A seat that plays a short policy per street, so a lesson's moment happens every time |
+| `src/tutorial/coach_box.gd` | The coach's text box at the table |
 | `assets/fonts/` | Tiny5 and Departure Mono (SIL OFL 1.1, licenses alongside) |
 | `tests/` | Test runner and tests |
 | `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio) |
