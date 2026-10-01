@@ -140,16 +140,19 @@ and bodies), the walk-up path, that two crews can't be snuck past and two
 can, and that beaten crews don't block the road; and for the run: seating
 for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
-including damaged and missing saves (and saves from before the tutorial);
-the tutorial: each lesson deals its cards from the right button, following
-Rosie produces its situation (your teammate folds to your raise; Bandit
-signals and wins; both teammates fold to your signal; Scraps raises the
-river with a hand that is its bluffing tell, and calling wins; two signals
-under the strict dealer warn but don't fine), five other ways of playing
-every hand (always fold, call, shove...) still finish all five lessons with
-no chips made or lost, no fine and no ejection, signals that would reach a
-fine are refused, skipping, and every line fits the text box; and that missing art falls back to
+including damaged and missing saves; and that missing art falls back to
 placeholders and a sprite sheet is cut into walk frames and facings.
+
+The tutorial (`tests/test_tutorial.gd`, 13 tests): each lesson deals its
+cards from the right button; following Rosie produces each lesson's
+situation (your teammate folds to your raise; Bandit signals and wins; both
+teammates fold to your signal; Scraps raises the river with a hand that is
+its bluffing tell, and calling wins; two signals under the strict dealer
+warn but don't fine); five other ways of playing every hand (always fold,
+call, shove...) still finish all five lessons with no chips made or lost,
+no fine and no ejection; signals that would reach a fine are refused;
+skipping; every line fits the text box; and saves from before the tutorial
+load as already offered.
 
 Then the randomized ones (`tests/test_table_fuzz.gd`). `tests/table_fuzzer.gd`
 plays 6,000 hands at random tables (2-9 seats, stacks from 1 chip up, legal
