@@ -45,8 +45,11 @@ today. The release template is Godot's official build, unmodified.
 
 Deck Verified needs the whole game playable with the Deck's controls, with
 no mouse, keyboard or touchscreen required. **[verified]** Today the table
-plays entirely from input actions that each have a controller binding
-(project.godot: D-pad/stick, A, LB/RB, back buttons). **[todo]** Every new
+plays entirely from input actions that each have a button on a plain
+Xbox-style pad (D-pad/stick, A, B, X, Y, LB/RB, LT/RT, Start, Select;
+`tests/test_controls.gd` checks every action has one, and
+`tests/pad_check.tscn` signals at the real table with pretend pad events).
+The back buttons are an extra, not needed. **[todo]** Every new
 screen (overworld, menus, the Binder) must keep that up; text entry, if any
 ever appears, must open Steam's on-screen keyboard
 (`ISteamUtils::ShowGamepadTextInput` / `ShowFloatingGamepadTextInput`, via
@@ -54,15 +57,20 @@ GodotSteam).
 
 ### Why the back buttons need care
 
-The four signals are on L4/R4/L5/R5, which the game reads as
-`JOY_BUTTON_PADDLE1-4` (button indices 16-19 in project.godot).
+The four signals are on X, Y, LT and RT (the Deck labels its triggers L2
+and R2), which any controller has and Steam's default Gamepad template
+passes through, so a Deck can signal out of the box. They are also on
+L4/R4/L5/R5, which the game reads as `JOY_BUTTON_PADDLE1-4` (button indices
+16-19 in project.godot): a gesture under the table is what a signal is, so
+the back buttons are the nicer home on a Deck. The rest of this section is
+about making those work too.
 
 **[docs]** On the Deck, Steam Input sits between the hardware and every
 game. The game does not see the Deck's controller; it sees a virtual Xbox-
 style gamepad that Steam drives from a *controller configuration*. That
 virtual pad has no paddle buttons, and Steam's default "Gamepad" template
 leaves the back buttons unbound. So out of the box **pressing L4 sends the
-game nothing**: the signals only reach the game if the configuration the
+game nothing**: the back buttons only reach the game if the configuration the
 game ships with maps the back buttons to something it reads.
 (With Steam Input turned off for the game, Godot's SDL-based joypad code
 could read the Deck's paddles directly, but players can't be expected to do
@@ -100,8 +108,7 @@ back-button bindings works with the current code. **[docs]** Steps:
 
 Drawbacks: Steam sends real key presses, so the game can't tell the signal
 came from a controller (it doesn't need to today). Controllers without back
-buttons still need the radial menu from the design doc **[todo]**: that is
-in-game, not a Steam setting.
+buttons use X, Y, LT and RT (what the radial menu in early notes was for).
 
 ### Option B (proper): Steam Input action sets through GodotSteam
 
@@ -125,6 +132,24 @@ rebind. **[docs]** Steps:
    results into the same code the Godot actions drive. **[todo]**: needs
    GodotSteam (README "Next steps").
 
+### Checking a real controller by hand
+
+Not checkable here (no controller in the cloud sandbox). With an Xbox pad
+(or any pad Steam shows as one) on Linux or Windows, and on a Deck with the
+default layout:
+
+1. The title, the overworld and every menu work with the D-pad, the stick,
+   A, B and Start alone.
+2. At the table: X, Y, LT, RT each send one signal (one bubble, one step of
+   Heat under a watchful dealer), however slowly or quickly the trigger is
+   pulled, and resting a finger on a trigger doesn't send a second one.
+3. Hold LB and press a signal button: a fake (the code panel shows it).
+   Check LB + LT is comfortable enough for a fake; if not, say so.
+4. LB/RB step the raise size, Select opens the help card, Start skips the
+   tutorial.
+5. Rosie's signal prompts in lesson 3 name X and answer to it.
+6. Unplug the pad mid-pull and plug it back in: the next pull still signals.
+
 ## 3. Screen and text
 
 - **[verified]** The game opens a 1280x800 window and draws its 640x400
@@ -143,8 +168,10 @@ rebind. **[docs]** Steps:
   pixel font (sized to the 640x400 grid) would be crisper.
   **Not checked**: how it reads on a real Deck screen at arm's length.
 - **[docs]** Glyphs: when the game shows buttons, they must match the Deck
-  (Steam Deck or Xbox-style A/B/X/Y, LB/RB). The current hints say "LB/RB";
-  with Option B, use Steam's glyph API instead.
+  (Steam Deck or Xbox-style A/B/X/Y, LB/RB). The hints use the Xbox names
+  (`src/input/pad_controls.gd`: X Y LT RT, LB/RB); the Deck's own labels
+  for the bumpers and triggers are L1/R1 and L2/R2. With Option B, use
+  Steam's glyph API instead.
 
 ## 4. Suspend and resume
 

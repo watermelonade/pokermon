@@ -1,8 +1,8 @@
 class_name TableTalk
 extends RefCounted
-## The secret signals passed between teammates during a hand. On a Steam
-## Deck each one is a back button (a gesture under the table); see
-## project.godot's input map.
+## The secret signals passed between teammates during a hand: X, Y, LT, RT
+## on a pad, the back buttons on a Steam Deck (a gesture under the table),
+## 1-4 on keys; see PadControls and project.godot's input map.
 ##
 ## Reading a signal isn't free: a teammate with a weak bond sometimes
 ## misreads it as a different one. That's what makes bond worth training.

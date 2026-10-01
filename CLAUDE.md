@@ -27,7 +27,10 @@ godot --headless --path . -s tools/simulate.gd -- 40 7   # play-style balance
 - The test runner can't see scene scripts that use the `Game`/`Sfx`
   autoloads (it runs as a SceneTree script, without autoloads), so also run
   `godot --headless --path . res://tests/compile_check.tscn`: it compiles
-  every script under src/ (a broken overworld.gd once passed all the tests).
+  every script under src/ (a broken overworld.gd once passed all the tests),
+  and `res://tests/pad_check.tscn`: a pretend Xbox pad's buttons and
+  triggers signalling at the real table (the triggers go through the
+  `Triggers` autoload).
 - GDScript has no exceptions. A script error inside a test returns null and
   carries on; `tests/run_tests.gd` catches these with a Logger and fails the
   test. Keep it that way.
@@ -46,7 +49,9 @@ Log: `/tmp/cloud_setup.log`.
   the overworld through scripted runs (`--walk=`, `--auto`; flags listed in
   src/game/game.gd, examples in README.md) (Xvfb and Mesa are
   installed in the sandbox).
-- **Can't verify:** feel and timing, real controllers, the Steam Deck's back
+- **Can't verify:** feel and timing, real controllers
+  (`tests/pad_check.tscn` drives the table with pretend Xbox pad events, but
+  not a real pad's button mapping), the Steam Deck's back
   buttons (Steam Input only passes them through when the controller layout
   maps them), Steam integration, exported builds. Say so plainly.
 

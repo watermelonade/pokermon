@@ -30,8 +30,8 @@ extends RefCounted
 ##   conditions: you_raised, you_folded, not_folded, you_won, not_won,
 ##   you_signalled, facing_bet, not_facing_bet, tell_seen, no_tell.
 ##   lines: text, or {"text", "wait": "signal:0" | "signal:any"} for a line
-##   that waits for you to signal (A has Rosie do it for you: on a Deck whose
-##   back buttons aren't mapped yet, nobody gets stuck).
+##   that waits for you to signal (A has Rosie do it for you: whatever
+##   the controller, nobody gets stuck).
 ##   placeholders: {m2} {m4} your animals, {r1} {r3} {r5} Rosie's; {heat}
 ##   your crew's Heat, {next} what your next signal would add, {after} the
 ##   two together. Filled in when the line shows, so numbers are current.
@@ -109,7 +109,7 @@ const LESSONS := [
 		"coach": [
 			{"on": "hand_start", "lines": [
 				"Teammates can't see each other's cards. So crews cheat. Politely. With signals.",
-				"Four secret gestures: back buttons on a Deck, 1 to 4 on keys. List's bottom left.",
+				"Four secret gestures: X, Y, LT, RT on a pad, 1 to 4 on keys. List's bottom left.",
 				"No dealer at my table, so signal all you like. Now, watch {m4}.",
 			]},
 			{"on": "your_turn", "street": "preflop", "lines": [
@@ -145,7 +145,7 @@ const LESSONS := [
 				"Now you do the talking. Watch how your crew takes it.",
 			]},
 			{"on": "your_turn", "street": "preflop", "lines": [
-				{"text": "Two Aces! Tell your crew: touch your nose. That's 1 (or L4 on a Deck).", "wait": "signal:0"},
+				{"text": "Two Aces! Tell your crew: touch your nose. That's X on a pad, 1 on keys.", "wait": "signal:0"},
 				"There: \"I'm strong\". Now RAISE, and watch {m2} and {m4}.",
 			]},
 			{"on": "acted", "seat": 4, "action": "fold", "if": "you_signalled", "lines": [
@@ -218,7 +218,7 @@ const LESSONS := [
 				"Each signal she spots adds Heat, and every extra one in a hand costs more.",
 			]},
 			{"on": "your_turn", "street": "preflop", "lines": [
-				{"text": "Try it: give your crew a signal. Any of 1 to 4, or a back button.", "wait": "signal:any"},
+				{"text": "Try it: give your crew a signal. X, Y, LT or RT, or 1 to 4 on keys.", "wait": "signal:any"},
 				{"text": "Heat's {heat}, and she glanced your way. The next one costs +{next}. Again!", "wait": "signal:any"},
 				"Hear that? Past 40 Heat the dealer warns your crew. Only a warning... so far.",
 				"At 70 your whole crew is fined a big blind. At 100 the signaller's thrown out.",

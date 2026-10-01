@@ -100,9 +100,10 @@ func _seat_rects(n: int, i: int) -> Dictionary:
 ## The HUD, from table_view.gd / intercept_overlay.gd's drawing code.
 func _hud_rects() -> Dictionary:
 	var c := SeatLayout.center(VIEW)
-	var legend_w := _w("Signals: back buttons / 1-4", S)
+	var legend_w := _w("Signals (pad / keys)", S)  # as TableView._draw_hud writes it
 	for k in 4:
-		legend_w = maxf(legend_w, _w("%d %s: %s" % [k + 1, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S))
+		var keys := "%s/%s" % [PadControls.SIGNAL_PAD[k], PadControls.SIGNAL_KEYS[k]]
+		legend_w = maxf(legend_w, _w("%-4s %s: %s" % [keys, TableTalk.GESTURES[k], TableTalk.MEANINGS[k]], S))
 	var you := SeatLayout.geom(9, 0, VIEW)
 	var readout_at: Vector2 = you["cards"] + Vector2(SeatLayout.CARD_YOURS.x * 2 + 8, 20)
 	return {

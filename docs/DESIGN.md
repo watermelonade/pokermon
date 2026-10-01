@@ -28,7 +28,8 @@ implementing.
   (The full design doc's first version had city 1's tournament as a 3v3
   freezeout; the owner confirmed the 3v4 final.)
 - **Team play:** soft play (no fighting teammates for chips), whipsaws,
-  chip dumps, and secret signals on the Steam Deck's back buttons. Bond
+  chip dumps, and secret signals on X, Y and the triggers (or the Steam
+  Deck's back buttons). Bond
   decides how reliably teammates read signals.
 - **Heat:** every signal raises the dealer's suspicion of the crew (more for
   each extra signal the crew makes in the same hand). 40: warning. 70: the
