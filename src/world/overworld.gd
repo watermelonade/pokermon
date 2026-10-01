@@ -24,6 +24,7 @@ enum Mode { WALK, BUSY, TABLE }
 const TABLE_SCENE := preload("res://scenes/table.tscn")
 const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank Tournament Hall"}
 
+const ROAD_GAME_HANDS := 20
 var _music: AudioStreamPlayer
 var state: GameState
 var map: WorldMap
@@ -499,6 +500,11 @@ func _play_match(crew: Dictionary) -> void:
 		table.dealer_kind = crew["dealer"]
 		table.starting_chips = int(Game.dev("chips", str(crew["chips"])))
 		table.embedded = true
+		# Road games are capped (the bigger stack wins at the cap): with the
+		# table's real-time animations a full bust-out ran past three minutes
+		# even at 60 chips, and road battles should take a minute or two.
+		# Tournaments play to the end.
+		table.max_hands = 0 if crew.has("bracelet") else ROAD_GAME_HANDS
 		table.finished.connect(_on_table_finished)
 		mode = Mode.TABLE
 		_hud.queue_redraw()
@@ -537,8 +543,7 @@ func _on_table_finished(won: bool) -> void:
 ## In dev runs, --auto presses A when a real (--autoplay) match ends, so a
 ## scripted run gets back to the overworld.
 func _physics_process(_delta: float) -> void:
-	if table and Game.dev_auto and table.match_ and table.match_.is_over() and table._waiting_for_next \
-			and not table.has_meta("auto_pressed"):
+	if table and Game.dev_auto and table.is_waiting_to_continue() and not table.has_meta("auto_pressed"):
 		table.set_meta("auto_pressed", true)  # once: extra presses would skip the next dialog
 		_press("ui_accept")
 

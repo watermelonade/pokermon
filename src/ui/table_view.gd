@@ -110,6 +110,7 @@ var raise_to := 0
 var autoplay := false
 var dealer_kind := Dealer.Kind.WATCHFUL  ## set before adding to the tree
 var alert := ""  ## the dealer's latest words, in the text box
+var _sounds: Array = []  ## [time, name, species] waiting for their beat
 var _alert_until := 0
 
 enum Flow { BOT_THINKING, HUMAN, HAND_DONE, MATCH_DONE }
@@ -229,10 +230,13 @@ func _new_match() -> void:
 	t.hand_finished.connect(_on_hand_finished)
 	match_.talk.gesture_made.connect(_on_gesture)
 	match_.heat.warned.connect(func(team: int, _seat: int) -> void:
+		_sound(&"dealer_warning")
 		_dealer_says("Dealer to %s: \"Hands where I can see them.\"" % _crew_name(team)))
 	match_.heat.fined.connect(func(team: int, _seat: int) -> void:
+		_sound(&"fine")
 		_dealer_says("The floor fines %s: a dead big blind each, next hand." % _crew_name(team)))
 	match_.heat.ejection_called.connect(func(_team: int, seat: int) -> void:
+		_sound(&"ejection")
 		_dealer_says("%s is thrown out after this hand!" % ("You are" if seat == HUMAN else t.seats[seat].name)))
 	_feed.clear()
 	alert = ""
@@ -240,6 +244,13 @@ func _new_match() -> void:
 	_match_banner = ""
 	_match_banner_at = INF
 	_next_hand()
+
+
+## True once the match is over (or you were thrown out) and the table is
+## waiting for A to continue. Public so an embedding scene can tell (the
+## overworld's scripted runs press A for you then) without reading internals.
+func is_waiting_to_continue() -> bool:
+	return _flow == Flow.MATCH_DONE and _now() >= _match_banner_at and not _finished_sent
 
 
 func _crew_name(team: int) -> String:
@@ -252,6 +263,26 @@ func _dealer_says(line: String) -> void:
 	_say(line, HOT)
 
 
+## Plays sound `name` when the beat it belongs to lands (`at`, on the same
+## clock as the motion timeline), so chips clink when they arrive rather
+## than when the rules decided. `species` plays that animal's voice instead.
+func _sound(name: StringName, at := -1.0, species: StringName = &"") -> void:
+	_sounds.append([at if at >= 0.0 else _now(), name, species])
+
+
+func _play_due_sounds(now: float) -> void:
+	var i := 0
+	while i < _sounds.size():
+		if _sounds[i][0] <= now:
+			if _sounds[i][2] != &"":
+				Sfx.voice(_sounds[i][2])
+			else:
+				Sfx.play(_sounds[i][1])
+			_sounds.remove_at(i)
+		else:
+			i += 1
+
+
 func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
@@ -259,6 +290,7 @@ func _now() -> float:
 func _next_hand() -> void:
 	var now := _now()
 	_motion.clear(now)
+	_sounds.clear()
 	_hole_land.clear()
 	_board_flip.clear()
 	_holds.clear()
@@ -289,6 +321,8 @@ func _advance_flow() -> void:
 			_match_banner = _match_result()
 			_match_banner_at = maxf(now, _motion.cursor) + 0.8
 			_say("%s %s" % [_match_banner, "Press A." if embedded else "A: rematch."], RIVAL_FRAME.darkened(0.2), _match_banner_at)
+			var won := match_.winner() == 0 and not t.seats[HUMAN].ejected
+			_sound(&"win_pot" if won else &"lose", _match_banner_at)
 		else:
 			_flow = Flow.HAND_DONE
 			_next_hand_at = maxf(now, _motion.cursor) + NEXT_HAND_PAUSE
@@ -328,6 +362,7 @@ func _process(delta: float) -> void:
 			if bubbles[seat][1] < now_ms:
 				bubbles.erase(seat)
 	_update_heat_bars(delta)
+	_play_due_sounds(now)
 	if not _help_open:
 		match _flow:
 			Flow.BOT_THINKING:
@@ -388,6 +423,7 @@ func _start_human_turn() -> void:
 	_menu.enabled[CommandMenu.Item.RAISE] = legal["can_raise"]
 	_menu.reset()
 	_set_controls_visible(true)
+	_sound(&"your_turn")
 
 
 func _human_act(action: int) -> void:
@@ -407,6 +443,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if _help_open:
 		if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_accept"):
+			_sound(&"ui_back")
 			_toggle_help()
 		if event.is_pressed():
 			get_viewport().set_input_as_handled()
@@ -427,11 +464,14 @@ func _input(event: InputEvent) -> void:
 		# Up/down: one big blind; left/right (and the bumpers): the next size.
 		if dir.y:
 			raise_to = RaiseSizes.nudge(legal, raise_to, match_.table.big_blind, -dir.y)
+			_sound(&"ui_move")
 		elif dir.x:
 			raise_to = RaiseSizes.step(_sizes, raise_to, dir.x)
+			_sound(&"ui_move")
 		elif event.is_action_pressed("ui_accept"):
 			_human_act(HoldemTable.Action.RAISE)
 		elif event.is_action_pressed("ui_cancel"):
+			_sound(&"ui_back")
 			_raise_open = false
 		else:
 			return
@@ -439,8 +479,12 @@ func _input(event: InputEvent) -> void:
 		return
 	if dir != Vector2i.ZERO:
 		_menu.move(dir)
+		_sound(&"ui_move")
 	elif event.is_action_pressed("ui_accept"):
-		match _menu.choose():
+		var item := _menu.choose()
+		if item == CommandMenu.Item.RAISE or item == CommandMenu.Item.HELP:
+			_sound(&"ui_confirm")  # the others make their own sound
+		match item:
 			CommandMenu.Item.CALL:
 				_human_act(HoldemTable.Action.CALL)
 			CommandMenu.Item.FOLD:
@@ -455,11 +499,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _is_help_toggle(event: InputEvent) -> bool:
-	if event is InputEventJoypadButton:
-		return event.pressed and event.button_index == JOY_BUTTON_BACK
-	if event is InputEventKey and event.pressed and not event.echo:
-		return event.physical_keycode in [KEY_H, KEY_F1]
-	return false
+	return event.is_action_pressed("help")  # Select, H or F1 (project.godot)
 
 
 func _toggle_help() -> void:
@@ -526,6 +566,7 @@ func _show_new_signals() -> void:
 		bubbles[seat] = [TableTalk.GESTURES[s["sig"]].to_lower(), Time.get_ticks_msec() + 2500]
 		var who := "You" if seat == HUMAN else match_.table.seats[seat].name
 		_say("%s: %s (\"%s\")" % [who, TableTalk.GESTURES[s["sig"]].to_lower(), TableTalk.MEANINGS[s["sig"]]], CREW_FRAME.darkened(0.3))
+		_sound(&"signal")
 
 
 func _on_gesture(seat: int, _sig: int) -> void:
@@ -571,6 +612,7 @@ func _on_hand_started(_button: int) -> void:
 			if not _hole_land.has(seat):
 				_hole_land[seat] = [INF, INF]
 			_hole_land[seat][round_] = depart + DEAL_FLIGHT
+			_sound(&"card_deal", depart)
 			# Where it flies is worked out when drawn: the first hand is
 			# dealt in _ready, before the scene has its final size.
 			_motion.add(&"deal", depart, DEAL_FLIGHT, {"seat": seat, "round": round_})
@@ -594,6 +636,19 @@ func _on_action(seat: int, action: int, amount: int) -> void:
 		text = "ALL-IN"
 	last_action[seat] = text
 	_say(_action_line(seat, action, amount), RIVAL_FRAME.darkened(0.25) if s.team != t.seats[HUMAN].team else INK)
+	if s.all_in and action != HoldemTable.Action.FOLD:
+		_sound(&"all_in")
+	else:
+		match action:
+			HoldemTable.Action.FOLD:
+				_sound(&"fold")
+			HoldemTable.Action.CHECK:
+				_sound(&"check")
+			_:
+				_sound(&"chips")
+	var animal: Animal = setup[seat]["animal"] if seat < setup.size() else null
+	if animal and (action == HoldemTable.Action.RAISE or s.all_in):
+		_sound(&"", now + 0.08, animal.species)  # bots get vocal when they bet big
 	var geom := _seat_geom(seat)
 	var before: int = _last_bets.get(seat, 0)
 	if s.street_bet > before:
@@ -637,6 +692,7 @@ func _on_street(street: int, board: Array) -> void:
 		_motion.reserve(now, RUNOUT_PAUSE)  # all-in: let each card land
 	while _board_flip.size() < board.size():
 		_board_flip.append(_motion.reserve(now, FLOP_STAGGER))
+		_sound(&"card_flip", _board_flip[-1])
 	_motion.reserve(now, FLIP)  # let the last card finish turning
 	_say("The %s." % HoldemTable.STREET_NAMES[street].to_lower(), INK_SOFT, _board_flip[-1])
 	if street == HoldemTable.Street.FLOP:
@@ -662,6 +718,9 @@ func _on_hand_finished(result: Dictionary) -> void:
 		_reveal_at = _motion.reserve(now, REVEAL + 0.45)  # turn them over, then a beat to read
 	_result_at = _motion.reserve(now, PAYOUT)
 	_hold("pot", total, _result_at)
+	if not result["uncontested"]:
+		_sound(&"card_flip", _reveal_at)
+	_sound(&"chips_pot", _result_at)
 	var parts: Array[String] = []
 	for seat: int in result["payouts"]:
 		var won: int = result["payouts"][seat]
@@ -672,6 +731,8 @@ func _on_hand_finished(result: Dictionary) -> void:
 		_hold("stack%d" % seat, t.seats[seat].stack - won - int(returned.get(seat, 0)), _result_at + PAYOUT)
 		_motion.add(&"chips", _result_at, PAYOUT, {"from": _pot_pos(), "to": _seat_geom(seat)["center"], "count": 4})
 		_gains.append([seat, won, _result_at + PAYOUT])
+		if t.seats[seat].team == t.seats[HUMAN].team:
+			_sound(&"win_pot", _result_at + PAYOUT)
 	for seat: int in returned:
 		if not result["payouts"].has(seat):
 			_hold("stack%d" % seat, t.seats[seat].stack - int(returned[seat]), _result_at + PAYOUT)
@@ -690,6 +751,7 @@ func _collect_bets(now: float) -> void:
 	if not any:
 		return
 	var start := _motion.reserve(now, COLLECT)
+	_sound(&"chips", start)
 	for seat: int in _last_bets:
 		if _last_bets[seat] > 0:
 			_motion.add(&"chips", start, COLLECT, {"from": _seat_geom(seat)["bet"], "to": _pot_pos(), "count": 2})

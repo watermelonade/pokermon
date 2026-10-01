@@ -93,7 +93,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-88 tests, about 16 seconds. They cover hand ranking, equity against known odds
+106 tests, about 15 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -331,6 +331,15 @@ controller buttons, so A did nothing on a pad, at the table too; project.godot
 now adds A and B. Not checked: walking feel and step timing, a real
 controller or the Deck, and whether a Deck suspend loses anything (the
 process is frozen without notice, so the protection is saving often).
+
+**Together (the merged demo):** checked with scripted runs on the merged
+branches: a new game, spotted by the Pond Hecklers on Ridge Road, a real
+match at the animated table (a bot in your seat) to the end, and a blackout
+at the diner with half the money; and the Mossbank Open won through to the
+bracelet in the save. Road games are capped at 20 hands (the bigger stack
+wins): with the table's real-time animations a full bust-out ran past three
+minutes even at 60 chips. Tournaments play to the end. The sounds are wired
+at the table (on the animation beats) and in the overworld, unheard.
 
 **The table:** the table's look is a handheld-RPG battle screen (original art, drawn from
 code): cream panels with chunky coloured frames (`src/ui/pixel_frame.gd`),

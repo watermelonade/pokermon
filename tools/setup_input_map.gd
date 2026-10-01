@@ -30,6 +30,7 @@ const ACTIONS := {
 	"move_left": [KEY_LEFT, KEY_A, JOY_BUTTON_DPAD_LEFT, [JOY_AXIS_LEFT_X, -1.0]],
 	"move_right": [KEY_RIGHT, KEY_D, JOY_BUTTON_DPAD_RIGHT, [JOY_AXIS_LEFT_X, 1.0]],
 	"menu": [KEY_TAB, KEY_ESCAPE, JOY_BUTTON_START],
+	"help": [KEY_H, KEY_F1, JOY_BUTTON_BACK],  # Select: the table's help card
 	# Godot's defaults for these have no controller buttons at all (checked
 	# in 4.7.2: ui_accept is Enter, Kp Enter, Space), so A and B are added.
 	# The table's buttons and "Press A" rely on ui_accept too.
