@@ -219,9 +219,12 @@ the intro, a crew's "!" and walk-up, its dialogue, the recruit menu after a
 win (the save then has the money, the crew beaten and the recruit), a
 blackout waking at the diner with half the money, the party screen, the
 tournament hall, the Open at the embedded table with the asleep dealer, and
-the demo-complete screen. One run played a real match at the embedded table
-end to end (a bot in your seat, 60 chips): it lost, emitted `finished`, and
-the run woke at the diner and saved. The table still runs on its own. Found
+the demo-complete screen. Two runs played real matches at the embedded
+table end to end (a bot in your seat, 60 chips each, each under three
+minutes): one lost and woke at the diner with $100 of $200; one won, came
+back to the same spot on the road with $320, recruited Honk and saved. The
+first of those found a bug, now fixed: the table, freed at the end of the
+frame, reported the match again on a second A press in that frame. The table still runs on its own. Found
 along the way: Godot 4.7's default `ui_accept` and `ui_cancel` have no
 controller buttons, so A did nothing on a pad, at the table too; project.godot
 now adds A and B. Not checked: walking feel and step timing, a real
