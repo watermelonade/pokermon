@@ -181,8 +181,9 @@ func test_S_CASH_every_hand_conserves_chips() -> void:
 		for hand in 40:
 			if m.is_over():
 				break
-			m.start_hand()
-			if not check(not m.table.hand_over, "S-CASH: seed %d hand %d didn't start" % [seed_value, hand]):
+			var number := m.table.hand_number
+			m.start_hand()  # (a hand whose blinds put everyone all in is over at once)
+			if not check_eq(m.table.hand_number, number + 1, "S-CASH: seed %d: a hand is dealt: hand number" % seed_value):
 				return
 			if not _play_hand(m, func(t: HoldemTable) -> Array: return _random_action(t, rng)):
 				return
