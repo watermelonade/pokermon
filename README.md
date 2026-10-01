@@ -38,7 +38,9 @@ which two animals sit with you), Save, Options (text speed, volume).
 
 The look and feel is a handheld RPG of the Game Boy Advance era: grid
 steps with a walk cycle, a "!" when a crew spots you, a bordered text box
-along the bottom, a diner for a healing centre, a Start menu in the corner.
+along the bottom, a diner for a healing centre (talk to Rosie and rest your
+crew in a booth; there's nothing to heal yet, so it's ritual and a save), a
+Start menu in the corner.
 Inspired by, never copied: every name, map and drawing here is original.
 
 The game saves itself after every match, at every door, and when the

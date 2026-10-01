@@ -345,6 +345,8 @@ func _interact() -> void:
 			if data["id"] == "rosie" and state.bracelets.size() > 0:
 				lines = ["The Mossbank bracelet! Pie for the champ, on the house."]
 			await dialog.say(lines, str(data.get("name", str(data["id"]).capitalize())))
+			if data["id"] == "rosie":
+				await _rest_at_diner()
 			mode = Mode.WALK
 			return
 	var text := map.sign_at(front)
@@ -352,6 +354,21 @@ func _interact() -> void:
 		mode = Mode.BUSY
 		await dialog.say([text])
 		mode = Mode.WALK
+
+
+## The healing-centre ritual: a booth, a slice of pie, a short fade. Animals
+## have nothing to heal yet (no stamina or tilt between matches), so for now
+## it's the reassurance of the ritual, a save, and the diner as the place a
+## blackout wakes you.
+func _rest_at_diner() -> void:
+	var pick := await menu.choose("Rest your crew in a booth?", ["Yes", "No"], 1)
+	if pick != 0:
+		return
+	await _fade_out(0.4)
+	await get_tree().create_timer(0.6).timeout
+	Game.save()
+	await _fade_in(0.4)
+	await dialog.say(["Your crew is fed, rested, and ready to play."], "Rosie")
 
 
 func _intro() -> void:
