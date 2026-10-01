@@ -57,11 +57,12 @@ kill_torture() {
 	data=$(mktemp -d "${TMPDIR:-/tmp}/pt-kill.XXXXXX")
 	local fails=0 midsave=0
 	for i in $(seq "$first" $((first + count - 1))); do
-		local spam=$(( (i % 3 == 0) ? 0 : (i % 3) * 50 ))
+		# No extra saves, some, or so many that most of the time is spent saving.
+		local spam=$(( i % 3 == 0 ? 0 : (i % 3 == 1 ? 100 : 2000) ))
 		local ms=$(( 300 + (RANDOM * 32768 + RANDOM) % 6000 ))
-		( XDG_DATA_HOME="$data" timeout -s KILL "$(printf '%d.%03d' $((ms / 1000)) $((ms % 1000)))" "$GODOT" --headless --fixed-fps 60 --path . \
+		( ( XDG_DATA_HOME="$data" timeout -s KILL "$(printf '%d.%03d' $((ms / 1000)) $((ms % 1000)))" "$GODOT" --headless --fixed-fps 60 --path . \
 			-s tools/playtest.gd -- --pt-start=continue --pt-seed="$i" --pt-save-spam="$spam" --pt-reload=0.02 --pt-win=0.7 \
-			> "$dir/$i.killed.log" 2>&1 ) 2>/dev/null
+			> "$dir/$i.killed.log" 2>&1 ) & wait $! ) 2>/dev/null
 		local code=$?
 		[ -e "$data/AFriendInNeed/playtest.json.part" ] && midsave=$((midsave + 1))
 		cp "$data/AFriendInNeed/playtest.json" "$dir/$i.save.json" 2>/dev/null

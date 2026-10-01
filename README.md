@@ -93,7 +93,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-106 tests, about 15 seconds. They cover hand ranking, equity against known odds
+117 tests, about 15 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -106,7 +106,9 @@ and bodies), the walk-up path, that two crews can't be snuck past and two
 can, and that beaten crews don't block the road; and for the run: seating
 for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
-including damaged and missing saves; and that missing art falls back to
+including damaged and missing saves (and the repairs the playtester's
+findings called for: a recruit's old spot, a short party, a won Open
+without its bracelet, a save left only as its .part); and that missing art falls back to
 placeholders and a sprite sheet is cut into walk frames and facings.
 
 Then the randomized ones (`tests/test_table_fuzz.gd`). `tests/table_fuzzer.gd`
@@ -158,6 +160,22 @@ table with a bot in your seat (a few minutes). `--show=party`,
 `--show=start`, `--show=options`, `--show=demo_complete`, `--recruit=cat:1`, `--beaten=all` and
 `--money=` jump to a state; any dev flag also prints what happens
 (encounters, results, saves) to the terminal.
+
+The playtester plays the whole demo by itself, from the title, the way a
+restless player would (walking everywhere, talking to everyone, opening
+every menu, recruiting or not, quitting and continuing, closing the window
+mid-dialog), and checks every frame: script errors, softlocks, where you
+stand, every save's round trip, Continue, the party, money, each match's
+outcome. Headless, so a run takes seconds; docs/PLAYTEST.md has what it
+does, what it checks and what it found.
+
+```
+tools/playtest.sh runs 200 1     # 200 runs with matches skipped (GODOT=path/to/godot, JOBS=2)
+tools/playtest.sh real 12        # with real matches, a bot or random presses in your seat
+tools/playtest.sh kill 150       # kill -9 mid-play and mid-save, then Continue
+tools/playtest.sh damaged        # every kind of damaged save
+tools/playtest.sh summary        # failures, with seeds and a replay command each
+```
 
 ## Building
 
@@ -426,7 +444,7 @@ the Deck's screen.
 | `src/ui/ui_font.gd` | The two pixel fonts, at their crisp sizes |
 | `assets/fonts/` | Tiny5 and Departure Mono (SIL OFL 1.1, licenses alongside) |
 | `tests/` | Test runner and tests |
-| `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio) |
+| `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
 | `scripts/export.sh` | Exports both presets headless into `build/` |
