@@ -8,15 +8,55 @@ Steam Deck first. The full design is in the
 (summary in [docs/DESIGN.md](docs/DESIGN.md)).
 
 This is the starter project: the poker rules, the hand evaluator, the AI play
-styles, team signals and a playable placeholder 3v3 table. No overworld or
-art yet; the first goal is to find out whether one table is fun.
+styles, team signals, a playable placeholder 3v3 table, and a demo loop
+around it: a title screen, the starter town of Mossbank and Ridge Road, four
+rival crews who spot you and deal you in, recruiting, blackouts, saving, and
+the town's tournament. No art yet (everything is drawn from code); the first
+goal is to find out whether one table is fun.
 
 ## Running it
 
 Install [Godot 4.7](https://godotengine.org/download) (the standard build;
-the .NET one isn't needed), open `project.godot` in it, and press F5.
+the .NET one isn't needed), open `project.godot` in it, and press F5. That
+starts the title screen; to play just the table, open `scenes/table.tscn`
+and press F6 (or `godot --path . scenes/table.tscn`).
 
-| Input | Keyboard | Controller / Steam Deck |
+### The demo
+
+You start outside your house in Mossbank with Sage the Owl (Rock) and
+Bandit the Raccoon (Bluffer) following you. The Mossbank Open is at the
+Tournament Hall at the east end of Ridge Road. Along the road, four rival
+crews stand watching: walk into one's line of sight and a "!" pops up, it
+walks over, has its say, and you're at the table (no dealer on the road, so
+signal freely). Win and they pay up, and you can ask one of them to join
+you; lose and you wake up at Rosie's Diner with half your money, and the
+crew will deal you in again. Two of the crews block the road; the other
+two can be walked around. In the hall, talk to the Mossbank Regulars to
+play the Open (the dealer's asleep); winning gives you the first bracelet
+and the demo-complete screen. Start (or Tab) opens the menu: Crew (pick
+which two animals sit with you), Save, Options (text speed, volume).
+
+The look and feel is a handheld RPG of the Game Boy Advance era: grid
+steps with a walk cycle, a "!" when a crew spots you, a bordered text box
+along the bottom, a diner for a healing centre (talk to Rosie and rest your
+crew in a booth; there's nothing to heal yet, so it's ritual and a save), a
+Start menu in the corner.
+Inspired by, never copied: every name, map and drawing here is original.
+
+The game saves itself after every match, at every door, and when the
+window loses focus; Continue on the title picks up from there. Saves are
+JSON in `user://save.json`, which with the custom user dir set in
+project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
+`%APPDATA%\AFriendInNeed\` on Windows.
+
+| Overworld | Keyboard | Controller / Steam Deck |
+| --- | --- | --- |
+| Walk | arrows or WASD | D-pad or left stick |
+| Talk, read, confirm | Enter / Space | A |
+| Back | Esc | B |
+| Menu (Crew, Save, Options) | Tab / Esc | Start |
+
+| Table | Keyboard | Controller / Steam Deck |
 | --- | --- | --- |
 | Choose Fold / Call / Raise | arrow keys | D-pad or left stick |
 | Confirm | Enter / Space | A |
@@ -44,13 +84,21 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-51 tests, about 13 seconds. They cover hand ranking, equity against known odds
+TESTCOUNT tests, about TESTSECS seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
 between teammates, signals, and Heat: what signals cost, cooling, one
 warning per episode, fines, ejections, bought dealers, catching a boss, and
-careful animals going quiet.
+careful animals going quiet. For the overworld: every
+map is rectangular and closed, everyone stands somewhere they can stand,
+doors lead somewhere free, line of sight (straight ahead, stopped by walls
+and bodies), the walk-up path, that two crews can't be snuck past and two
+can, and that beaten crews don't block the road; and for the run: seating
+for the table, the party, recruiting (each individual once), win money,
+blackouts (half your money, the odd coin kept), and a save round trip,
+including damaged and missing saves; and that missing art falls back to
+placeholders and a sprite sheet is cut into walk frames and facings.
 
 Then the randomized ones (`tests/test_table_fuzz.gd`). `tests/table_fuzzer.gd`
 plays 6,000 hands at random tables (2-9 seats, stacks from 1 chip up, legal
@@ -84,8 +132,23 @@ python3 tools/make_sfx.py --music                             # rebuild the plac
 ```
 
 Taking a screenshot without a display (how the screenshots in development
-were made): `xvfb-run godot --path . --rendering-driver opengl3 -- --autoplay
---screenshot=out.png --shot-after=5`.
+were made): `xvfb-run godot --path . --rendering-driver opengl3
+scenes/table.tscn -- --autoplay --screenshot=out.png --shot-after=5` for the
+table. The overworld has dev flags for scripted runs (all listed in
+`src/game/game.gd`); for example, a fresh game walking into the first crew,
+with the match skipped as a win, everything clicked through, into a
+throwaway save:
+
+```
+xvfb-run godot --path . --rendering-driver opengl3 -- --save-slot=dev --new --skip-intro \
+    --at=town,40,11 --walk=R4 --auto --match-result=win --screenshot=/tmp/win.png --shot-after=7
+```
+
+Drop `--match-result` and add `--autoplay --chips=60` to play the real
+table with a bot in your seat (a few minutes). `--show=party`,
+`--show=start`, `--show=options`, `--show=demo_complete`, `--recruit=cat:1`, `--beaten=all` and
+`--money=` jump to a state; any dev flag also prints what happens
+(encounters, results, saves) to the terminal.
 
 ## Building
 
@@ -242,11 +305,29 @@ the preflop decision, a showdown (the right hand wins, the busted seat greys
 out). Not checked: how it feels to play, on a real Steam Deck, or with a real
 controller.
 
+**The overworld:** checked with scripted runs under a virtual display
+(`--walk`, `--auto`) and screenshots of each step: the title, the town with
+the intro, a crew's "!" and walk-up, its dialogue, the recruit menu after a
+win (the save then has the money, the crew beaten and the recruit), a
+blackout waking at the diner with half the money, the party screen, the
+tournament hall, the Open at the embedded table with the asleep dealer, and
+the demo-complete screen. Two runs played real matches at the embedded
+table end to end (a bot in your seat, 60 chips each, each under three
+minutes): one lost and woke at the diner with $100 of $200; one won, came
+back to the same spot on the road with $320, recruited Honk and saved. The
+first of those found a bug, now fixed: the table, freed at the end of the
+frame, reported the match again on a second A press in that frame. The table still runs on its own. Found
+along the way: Godot 4.7's default `ui_accept` and `ui_cancel` have no
+controller buttons, so A did nothing on a pad, at the table too; project.godot
+now adds A and B. Not checked: walking feel and step timing, a real
+controller or the Deck, and whether a Deck suspend loses anything (the
+process is frozen without notice, so the protection is saving often).
+
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `project.godot` | 640x400 base resolution, integer-scaled x2 to the Deck's 1280x800, nearest-neighbour filtering, GL Compatibility renderer, input actions |
+| `project.godot` | 640x400 base resolution, integer-scaled x2 to the Deck's 1280x800, nearest-neighbour filtering, GL Compatibility renderer, input actions, the Game autoload, saves in a custom user dir (`AFriendInNeed`) |
 | `src/poker/card.gd` | Cards as ints 0-51, parsing and labels |
 | `src/poker/deck.gd` | Seeded shuffles (replayable), stacked decks for tests |
 | `src/poker/hand_evaluator.gd` | Best five of up to seven cards, as one comparable int |
@@ -263,7 +344,18 @@ controller.
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
 | `src/audio/sfx.gd` | The `Sfx` autoload: plays sounds by name from a pool, with per-play pitch/volume variation; no-op without an audio device |
 | `assets/audio/` | Placeholder sound effects and a lounge loop, generated by `tools/make_sfx.py`; its README lists every sound and where to trigger it |
-| `scenes/table.tscn` | Main scene |
+| `scenes/table.tscn` | The table; embeddable (`setup`, `dealer_kind`, `starting_chips`, `embedded`, `finished(won)`) and still runnable on its own |
+| `scenes/title.tscn`, `src/game/title_screen.gd` | Main scene: Continue / New game |
+| `src/game/game.gd` | The `Game` autoload: the run's state, saving, scene changes, dev flags |
+| `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position; what wins, blackouts and recruits do |
+| `src/game/save_file.gd` | GameState to user:// JSON, written atomically |
+| `scenes/world/overworld.tscn`, `src/world/overworld.gd` | Walking, talking, encounters, handing over to the table and back |
+| `src/world/world_map.gd` | The maps as text, with their crews, townsfolk, signs and doors; line of sight |
+| `src/world/map_view.gd` | Paints a map: tile art if present, placeholders if not |
+| `src/world/critter.gd` | Anyone walking around; placeholder animals drawn from rectangles |
+| `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |
+| `src/world/dialog_box.gd`, `choice_menu.gd`, `party_screen.gd`, `options_screen.gd`, `demo_complete.gd`, `ui_kit.gd` | The overworld's screens (text box, Start menu, crew, options, the end) and their shared look |
+| `src/game/settings.gd` | Text speed and volume, in `user://settings.cfg`, apart from the save |
 | `tests/` | Test runner and tests |
 | `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
@@ -275,7 +367,9 @@ controller.
 
 ## Next steps
 
-1. Play it. Is setting up a teammate fun? Do the signals matter?
+1. Play it. Is setting up a teammate fun? Do the signals matter? Is a road
+   match the right length (500 chips each now), and the road the right
+   number of matches before the Open?
 2. Recheck the type chart (`tools/simulate.gd --cycle` on fresh seeds) after any change to the bot or the styles.
 3. Play against each dealer: is Heat a choice you weigh, or just a tax?
 4. Real art: an Aseprite palette, the Aseprite Wizard plugin, animal sprites at the seats.
