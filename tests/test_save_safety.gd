@@ -62,6 +62,36 @@ func test_a_roster_that_lost_its_animals_gets_the_starters_back() -> void:
 	check(s.has_animal(&"raccoon", "Bandit"), "the raccoon is back")
 
 
+func test_seats_follow_their_animals_past_dropped_ones() -> void:
+	var d := GameState.fresh().to_dict()
+	d["roster"] = [{"species": "owl", "name": "Sage"}, {"species": "dragon", "name": "Smaug"},
+		{"species": "raccoon", "name": "Bandit"}, {"species": "cat", "name": "Duchess"}]
+	d["party"] = [3, 0]
+	var s := GameState.from_dict(d)
+	check_eq(s.party_animals()[0].name, "Duchess", "seat 1 is still the cat, not whoever moved up")
+	check_eq(s.party_animals()[1].name, "Sage")
+
+
+func test_an_animal_saved_twice_is_one_animal() -> void:
+	var d := GameState.fresh().to_dict()
+	d["roster"] = [d["roster"][0], d["roster"][0], d["roster"][1]]
+	d["party"] = [0, 1]
+	var s := GameState.from_dict(d)
+	check_eq(s.roster.size(), 2)
+	check_eq(s.party, [0, 1] as Array[int], "the copy's seat goes to the next animal")
+
+
+## Found as: the window closed during "You beat the Regulars!" saved them
+## beaten without the bracelet, and they never play again.
+func test_a_beaten_tournament_comes_with_its_bracelet() -> void:
+	var d := GameState.fresh().to_dict()
+	d["beaten"] = ["mossbank_regulars"]
+	d["bracelets"] = []
+	check_eq(GameState.from_dict(d).bracelets, ["mossbank"] as Array[String])
+	d["beaten"] = ["pond_hecklers"]
+	check(GameState.from_dict(d).bracelets.is_empty(), "a road crew gives no bracelet")
+
+
 func test_a_blackout_never_wakes_you_in_a_wall() -> void:
 	var d := GameState.fresh().to_dict()
 	d["heal_cell"] = [99, 99]

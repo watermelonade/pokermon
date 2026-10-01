@@ -160,10 +160,19 @@ static func from_dict(d: Dictionary) -> GameState:
 	if not (d.has("version") and d.has("roster")):
 		return null
 	var s := GameState.new()
-	for entry: Variant in d["roster"]:
+	var moved := {}  ## index in the file's roster -> index in ours, for the party
+	var entries: Variant = d["roster"]
+	for i in entries.size() if entries is Array else 0:
+		var entry: Variant = entries[i]
 		if not entry is Dictionary or not Species.CATALOG.has(StringName(entry.get("species", ""))):
 			continue
-		s.roster.append(Animal.make(StringName(entry["species"]), str(entry.get("name", "?")), float(entry.get("bond", 0.3))))
+		var a := Animal.make(StringName(entry["species"]), str(entry.get("name", "?")), float(entry.get("bond", 0.3)))
+		for j in s.roster.size():  # each individual once: a duplicate seats the first copy
+			if s.roster[j].species == a.species and s.roster[j].name == a.name:
+				moved[i] = j
+		if not moved.has(i):
+			moved[i] = s.roster.size()
+			s.roster.append(a)
 	if s.roster.size() < PARTY_SIZE:
 		# Lost animals (a species gone from the catalog, a damaged file):
 		# your starting pair come back, so you never sit down short-handed.
@@ -173,8 +182,8 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.party.clear()
 	var party: Variant = d.get("party", [])
 	for i: Variant in party if party is Array else []:
-		var index := int(i)
-		if index >= 0 and index < s.roster.size() and not s.party.has(index) and s.party.size() < PARTY_SIZE:
+		var index: int = moved.get(int(i), -1)
+		if index >= 0 and not s.party.has(index) and s.party.size() < PARTY_SIZE:
 			s.party.append(index)
 	# A damaged party: fill the empty seats with the first animals standing
 	# (the party screen never lets you leave a seat empty, so a load doesn't
@@ -189,6 +198,13 @@ static func from_dict(d: Dictionary) -> GameState:
 		s.bracelets.append(str(b))
 	for c: Variant in d.get("beaten", []):
 		s.beaten[str(c)] = true
+	for map_id: String in WorldMap.ids():
+		for c: Dictionary in WorldMap.get_map(map_id).crews:
+			if c.has("bracelet") and s.beaten.has(c["id"]):
+				# Saved between the win and the bracelet (the window closed
+				# during "You beat the Regulars!"): the Regulars won't play
+				# again, so without this the bracelet could never be won.
+				s.add_bracelet(c["bracelet"])
 	s.map_id = str(d.get("map", WorldMap.START_MAP))
 	s.cell = _vec(d.get("cell"), WorldMap.START_CELL)
 	if not WorldMap.MAPS.has(s.map_id):  # a map that's been renamed or removed
