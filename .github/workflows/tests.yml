@@ -18,9 +18,20 @@ jobs:
           mv "Godot_v${GODOT_VERSION}_linux.x86_64" godot
       - name: Import project
         run: ./godot --headless --path . --import
+      # Strict: demo 2's unit tests are written ahead of the code and listed in
+      # tests/expected_red.txt, which the runner reports as "red" without
+      # failing, and fails on if one passes (delete its line) or breaks.
       - name: Run tests
         run: ./godot --headless --path . -s tests/run_tests.gd
       - name: Every script compiles (with the autoloads the test runner lacks)
         run: ./godot --headless --path . res://tests/compile_check.tscn
       - name: A pretend Xbox pad signals at the real table (buttons and triggers)
         run: ./godot --headless --path . res://tests/pad_check.tscn
+      # The real game from the title, driven by pad events (tests/scene/).
+      # Demo 2's scene tests are red on purpose until it lands (they're in
+      # tests/expected_red.txt too); continue-on-error keeps one that hangs or
+      # breaks half-built from failing CI meanwhile. Remove continue-on-error
+      # when demo 2 lands.
+      - name: Scene tests (the real game, pad events, a throwaway user dir)
+        continue-on-error: true
+        run: XDG_DATA_HOME=$(mktemp -d) ./godot --headless --fixed-fps 60 --path . res://tests/scene_tests.tscn
