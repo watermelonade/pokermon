@@ -103,7 +103,9 @@ func total_chips() -> int:
 
 ## Start a new hand. `stacked` sets the exact deal order (for tests).
 func start_hand(stacked: Array[int] = []) -> void:
-	assert(players_with_chips() >= 2, "need two players with chips")
+	if players_with_chips() < 2 or not hand_over:
+		push_error("start_hand(): needs two players with chips, between hands")
+		return
 	hand_number += 1
 	for s in seats:
 		s.hole.clear()
@@ -160,7 +162,10 @@ func queue_dead_money(seat: int, chips: int) -> void:
 ## Removes a seat from play between hands; its chips leave the game.
 ## Returns how many chips were removed.
 func eject(seat: int) -> int:
-	assert(hand_over, "eject between hands")
+	if not hand_over:
+		# Mid-hand the seat's bets would stay in the pot, and it could win them.
+		push_error("eject(): only between hands")
+		return 0
 	var s := seats[seat]
 	var removed := s.stack
 	s.stack = 0
@@ -187,39 +192,43 @@ func legal() -> Dictionary:
 
 ## The seat to act folds, checks, calls or raises. For RAISE, `amount` is the
 ## total to raise to on this street; it's clamped into the legal range, and
-## raising everything is going all-in.
+## raising everything is going all-in. Nothing illegal is refused, it's made
+## legal: a free fold is a check, a check facing a bet is a call, a raise
+## that isn't allowed is a call, and an action id that isn't an Action is a
+## fold. (An unknown id used to count as having acted without paying: the
+## seat passed while facing a bet. tests/table_fuzzer.gd found it.)
 func act(action: int, amount := 0) -> void:
-	assert(not hand_over and to_act >= 0, "no one is to act")
+	# Not an assert: those are stripped from release builds, where a late
+	# button press would act for seats[-1] on a finished hand.
+	if hand_over or to_act < 0:
+		push_error("act(): no one is to act")
+		return
 	var s := seats[to_act]
 	var to_call := current_bet - s.street_bet
+	var range_ := legal()
+	if action == Action.RAISE and not range_["can_raise"]:
+		action = Action.CALL
 	match action:
-		Action.FOLD:
-			if to_call <= 0:
-				action = Action.CHECK  # never fold when checking is free
-			else:
-				s.folded = true
-		Action.CHECK:
-			if to_call > 0:
-				action = Action.CALL
-				_put_in(s, to_call)
-		Action.CALL:
+		Action.RAISE:
+			var raise_to := clampi(amount, range_["min_raise_to"], range_["max_raise_to"])
+			_put_in(s, raise_to - s.street_bet)
+			min_raise = maxi(min_raise, raise_to - current_bet)
+			current_bet = raise_to
+			for other in seats:
+				if other != s:
+					other.acted = false
+		Action.CHECK, Action.CALL:
 			if to_call <= 0:
 				action = Action.CHECK
 			else:
-				_put_in(s, to_call)
-		Action.RAISE:
-			var range_ := legal()
-			if not range_["can_raise"]:
 				action = Action.CALL
 				_put_in(s, to_call)
+		_:
+			if to_call <= 0:
+				action = Action.CHECK  # never fold when checking is free
 			else:
-				var raise_to := clampi(amount, range_["min_raise_to"], range_["max_raise_to"])
-				_put_in(s, raise_to - s.street_bet)
-				min_raise = maxi(min_raise, raise_to - current_bet)
-				current_bet = raise_to
-				for other in seats:
-					if other != s:
-						other.acted = false
+				action = Action.FOLD
+				s.folded = true
 	s.acted = true
 	var shown := s.street_bet if action == Action.RAISE else (mini(to_call, s.street_bet) if action == Action.CALL else 0)
 	action_taken.emit(seats.find(s), action, shown)

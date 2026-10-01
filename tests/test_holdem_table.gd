@@ -219,3 +219,35 @@ func test_an_uncalled_all_in_comes_back_before_the_pots() -> void:
 	var pots: Array = t.last_result["pots"]
 	check_eq(pots.map(func(p: Dictionary) -> int: return p["amount"]), [300, 400], "no pot of seat 2's own chips")
 	check_eq(t.total_chips(), 1400, "no chips made or lost")
+
+
+func test_an_unknown_action_folds_instead_of_passing() -> void:
+	# An action id that isn't an Action used to mark the seat as having acted
+	# without paying: it passed while facing a bet.
+	var t := _table([1000, 1000, 1000])
+	t.start_hand()
+	t.act(99)  # seat 0, facing the big blind
+	check(t.seats[0].folded, "folds")
+	t.act(-1)  # seat 1, facing 5 more
+	check(t.hand_over, "and so does seat 1: the big blind wins")
+	check_eq([t.seats[0].stack, t.seats[1].stack, t.seats[2].stack], [1000, 995, 1005])
+
+
+func test_misuse_between_and_during_hands_is_refused() -> void:
+	# Asserts are stripped from release builds, so these were only guarded in
+	# debug: a late act() played seats[-1] on a finished hand, and starting a
+	# hand mid-hand threw away the chips in the pot.
+	expect_errors(3)
+	var t := _table([1000, 1000, 1000])
+	t.start_hand()
+	t.act(A.RAISE, 100)
+	t.start_hand()  # mid-hand: refused
+	check_eq(t.pot(), 115, "the pot is still there")
+	check_eq(t.eject(1), 0, "no ejecting mid-hand")
+	check_eq(t.seats[1].stack, 995)
+	t.act(A.FOLD)
+	t.act(A.FOLD)
+	check(t.hand_over, "hand over")
+	t.act(A.CALL)  # nobody is to act: refused
+	check_eq(t.total_chips(), 3000, "no chips made or lost")
+	check_eq(t.seats[2].stack, 990, "the last seat didn't call on a finished hand")

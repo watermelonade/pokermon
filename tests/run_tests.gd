@@ -51,8 +51,9 @@ func _init() -> void:
 			var before := errors.count
 			case.call(test_name)
 			total += 1
-			if errors.count > before:
-				case.failures.append("%s: %d script error(s), see log above" % [case._current, errors.count - before])
+			var logged := errors.count - before
+			if logged != case.expected_errors:
+				case.failures.append("%s: %d script error(s), expected %d, see log above" % [case._current, logged, case.expected_errors])
 			if case.failures:
 				failed.append_array(case.failures)
 				print("FAIL ", case._current)
