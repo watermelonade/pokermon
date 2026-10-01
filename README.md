@@ -9,9 +9,11 @@ Steam Deck first. The full design is in the
 
 This is the starter project: the poker rules, the hand evaluator, the AI play
 styles, team signals, a playable placeholder 3v3 table, and a demo loop
-around it: a title screen, the starter town of Mossbank and Ridge Road, four
-rival crews who spot you and deal you in, recruiting, blackouts, saving, and
-the town's tournament. The first goal is to find out whether one table is fun.
+around it: a title screen, an opening (you are a dog whose owner fell down a
+manhole; find the four Aces of his deck in Sootbridge, walk the Mill Road),
+the town of Mossbank and its open table, Ridge Road, four rival crews who
+spot you and deal you in, recruiting, blackouts, saving, and the town's
+tournament. The first goal is to find out whether one table is fun.
 
 **Art:** placeholder pixel art in a GBA-era top-down style (Endesga 32
 palette): the six species, the player and townsfolk as 4-direction walk
@@ -29,8 +31,27 @@ and press F6 (or `godot --path . scenes/table.tscn`).
 
 ### The demo
 
-You start outside your house in Mossbank with Sage the Owl (Rock) and
-Bandit the Raccoon (Bluffer) following you. The Mossbank Open is at the
+A new game opens on the night it happened: your owner, a bad poker player
+who takes his losses out on you, staggers home from the Lamp and falls down
+an open manhole, and the four Aces of his deck go with him. You wake in the
+morning as the dog, alone, by the manhole in Sootbridge, with his wallet
+($200) and a deck of 48. The Aces turned up around town: one in the gutter
+a few steps away, one up the washhouse's floor drain, one at the dead end
+of the coal yard's alley (behind the crates), and Mags the drain possum
+found the fourth (talk to her). Step on a card to take it; a line says
+which and how many are still missing. The gate east says "Not without the
+Aces" until you have all four, then lets you onto the Mill Road, which
+comes into Mossbank on its west side. A few townsfolk along the way have
+a line or two (some of them hints).
+
+A dog alone is nobody a crew deals in: no crew spots you, and the
+Regulars send you off ("Come back with a crew"). In Mossbank, by the pond,
+a street table is running (the open table): talk to a player to sit in for
+a $100 buy-in, a cash game, every seat for itself, leave after any hand
+with your stack. After your first sit, win or lose, Sage the Owl (Rock)
+and Bandit the Raccoon (Bluffer) join you and follow you (the cash game is
+the open-table work in `src/match/cash_match.gd` and
+`src/world/open_table.gd`). From there the demo is as before. The Mossbank Open is at the
 Tournament Hall at the east end of Ridge Road. Along the road, four rival
 crews stand watching: walk into one's line of sight and a "!" pops up, it
 walks over, has its say, and you're at the table (no dealer on the road, so
@@ -163,8 +184,9 @@ hands.
 
 ### The tutorial
 
-A new game ends its intro with Rosie (from the diner) offering to show you
-how the tables work; after that it's on her menu at the diner ("A table
+The first time you walk into Rosie's diner she offers to show you how the
+tables work (until demo 2 it was the end of the intro, now the night in
+Sootbridge); after that it's on her menu at the diner ("A table
 lesson"), as often as you like. It's five set-up hands at her back table,
 about five minutes, one lesson each, taught by doing:
 
@@ -358,14 +380,20 @@ Taking a screenshot without a display (how the screenshots in development
 were made): `xvfb-run godot --path . --rendering-driver opengl3
 scenes/table.tscn -- --autoplay --screenshot=out.png --shot-after=5` for the
 table. The overworld has dev flags for scripted runs (all listed in
-`src/game/game.gd`); for example, a fresh game walking into the first crew,
-with the match skipped as a win, everything clicked through, into a
-throwaway save:
+`src/game/game.gd`); for example, a fresh game with Sage and Bandit along
+(a dog alone is never spotted, so `--recruit` gives it the crew the open
+table would) walking into the first crew, with the match skipped as a win,
+everything clicked through, into a throwaway save:
 
 ```
 xvfb-run godot --path . --rendering-driver opengl3 -- --save-slot=dev --new --skip-intro \
-    --at=town,40,11 --walk=R4 --auto --match-result=win --screenshot=/tmp/win.png --shot-after=7
+    --recruit=owl:0,raccoon:0 --at=town,40,11 --walk=R4 --auto --match-result=win \
+    --screenshot=/tmp/win.png --shot-after=7
 ```
+
+The opening: `-- --save-slot=dev --new --auto --screenshot=/tmp/intro.png
+--shot-after=8` catches the night scene, and `--new --skip-intro
+--at=sootbridge,31,5 --walk=R3 --shot-after=2.5` the gate's line.
 
 Drop `--match-result` and add `--autoplay --chips=60` to play the real
 table with a bot in your seat (a few minutes). `--show=party`,
@@ -836,10 +864,10 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `scenes/table.tscn` | The table; embeddable (`setup`, `dealer_kind`, `starting_chips`, `embedded`, `finished(won)`; in cash mode `cash_game`, `buy_in`, `left(chips)`) and still runnable on its own |
 | `scenes/title.tscn`, `src/game/title_screen.gd` | Main scene: Continue / New game |
 | `src/game/game.gd` | The `Game` autoload: the run's state, saving, scene changes, dev flags |
-| `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position; what wins, blackouts and recruits do |
+| `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position, the deck and the pickups taken; what wins, blackouts, recruits and the open table's crew do; old saves load past the opening |
 | `src/game/save_file.gd` | GameState to user:// JSON, written atomically |
-| `scenes/world/overworld.tscn`, `src/world/overworld.gd` | Walking, talking, encounters, handing over to the table and back |
-| `src/world/world_map.gd` | The maps as text, with their crews, townsfolk, signs and doors; line of sight |
+| `scenes/world/overworld.tscn`, `src/world/overworld.gd` | The intro, walking, talking, picking up cards, the gate, encounters, handing over to the table and back |
+| `src/world/world_map.gd` | The maps as text (Sootbridge and its washhouse, the Mill Road, Mossbank and Ridge Road, three interiors), with their crews, townsfolk, signs, doors, cards lying about, the gate and the open table; line of sight |
 | `src/world/map_view.gd` | Paints a map: tile art if present, placeholders if not |
 | `src/world/critter.gd` | Anyone walking around; placeholder animals drawn from rectangles |
 | `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |

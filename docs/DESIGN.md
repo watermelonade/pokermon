@@ -10,11 +10,15 @@ implementing.
   tournament in each of eight cities, and finish inside Cassius Coolidge's
   *A Friend in Need* (1903), the "Dogs Playing Poker" painting where a
   bulldog passes an ace under the table.
-- **Story (2026-10-01, not built yet):** you are a dog. Your owner, a bad
+- **Story (2026-10-01; the opening built in demo 2):** you are a dog. Your owner, a bad
   poker player who took his losses out on you, falls drunk down a manhole
   and leaves his cards; a few went down with him. Recovering them is the
   first town's quest and the tutorial for the whole loop (simple card games
-  with the cards you have, then poker once the deck is whole). Then low
+  with the cards you have, then poker once the deck is whole). Demo 2
+  builds the first part (docs/DEMO_SPEC.md): the intro, Sootbridge with
+  the four Aces to find (pickups only, no simple card games yet), a gate
+  that won't let you leave without them, the Mill Road to Mossbank, and
+  no crew until Mossbank's open table, where Sage and Bandit join you. Then low
   stakes tables to afford the next city, and so on up to the penthouse.
   Crew members each have their own reasons to stay (like Paper Mario's
   party). Tone: starts heavy, gets lighter, ends heavy (friendship, duty,
