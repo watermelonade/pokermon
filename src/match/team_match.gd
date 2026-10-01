@@ -16,18 +16,24 @@ const BLIND_LEVELS := [
 var table := HoldemTable.new()
 var bots: Array[PokerBot] = []  ## null entries are human-controlled seats
 var talk := TableTalk.new()
+var reads := TableReads.new()
 var hands_per_level := 8
 var max_hands := 0  ## 0 = play until one crew is out
 
 
 func _init(seed_value := 0) -> void:
 	if seed_value:
-		table.rng.seed = seed_value
+		# Hashed: Godot's RNG gives similar streams for similar seeds, and
+		# matches seeded 1, 2, 3... came out correlated (see PokerBot).
+		table.rng.seed = hash(seed_value)
 	table.hand_started.connect(func(_button: int) -> void: talk.clear())
+	reads.watch(table)
 
 
 func add_player(player_name: String, team: int, chips: int, bot: PokerBot) -> void:
 	table.add_seat(player_name, team, chips)
+	if bot:
+		bot.table_reads = reads
 	bots.append(bot)
 
 

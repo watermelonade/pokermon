@@ -50,6 +50,12 @@ Log: `/tmp/cloud_setup.log`.
   (`Deck.stacked`) and an exact expected result; AI and balance changes get
   a `tools/simulate.gd` run before and after, with the numbers in the
   commit message or README.
+- **Balance numbers need big samples and fresh seeds.** A matchup at 40
+  matches is +-8 points of noise; decide on 240+ per link. Settings picked on
+  some seeds regress on others, so report results from seeds the tuning never
+  saw, at the game's equity samples (not `--iterations=60`). When a matchup
+  is wrong, `tools/chip_flow.gd` shows where the chips go: that found every
+  real fix; parameter sweeps found none.
 - **The rules engine stays headless.** `src/poker/` and `src/match/` never
   touch nodes or drawing, so tests and simulations run thousands of hands.
 - **Code style:** module docstrings explain *why* something is built the way

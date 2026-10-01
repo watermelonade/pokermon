@@ -37,7 +37,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-24 tests, about 2 seconds. They cover hand ranking, equity against known odds
+27 tests, about 2 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up),
 side pots, split pots and odd chips, busted seats, a 600-hand random-play run
 that checks no chip is ever created or lost, full bot matches, soft play
@@ -50,6 +50,8 @@ CI runs the same thing on every push (`.github/workflows/tests.yml`).
 ```
 godot --headless --path . -s tools/verify_evaluator.gd        # all 2,598,960 five-card hands
 godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style balance, 40 matches a pairing, seed 7
+godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=)
+godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
 ```
 
@@ -64,23 +66,41 @@ category counts (40 straight flushes, 624 quads, ... 1,302,540 high cards),
 in 20.7s, so about 8µs per hand. The test suite also compares it with a
 brute-force reference on 3,000 random seven-card hands.
 
-**Type chart, first run** (`tools/simulate.gd -- 40 7`: crews of three same-style
-bots, 40 matches per pairing, both seatings): the design wants a cycle where
-every style beats the next one. Three of the five links hold; two don't yet.
+**Type chart: the cycle holds.** Crews of three same-style bots, at the
+game's settings, on seeds never used for tuning (`tools/simulate.gd -- 80
+90001 --cycle` and seeds 90002-90004, 95001-95004): 640 matches per link.
 
-| Intended | Win rate |
-| --- | --- |
-| Bluffer beats Rock | 33% (no) |
-| Rock beats Maniac | 58% |
-| Maniac beats Shark | 48% (no, about even) |
-| Shark beats Calling Station | 80% |
-| Calling Station beats Bluffer | 60% |
+| Link | Before tuning | Now |
+| --- | --- | --- |
+| Bluffer beats Rock | 24% | 59.1% |
+| Rock beats Maniac | 62% | 61.9% |
+| Maniac beats Shark | 37% | 57.9% |
+| Shark beats Calling Station | 75% | 65.5% |
+| Calling Station beats Bluffer | 58% | 57.6% |
 
-The Shark is the strongest style overall: it wins every one of its pairings
-(53-85%). Tuning the numbers in `src/crew/play_style.gd` until the
-cycle holds is the next balance job, and this tool is how to measure it.
-About 0.4s per match, 25 hands per match on average.
+At 640 matches the standard error is about 2 points, so the weakest link is
+nearly 4 standard errors above a coin flip. The "before" column is the
+first presets, measured the same way (200 matches per link).
 
+How it got there (details in `src/crew/play_style.gd`'s docstring):
+
+- **Tuning numbers alone didn't work.** With only tightness, aggression,
+  bluffing and stickiness, every change just moved the losses between
+  links. Each fix came from `tools/chip_flow.gd` showing where the losing
+  crew's chips went, then adding the behaviour that was missing: `respect`,
+  `doubt`, `persistence`, `reads` (src/crew/table_reads.gd) and `bluff_risk`.
+- **The seeds were correlated.** Godot's RandomNumberGenerator gives
+  similar streams for similar seeds, and matches were seeded 1, 2, 3...: one
+  matchup measured anywhere from 48% to 78% depending on the base seed. Seeds
+  are now hashed (PokerBot, TeamMatch), and the spread dropped to sampling
+  noise.
+- **Overfitting is real here.** Twice a setting looked good on the tuning
+  seeds (around 60%) and came in at 49-52% on fresh ones. Final numbers are
+  only ever from seeds the tuning never saw, at the game's 120 equity
+  samples per decision (tuning used 60 for speed and then 120).
+
+Off-cycle pairings (Rock vs Shark and so on) aren't part of the type chart
+and weren't tuned. Each match takes about 0.9s at the game's settings.
 **The table on screen:** checked with screenshots under a virtual display:
 the preflop decision, a showdown (the right hand wins, the busted seat greys
 out). Not checked: how it feels to play, on a real Steam Deck, or with a real
@@ -98,19 +118,20 @@ controller.
 | `src/poker/holdem_table.gd` | The rules: blinds, betting rounds, side pots, showdown. No nodes, so it runs headless |
 | `src/crew/play_style.gd` | The five styles (Rock, Maniac, Shark, Calling Station, Bluffer) as numbers |
 | `src/crew/table_talk.gd` | Signals between teammates, and misreads when the bond is weak |
+| `src/crew/table_reads.gd` | What a watchful player learns: who re-raises when bet into |
 | `src/ai/poker_bot.gd` | An AI seat: equity + style, soft play, reacts to signals |
 | `src/match/team_match.gd` | Crew vs crew: rising blinds, who's out, who won |
 | `src/ui/table_view.gd` | The placeholder table scene (everything drawn from code) |
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
 | `scenes/table.tscn` | Main scene |
 | `tests/` | Test runner and tests |
-| `tools/` | Evaluator check, balance simulator, input-map writer |
+| `tools/` | Evaluator check, balance simulator, chip-flow analysis, input-map writer |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 
 ## Next steps
 
 1. Play it. Is setting up a teammate fun? Do the signals matter?
-2. Tune the play styles until `tools/simulate.gd` shows the full cycle.
+2. Recheck the type chart (`tools/simulate.gd --cycle` on fresh seeds) after any change to the bot or the styles.
 3. Heat: signals add suspicion, and the dealer warns, penalises, ejects.
 4. Real art: an Aseprite palette, the Aseprite Wizard plugin, animal sprites at the seats.
 5. Export presets for Linux (native on the Deck) and Windows, then GodotSteam.
