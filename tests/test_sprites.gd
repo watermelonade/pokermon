@@ -9,7 +9,7 @@ extends TestCase
 ## renamed file would fail silently in the game: this catches it.
 const OVERWORLD_TILES := ["grass", "flowers", "tall_grass", "path", "tree", "water", "fence",
 	"roof", "wall", "window", "door", "door_shut", "sign", "floor", "inner_wall", "counter",
-	"felt", "bed", "plant", "mat"]
+	"felt", "bed", "plant", "mat", "cobble", "brick", "manhole", "gate", "gate_open", "crate", "washtub"]
 const PEOPLE := [&"player", &"npc", &"npc_cook", &"npc_kid", &"npc_dealer"]
 
 
@@ -24,6 +24,20 @@ func test_every_species_has_art() -> void:
 		var face := Sprites.portrait(id)
 		if check(face != null, "%s has a portrait" % id):
 			check_eq(face.get_size(), Vector2(32, 32), "%s portrait size" % id)
+
+
+## The dog is you (the overworld's player sprite) and seat 0 at the open
+## table (AnimalArt finds the portrait by species id), but not a Species:
+## dogs don't join until after the finale.
+func test_the_dog_has_art() -> void:
+	var sheet := Sprites.sheet(&"dog")
+	if check(sheet != null, "the dog has a walk sheet"):
+		check_eq(sheet.get_size(), Vector2(80, 64), "dog sheet: 5 frames x 4 facings, 16x16 like the animals")
+	var face := Sprites.portrait(&"dog")
+	if check(face != null, "the dog has a portrait"):
+		check_eq(face.get_size(), Vector2(32, 32), "dog portrait size")
+	check(SpriteBank.character("dog") != null, "the overworld finds the dog")
+	check(AnimalArt.texture(&"dog") != null, "the table finds the dog")
 
 
 func test_people_are_a_head_taller() -> void:

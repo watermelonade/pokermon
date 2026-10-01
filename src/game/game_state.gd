@@ -113,6 +113,13 @@ static func fresh() -> GameState:
 	return s
 
 
+## A card the way a line names it: "Ace of Spades".
+static func card_name(card: int) -> String:
+	const RANKS := ["Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Jack", "Queen", "King", "Ace"]
+	const SUITS := ["Clubs", "Diamonds", "Hearts", "Spades"]
+	return "%s of %s" % [RANKS[Card.rank(card) - 2], SUITS[Card.suit(card)]]
+
+
 ## OPENING_MISSING as cards.
 static func opening_missing_cards() -> Array[int]:
 	var out: Array[int] = []

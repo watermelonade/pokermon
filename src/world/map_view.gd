@@ -26,8 +26,14 @@ const FLOOR := Color("b48a5a")
 const INNER := Color("4a3424")
 const FELT := Color("2b5b3a")
 const TEXT := Color("f4ecd8")
+const COBBLE := Color("8b9bb4")
+const BRICK := Color("733e39")
+const SOOT := Color("3a4466")
 
 var map: WorldMap
+## Sootbridge's gate drawn open (the deck is whole) or shut. The tile is
+## walkable either way (WorldMap.gate_at); this is only how it looks.
+var gates_open := false
 
 
 func show_map(m: WorldMap) -> void:
@@ -42,11 +48,14 @@ func _draw() -> void:
 		for x in map.width:
 			var cell := Vector2i(x, y)
 			var at := Vector2(cell * WorldMap.TILE)
-			var tex := SpriteBank.tile(map.tile_name(cell))
+			var tile_name := map.tile_name(cell)
+			if tile_name == "gate" and gates_open:
+				tile_name = "gate_open"
+			var tex := SpriteBank.tile(tile_name)
 			if tex:
 				draw_texture(tex, at)
 			else:
-				_paint(map.char_at(cell), cell, at)
+				_paint("G" if tile_name == "gate_open" else map.char_at(cell), cell, at)
 	var font := ThemeDB.fallback_font
 	for label: Dictionary in map.labels:
 		var r: Rect2i = label["rect"]
@@ -156,5 +165,35 @@ func _paint(ch: String, cell: Vector2i, at: Vector2) -> void:
 			draw_rect(Rect2(at, Vector2(t, t)), FLOOR)
 			draw_rect(Rect2(at + Vector2(4, 10), Vector2(8, 6)), Color("a8483a"))
 			draw_circle(at + Vector2(8, 7), 5, TREE)
+		":":
+			draw_rect(Rect2(at, Vector2(t, t)), COBBLE)
+			for k in 4:
+				draw_rect(Rect2(at + Vector2((k % 2) * 8 + (cell.y % 2) * 4, (k / 2) * 8), Vector2(7, 7)), COBBLE.darkened(0.15), false)
+		"B":
+			draw_rect(Rect2(at, Vector2(t, t)), BRICK)
+			for k in 4:
+				draw_rect(Rect2(at + Vector2(0, k * 4), Vector2(t, 1)), SOOT)
+				draw_rect(Rect2(at + Vector2(((k % 2) * 8 + 4), k * 4), Vector2(1, 4)), SOOT)
+		"o":
+			draw_rect(Rect2(at, Vector2(t, t)), COBBLE)
+			draw_circle(at + Vector2(8, 8), 7, SOOT)
+			draw_circle(at + Vector2(8, 8), 5, Color("181425"))
+		"g", "G":
+			draw_rect(Rect2(at, Vector2(t, t)), COBBLE)
+			if ch == "g":  # shut: iron bars across
+				for k in 4:
+					draw_rect(Rect2(at + Vector2(1 + k * 4, 0), Vector2(2, t)), SOOT)
+				draw_rect(Rect2(at + Vector2(0, 6), Vector2(t, 2)), SOOT)
+			else:  # open: folded back against the posts
+				draw_rect(Rect2(at, Vector2(2, t)), SOOT)
+				draw_rect(Rect2(at + Vector2(14, 0), Vector2(2, t)), SOOT)
+		"x":
+			draw_rect(Rect2(at, Vector2(t, t)), COBBLE)
+			draw_rect(Rect2(at + Vector2(1, 2), Vector2(14, 13)), WOOD)
+			draw_rect(Rect2(at + Vector2(1, 8), Vector2(14, 1)), WOOD.darkened(0.3))
+		"u":
+			draw_rect(Rect2(at, Vector2(t, t)), FLOOR)
+			draw_circle(at + Vector2(8, 9), 7, Color("8b9bb4"))
+			draw_circle(at + Vector2(8, 9), 5, WATER)
 		_:
 			draw_rect(Rect2(at, Vector2(t, t)), Color.MAGENTA)

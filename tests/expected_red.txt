@@ -9,11 +9,6 @@
 # W: the world (tests/test_demo_world.gd)
 
 # G: the game, scene tests (tests/scene/test_opening.gd, test_open_table.gd)
-test_G_INTRO_new_game_wakes_as_the_dog_in_sootbridge
-test_G_ACE_aces_are_picked_up_and_given_once
-test_G_GATE_shut_without_the_aces_open_with_them
-test_G_ROSIE_lessons_offered_at_the_diner_not_in_the_intro
-test_S_PARTY_in_game_a_dog_alone_is_never_spotted
 
 # J: the journey (tests/scene/test_journey.gd)
 test_J_LOOP_title_to_a_crew_in_mossbank_and_back

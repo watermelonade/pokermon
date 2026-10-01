@@ -1,9 +1,19 @@
 extends Node2D
-## The overworld: walk Mossbank and Ridge Road, get spotted by rival crews,
-## play them at the poker table, and take the Mossbank Open. The rules of
-## the run live in GameState and the maps in WorldMap; this node is the
-## glue: input, movement, the encounter script, and handing over to the
-## table and back.
+## The overworld: wake as the dog in Sootbridge, find the four Aces, walk
+## the Mill Road to Mossbank, sit at its open table, then walk Ridge Road,
+## get spotted by rival crews, play them at the poker table, and take the
+## Mossbank Open. The rules of the run live in GameState and the maps in
+## WorldMap; this node is the glue: input, movement, the encounter script,
+## and handing over to the table and back.
+##
+## The opening (docs/DEMO_SPEC.md): a new game plays the night the dog's
+## owner falls down the manhole, over a dark street (_intro), then morning.
+## Cards on the ground are taken by stepping on them (_take_pickup), a
+## townsperson with "gives_card" hands theirs over once, and Sootbridge's
+## gate refuses the step onto it until the deck is whole (the gate is a
+## walkable tile, so the map and the tests' paths are the same either way).
+## A dog alone is nobody a crew deals in: spotting asks WorldMap.spotter
+## with the party's size, and a crew you talk to sends you off.
 ##
 ## Movement is on the 16px grid, Pokemon style: hold a direction and you
 ## walk tile to tile, each step tweened. Your two seated animals follow in
@@ -17,9 +27,10 @@ extends Node2D
 ## finished(won) signal, frees it, and carries on from the same spot. Win:
 ## money and a recruit; lose: wake at the diner with half your money.
 ##
-## Tutorial: a new game ends its intro with Rosie offering her table
-## lessons (src/tutorial/), once (GameState.tutorial_offered); after that
-## they're on her menu at the diner. They play at the embedded table like a
+## Tutorial: Rosie offers her table lessons (src/tutorial/) the first time
+## you walk into her diner, once (GameState.tutorial_offered); after that
+## they're on her menu at the diner. (Until demo 2 she offered them at the
+## end of the intro, which is now the night in Sootbridge, far from her.) They play at the embedded table like a
 ## match, but nothing is won or lost: only finishing them is remembered.
 ##
 ## Dev flags are parsed by the Game autoload (see src/game/game.gd).
@@ -27,7 +38,10 @@ extends Node2D
 enum Mode { WALK, BUSY, TABLE }
 
 const TABLE_SCENE := preload("res://scenes/table.tscn")
-const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank Tournament Hall"}
+const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank Tournament Hall",
+	"sootbridge": "Sootbridge", "washhouse": "Sootbridge Washhouse", "mill_road": "The Mill Road"}
+const PLAYER_SPRITE := "dog"  ## you are the dog (assets/sprites/dog.png)
+const OWNER_SPRITE := "npc"  ## his last walk home, in the intro
 
 const ROAD_GAME_HANDS := 20
 var _settled := {}  ## the last match's outcome, applied once (see _settle)
@@ -43,6 +57,8 @@ var followers: Array[Critter] = []
 var crew_nodes := {}  ## crew id -> Array of Critter (null where an animal has left to join you)
 var npc_nodes: Array[Critter] = []
 var npc_data := {}  ## Critter -> its map entry
+var pickup_nodes := {}  ## pickup id -> the card drawn on the ground
+var ground: Node2D  ## cards lying about: over the tiles, under everyone
 var camera: Camera2D
 var dialog: DialogBox
 var menu: ChoiceMenu
@@ -73,14 +89,14 @@ func _ready() -> void:
 	var start := WorldMap.get_map(state.map_id)
 	state.cell = start.open_cell_near(state.cell, start.standing_cells(state))
 	_load_map(state.map_id, state.cell, state.facing)
-	await _fade_in()
 	if not state.seen_intro:
 		state.seen_intro = true
-		await _intro()
-		await _offer_tutorial()
+		await _intro()  # it fades in itself, after the first lines over black
 		Game.save()
 		_area = ""
 		_show_area()  # the banner timed out behind the intro
+	else:
+		await _fade_in()
 	await _resume_after_win()
 	mode = Mode.WALK
 	match Game.dev("show"):
@@ -124,6 +140,8 @@ func _resume_after_win() -> void:
 func _build() -> void:
 	map_view = MapView.new()
 	add_child(map_view)
+	ground = Node2D.new()
+	add_child(ground)
 	actors = Node2D.new()
 	actors.y_sort_enabled = true
 	add_child(actors)
@@ -166,13 +184,22 @@ func _load_map(map_id: String, cell: Vector2i, facing: Vector2i) -> void:
 	state.map_id = map_id
 	state.cell = cell
 	state.facing = facing
+	map_view.gates_open = state.has_full_deck()
 	map_view.show_map(map)
 	for c in actors.get_children():
+		c.queue_free()
+	for c in ground.get_children():
 		c.queue_free()
 	crew_nodes.clear()
 	npc_nodes.clear()
 	npc_data.clear()
+	pickup_nodes.clear()
 	followers.clear()
+	for p: Dictionary in map.pickups():
+		if state.pickup_waiting(p["id"], p["card"]):
+			var card := _card_on_ground(p["cell"])
+			ground.add_child(card)
+			pickup_nodes[p["id"]] = card
 	for n: Dictionary in map.npcs:
 		var node := Critter.make(n["sprite"], n["cell"], n["facing"])
 		node.asleep = n.get("asleep", false)
@@ -192,13 +219,21 @@ func _load_map(map_id: String, cell: Vector2i, facing: Vector2i) -> void:
 			nodes.append(node)
 		crew_nodes[c["id"]] = nodes
 	_make_followers(cell, facing)
-	player = Critter.make("player", cell, facing)
+	player = Critter.make(PLAYER_SPRITE, cell, facing)
 	actors.add_child(player)
 	_update_camera()
 	_show_area()
 
 
+## Your seated animals, following you. Anyone who joined you from where
+## they stood (the open table's players) stops standing there: called after
+## every change to the party (the party screen, a join), it tidies them away.
 func _make_followers(cell: Vector2i, facing: Vector2i) -> void:
+	for n in npc_nodes.duplicate():
+		if WorldMap.npc_joined(npc_data[n], state):
+			npc_nodes.erase(n)
+			npc_data.erase(n)
+			n.queue_free()
 	for f in followers:
 		f.queue_free()
 	followers.clear()
@@ -222,6 +257,20 @@ func _play_room_music(map_id: String) -> void:
 		_music.play()
 	elif not card_room:
 		_music.stop()
+
+
+## A card lying face down on the ground, an Ace waiting to be found: a
+## little white card with a dark border and a glint, drawn from code until
+## there's art for it.
+func _card_on_ground(cell: Vector2i) -> Node2D:
+	var n := Node2D.new()
+	n.position = Vector2(cell * WorldMap.TILE)
+	n.draw.connect(func() -> void:
+		n.draw_rect(Rect2(4, 5, 8, 10), Color("181425"))
+		n.draw_rect(Rect2(5, 6, 6, 8), Color("ead4aa"))
+		n.draw_rect(Rect2(6, 7, 4, 6), Color("be4a2f"))
+		n.draw_rect(Rect2(10, 4, 2, 2), Color("ffffff")))
+	return n
 
 
 func _area_name() -> String:
@@ -315,6 +364,12 @@ func _try_step(dir: Vector2i) -> void:
 	var target := player.cell + dir
 	if not map.tile_walkable(target) or _occupied(target):
 		return
+	var gate := map.gate_at(target)
+	if not gate.is_empty() and not _gate_open(gate):
+		mode = Mode.BUSY
+		await dialog.say([gate["text"]])
+		mode = Mode.WALK
+		return
 	_moving = true
 	var trail := [player.cell]
 	for f in followers:
@@ -331,21 +386,59 @@ func _try_step(dir: Vector2i) -> void:
 
 func _arrived(cell: Vector2i) -> void:
 	_show_area()
+	var p := map.pickup_at(cell)
+	if not p.is_empty() and state.pickup_waiting(p["id"], p["card"]):
+		await _take_pickup(p)
 	var w := map.warp_at(cell)
 	if w:
 		_warp(w)
 		return
-	var crew := map.spotter(cell, state.beaten)
+	var crew := map.spotter(cell, state.beaten, state.party.size())
 	if crew:
 		_encounter(crew, true)
+
+
+## A gate's rule: "full_deck" opens once all 52 cards are back.
+func _gate_open(gate: Dictionary) -> bool:
+	return gate.get("requires", "") != "full_deck" or state.has_full_deck()
+
+
+## Stepped onto a card: it's yours, saved at once, and a line says which
+## and how many are still missing.
+func _take_pickup(p: Dictionary) -> void:
+	mode = Mode.BUSY
+	var card := state.take_pickup(p["id"])
+	if pickup_nodes.has(p["id"]):
+		pickup_nodes[p["id"]].queue_free()
+		pickup_nodes.erase(p["id"])
+	Game.save()
+	if card >= 0:
+		Game.dev_log("picked up %s (%s)" % [GameState.card_name(card), p["id"]])
+		Sfx.play(&"card_flip")
+		await dialog.say(_found_lines("You found the %s!" % GameState.card_name(card)))
+	mode = Mode.WALK
+
+
+## "...! N still missing", or the deck whole again (and the gate open).
+func _found_lines(first: String) -> Array[String]:
+	var left := state.missing_cards().size()
+	map_view.gates_open = state.has_full_deck()
+	map_view.queue_redraw()
+	if left > 0:
+		return ["%s %d still missing." % [first, left]]
+	return [first, "That's all four Aces. His deck is whole again. The gate east will let you by."]
 
 
 func _warp(w: Dictionary) -> void:
 	mode = Mode.BUSY
 	await _fade_out()
 	_load_map(w["to"], w["to_cell"], w["facing"])
+	if w["to"] == "mill_road" and state.has_full_deck():
+		state.opening_done = true  # through Sootbridge's gate with every Ace
 	Game.save()  # on every door: entering a building is a natural checkpoint
 	await _fade_in()
+	if w["to"] == "diner":
+		await _offer_tutorial()  # the first time in, once
 	mode = Mode.WALK
 
 
@@ -396,8 +489,12 @@ func _interact() -> void:
 			if not n.asleep:
 				n.face(-player.facing)
 			var data: Dictionary = npc_data[n]
-			if data.has("open_table"):  # Mossbank's open table: a seat, a cash game (OpenTable)
+			if data.has("open_table"):
 				await OpenTable.play(self, data)
+				mode = Mode.WALK
+				return
+			if data.has("gives_card"):
+				await _give_card(data)
 				mode = Mode.WALK
 				return
 			var lines: Array = data["lines"]
@@ -413,6 +510,23 @@ func _interact() -> void:
 		mode = Mode.BUSY
 		await dialog.say([text])
 		mode = Mode.WALK
+
+
+## A townsperson with a card for you: their lines and the card, once; after
+## that their "after" lines (or the same ones again).
+func _give_card(data: Dictionary) -> void:
+	var who := str(data.get("name", str(data["id"]).capitalize()))
+	var gift: Dictionary = data["gives_card"]
+	if not state.pickup_waiting(gift["id"], gift["card"]):
+		await dialog.say(data.get("after", data["lines"]), who)
+		return
+	await dialog.say(data["lines"], who)
+	var card := state.take_pickup(gift["id"])
+	Game.save()
+	if card >= 0:
+		Game.dev_log("given %s by %s" % [GameState.card_name(card), data["id"]])
+		Sfx.play(&"card_flip")
+		await dialog.say(_found_lines("%s gives you the %s!" % [who, GameState.card_name(card)]))
 
 
 ## The healing-centre ritual: a booth, a slice of pie, a short fade. Animals
@@ -433,16 +547,84 @@ func _rest_at_diner() -> void:
 	await dialog.say(["There. Pie all round. Your crew is fed, rested and itching to play."], "Rosie")
 
 
+## The night it happened, then the morning after (docs/DEMO_SPEC.md, the
+## loop's first step). Heavy, not graphic: lines over black, his last walk
+## home along a dark street with you behind him, the open manhole, his cards
+## in the air, then nothing. Placeholder writing until the writers' pass.
+## The street is tinted night-blue with a CanvasModulate over the world
+## layer only, so the dialog box stays readable.
 func _intro() -> void:
-	var names: Array[String] = []
-	for a in state.party_animals():
-		names.append("%s the %s" % [a.name, Species.get_info(a.species)["display"]])
+	fade.color.a = 1.0
 	await dialog.say([
-		"Morning, Mossbank! Your crew: %s. They've practised all week." % " and ".join(names),
-		"Tonight is the Mossbank Open, at the Tournament Hall, east along Ridge Road.",
-		"Rival crews wait on the road. Step into their sight and they'll deal you in.",
+		"Sootbridge, late. Coal smoke, rain on the cobbles. And him, coming home.",
+		"He lost at the Lamp again tonight. He always loses. Then it's your fault.",
+	])
+	if map.id != WorldMap.START_MAP:  # a dev run starting elsewhere (--at): the words alone
+		await _fade_in()
+		return
+	var night := CanvasModulate.new()
+	night.color = Color(0.32, 0.36, 0.62)
+	add_child(night)
+	var owner := Critter.make(OWNER_SPRITE, Vector2i(4, 6), Vector2i.RIGHT)
+	actors.add_child(owner)
+	player.place(Vector2i(2, 6), Vector2i.RIGHT)
+	_update_camera()
+	await _fade_in(0.8)
+	# He staggers east along the street, and you follow two steps behind.
+	var walk: Array[Vector2i] = [Vector2i(5, 6), Vector2i(6, 6), Vector2i(7, 6), Vector2i(7, 5),
+		Vector2i(8, 5), Vector2i(9, 5), Vector2i(9, 6), Vector2i(10, 6), Vector2i(11, 6)]
+	var trail: Array[Vector2i] = [Vector2i(3, 6), Vector2i(4, 6)]
+	for i in walk.size():
+		player.step_to(trail[i], 0.3)
+		trail.append(walk[i])
+		await owner.step_to(walk[i], 0.3 + 0.15 * (i % 3))
+	await dialog.say(["He's singing. He doesn't see the cover's off the manhole."])
+	await owner.step_to(map_manhole(), 0.25)
+	Sfx.play(&"card_deal")
+	var cards: Array[Node2D] = []
+	for k in 6:
+		var c := _card_on_ground(owner.cell)
+		ground.add_child(c)
+		cards.append(c)
+		var fly := create_tween()
+		fly.tween_property(c, "position", c.position + Vector2(-26 + k * 10, -10 - (k % 3) * 8), 0.35)
+	var fall := create_tween()
+	fall.tween_property(owner, "position", owner.position + Vector2(0, 8), 0.3)
+	fall.parallel().tween_property(owner, "modulate:a", 0.0, 0.3)
+	await fall.finished
+	owner.visible = false
+	await get_tree().create_timer(0.6).timeout
+	await dialog.say([
+		"A stumble, a clatter of cards, and he's gone. Down into the dark.",
+		"You wait at the edge all night. He doesn't call for you. Nothing comes up.",
+	])
+	await _fade_out(0.8)
+	owner.queue_free()
+	for c in cards:
+		c.queue_free()
+	night.queue_free()
+	player.place(state.cell, Vector2i.DOWN)
+	state.facing = Vector2i.DOWN
+	_update_camera()
+	await dialog.say([
+		"Morning. You slept by the manhole. His cards lay where they fell.",
+		"You gathered them, the way he never did. Four are missing: all four Aces.",
+	])
+	await _fade_in(0.8)
+	await dialog.say([
+		"They went down with him. But the drains run all over town.",
+		"His deck and his wallet. Yours now. You won't leave without those Aces.",
 		"Walk: arrows, WASD, D-pad or stick. Talk: A, Enter or Space. Menu: Start or Tab.",
 	])
+
+
+## Where he falls: the open manhole on this map (the tile next to the start).
+func map_manhole() -> Vector2i:
+	for y in map.height:
+		for x in map.width:
+			if map.char_at(Vector2i(x, y)) == "o":
+				return Vector2i(x, y)
+	return state.cell + Vector2i.DOWN
 
 
 func _crew_title(crew: Dictionary) -> String:
@@ -501,7 +683,7 @@ func _open_party() -> void:
 
 # --- Rosie's table lessons --------------------------------------------------
 
-## Asked once, at the end of a new game's intro. Scripted --auto runs skip it
+## Asked once, the first time you walk into the diner. Scripted --auto runs skip it
 ## unless --tutorial asks for it, so they don't sit down at a table nobody
 ## is playing.
 func _offer_tutorial() -> void:
@@ -509,8 +691,8 @@ func _offer_tutorial() -> void:
 		return
 	state.tutorial_offered = true
 	await dialog.say([
-		"Yoo-hoo! Over here, hon! Rosie, from the diner.",
-		"New to the tables? I'll show you how they work. Five minutes, pie after."], "Rosie")
+		"Well, look who wandered in. A dog, on his own, in my diner. Rough night, hon?",
+		"I'm Rosie. New to the tables? I'll show you how they work. Pie after."], "Rosie")
 	var pick := await menu.choose("Take Rosie's table lesson?", ["Yes, show me", "No thanks"], 1)
 	if pick == 0:
 		await _play_tutorial()
@@ -555,6 +737,14 @@ func _play_tutorial() -> void:
 
 func _encounter(crew: Dictionary, spotted: bool) -> void:
 	mode = Mode.BUSY
+	if state.party.is_empty():
+		# A dog alone (before the open table): no crew deals it in. Spotting
+		# never happens (spotter's party size); this is for talking to one.
+		var who := str(crew["name"])
+		who = who.substr(0, 1).to_upper() + who.substr(1)
+		await dialog.say(["(%s look you over: one dog, no crew.)" % who, "Come back with a crew."], _crew_title(crew))
+		mode = Mode.WALK
+		return
 	Game.dev_log("encounter: %s (%s)" % [crew["id"], "spotted you" if spotted else "you talked"])
 	state.mark_crew_seen(WorldMap.crew_animals(crew), "%s, with %s" % [_area_name(), crew["name"]])  # the Binder
 	# Whoever's still standing: a member you've recruited is gone from the
