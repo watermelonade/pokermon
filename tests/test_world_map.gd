@@ -9,6 +9,15 @@ func _town() -> WorldMap:
 	return WorldMap.get_map("town")
 
 
+## Where you walk into Mossbank, from the Mill Road: the road's checks start
+## here since demo 2 moved the start to Sootbridge (docs/DEMO_SPEC.md).
+func _way_in() -> Vector2i:
+	for w: Dictionary in WorldMap.get_map("mill_road").warps:
+		if w["to"] == "town":
+			return w["to_cell"]
+	return Vector2i(-1, -1)
+
+
 func test_maps_are_rectangular_and_use_known_tiles() -> void:
 	for id: String in WorldMap.ids():
 		var m := WorldMap.get_map(id)
@@ -66,8 +75,9 @@ func test_doors_lead_somewhere_you_can_stand() -> void:
 ## Road crews are three; a boss crew (the Open's) brings four to six.
 func test_crews_are_three_distinct_animals_none_of_them_yours() -> void:
 	var seen := {}
-	for a in GameState.fresh().roster:
-		seen[a.name] = "your crew"
+	for n: Dictionary in _town().open_tables():  # Sage and Bandit join you from here
+		var who: Array = n["animal"]
+		seen[Species.individual(who[0], who[1]).name] = "the open table"
 	for id: String in WorldMap.ids():
 		for c: Dictionary in WorldMap.get_map(id).crews:
 			var animals := WorldMap.crew_animals(c)
@@ -148,13 +158,13 @@ func _blocked(crew_ids: Array) -> Dictionary:
 
 
 func test_the_road_to_the_hall_is_open_once_crews_are_beaten() -> void:
-	check(_town().reachable(WorldMap.START_CELL, _hall_door(), _town().occupied_cells()),
+	check(_town().reachable(_way_in(), _hall_door(), _town().occupied_cells()),
 		"beaten crews standing at home don't block the road")
 
 
 func test_some_crews_cant_be_snuck_past() -> void:
 	var town := _town()
-	check(not town.reachable(WorldMap.START_CELL, _hall_door(), _blocked(["pond_hecklers"])), "the Pond Hecklers block the road")
-	check(not town.reachable(WorldMap.START_CELL, _hall_door(), _blocked(["nut_club"])), "the Nut Club blocks the road")
-	check(town.reachable(WorldMap.START_CELL, _hall_door(), _blocked(["alley_cats", "night_shift"])),
+	check(not town.reachable(_way_in(), _hall_door(), _blocked(["pond_hecklers"])), "the Pond Hecklers block the road")
+	check(not town.reachable(_way_in(), _hall_door(), _blocked(["nut_club"])), "the Nut Club blocks the road")
+	check(town.reachable(_way_in(), _hall_door(), _blocked(["alley_cats", "night_shift"])),
 		"the Alley Cats and the Night Shift can be avoided")

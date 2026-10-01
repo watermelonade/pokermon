@@ -5,19 +5,32 @@ extends TestCase
 
 const SAVE := "user://test_game_state.json"
 
-
-func test_new_game_starts_in_town_with_two_animals_seated() -> void:
+## A run past Mossbank's open table, where Sage and Bandit join: a new game
+## no longer starts with them (docs/DEMO_SPEC.md, demo 2), and the rules
+## tested here are about a run with its crew.
+func _crewed() -> GameState:
 	var s := GameState.fresh()
+	s.join_open_table_crew()
+	return s
+
+
+
+## A new game is the dog alone (test_demo_state's S-NEW); Sage and Bandit
+## join at the open table and both sit with you, as the starters did.
+func test_after_the_open_table_two_animals_sit_with_you() -> void:
+	var s := _crewed()
 	check_eq(s.roster.size(), 2)
 	check_eq(s.party, [0, 1] as Array[int])
+	check_eq(s.roster[0].bond, GameState.OPEN_TABLE_BOND, "they join as close as the starters began")
 	check_eq(s.money, GameState.STARTING_MONEY)
-	check_eq(s.map_id, "town")
+	check_eq(s.map_id, "sootbridge")
 	check(WorldMap.get_map(s.map_id).tile_walkable(s.cell), "the start cell is walkable")
 	check(s.party_ready())
+	check(GameState.fresh().party_ready(), "a dog alone has nobody to seat: ready as it is")
 
 
 func test_table_setup_seats_you_first_and_alternates_teams() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	var rivals: Array[Animal] = [Species.individual(&"goose", 0), Species.individual(&"cat", 0), Species.individual(&"squirrel", 0)]
 	var seats := s.table_setup(rivals)
 	check_eq(seats.size(), 6)
@@ -31,7 +44,7 @@ func test_table_setup_seats_you_first_and_alternates_teams() -> void:
 
 
 func test_table_setup_follows_the_party_not_the_roster() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.recruit(Species.individual(&"cat", 1))
 	s.toggle_party(0)  # stand the Owl up
 	s.toggle_party(2)  # seat the Cat
@@ -41,7 +54,7 @@ func test_table_setup_follows_the_party_not_the_roster() -> void:
 
 
 func test_party_holds_two_and_must_be_full_to_close() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.recruit(Species.individual(&"goose", 0))
 	check(not s.toggle_party(2), "a full party refuses a third")
 	check(s.toggle_party(0), "standing someone up")
@@ -53,7 +66,7 @@ func test_party_holds_two_and_must_be_full_to_close() -> void:
 
 
 func test_recruit_adds_each_individual_once() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	check(s.recruit(Species.individual(&"goose", 0, 0.9)))
 	check_eq(s.roster.size(), 3)
 	check_eq(s.roster[2].bond, GameState.RECRUIT_BOND, "recruits start with a weak bond")
@@ -64,7 +77,7 @@ func test_recruit_adds_each_individual_once() -> void:
 
 
 func test_winning_pays_and_marks_the_crew_beaten() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	check_eq(s.win_against("pond_hecklers", 120), 120)
 	check_eq(s.money, GameState.STARTING_MONEY + 120)
 	check(s.is_beaten("pond_hecklers"))
@@ -74,7 +87,7 @@ func test_winning_pays_and_marks_the_crew_beaten() -> void:
 
 
 func test_blackout_halves_money_and_wakes_you_at_the_diner() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.money = 301
 	s.map_id = "town"
 	s.cell = Vector2i(44, 12)
@@ -89,14 +102,14 @@ func test_blackout_halves_money_and_wakes_you_at_the_diner() -> void:
 
 
 func test_bracelets_are_counted_once() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.add_bracelet("mossbank")
 	s.add_bracelet("mossbank")
 	check_eq(s.bracelets.size(), 1)
 
 
 func test_save_round_trip() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.recruit(Species.individual(&"cat", 1))
 	s.toggle_party(0)
 	s.toggle_party(2)
@@ -121,7 +134,7 @@ func test_save_round_trip() -> void:
 
 
 func test_saving_twice_replaces_the_save() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	SaveFile.write(s, SAVE)
 	s.money = 5
 	SaveFile.write(s, SAVE)
@@ -162,7 +175,7 @@ func test_damaged_save_data_is_repaired_not_crashed_on() -> void:
 
 
 func test_cracked_codes_survive_a_save() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	var seats := s.table_setup(WorldMap.crew_animals(WorldMap.get_map("town").crews[0]), "pond_hecklers")
 	check_eq(seats[1].get("crew"), "pond_hecklers", "rival seats carry the crew id")
 	s.codebook = CodeBook.from_dict({"player": {"pond_hecklers": {"1": 0}}})  # you know their gesture 1 means STRONG
@@ -175,7 +188,7 @@ func test_cracked_codes_survive_a_save() -> void:
 
 
 func test_a_cut_short_win_is_remembered() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.pending_recruit = "pond_hecklers"
 	var back := GameState.from_dict(JSON.parse_string(JSON.stringify(s.to_dict())))
 	check_eq(back.pending_recruit, "pond_hecklers", "the owed recruit offer survives a reload")

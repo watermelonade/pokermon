@@ -9,6 +9,15 @@ const A := HoldemTable.Action
 const K := PlayStyle.Kind
 
 
+## A run past Mossbank's open table, where Sage and Bandit join: a new game
+## no longer starts with them (docs/DEMO_SPEC.md, demo 2), and the rules
+## tested here are about a run with its crew.
+func _crewed() -> GameState:
+	var s := GameState.fresh()
+	s.join_open_table_crew()
+	return s
+
+
 func test_the_boss_crew_brings_your_chips_spread_leader_heavy() -> void:
 	check_eq(BossTable.stacks(3, 4, 1000), [1200, 600, 600, 600] as Array[int], "3v4: the leader holds two goons' worth")
 	check_eq(BossTable.stacks(3, 5, 1000), [1000, 500, 500, 500, 500] as Array[int], "3v5")
@@ -214,7 +223,7 @@ func test_the_open_is_a_three_on_four_boss_table() -> void:
 	var rivals := WorldMap.crew_animals(regulars)
 	check_eq(rivals.size(), 4, "four Regulars")
 	check_eq(rivals[0].name, "Graves", "led by their captain")
-	var s := GameState.fresh()
+	var s := _crewed()
 	var seats := s.boss_table_setup(rivals, regulars["id"], regulars["chips"])
 	check_eq(seats.size(), 7, "3v4")
 	check_eq(seats[0]["name"], "You")

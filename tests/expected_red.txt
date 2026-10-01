@@ -5,27 +5,13 @@
 # Whoever turns a test green deletes its line in the same commit.
 
 # S: state and rules (tests/test_demo_state.gd, tests/test_cash_match.gd)
-test_S_NEW_fresh_game_is_the_dog_alone_in_sootbridge
-test_S_DECK_collect_adds_once_and_completes_at_52
-test_S_PICK_each_pickup_gives_its_card_once
-test_S_SAVE_deck_pickups_and_progress_round_trip
-test_S_OLD_pre_demo_save_loads_past_the_opening
-test_S_JOIN_open_table_crew_joins_once
-test_S_PARTY_crews_never_spot_a_dog_alone
 
 # W: the world (tests/test_demo_world.gd)
-test_W_MAPS_new_maps_exist_and_are_well_formed
-test_W_LINK_mossbank_reachable_only_through_the_open_gate
-test_W_ACES_four_aces_found_four_ways_in_sootbridge
-test_W_GATE_sootbridge_exit_needs_a_full_deck
-test_W_NPCS_townsfolk_everywhere_none_in_the_way
-test_W_TABLE_mossbank_open_table_reachable_from_the_mill_road
 
 # G: the game, scene tests (tests/scene/test_opening.gd, test_open_table.gd)
 test_G_INTRO_new_game_wakes_as_the_dog_in_sootbridge
 test_G_ACE_aces_are_picked_up_and_given_once
 test_G_GATE_shut_without_the_aces_open_with_them
-test_G_ROAD_mill_road_east_into_mossbank_west
 test_G_SIT_seat_offered_buy_in_taken_cash_table_opens
 test_G_LEAVE_leave_after_a_hand_with_your_stack
 test_G_CREW_sage_and_bandit_join_after_the_first_sit
@@ -34,4 +20,3 @@ test_S_PARTY_in_game_a_dog_alone_is_never_spotted
 
 # J: the journey (tests/scene/test_journey.gd)
 test_J_LOOP_title_to_a_crew_in_mossbank_and_back
-test_J_OLD_ridge_road_still_pays_and_recruits

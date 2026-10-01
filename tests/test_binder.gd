@@ -6,22 +6,35 @@ extends TestCase
 
 const SAVE := "user://test_binder.json"
 
+## A run past Mossbank's open table, where Sage and Bandit join: a new game
+## no longer starts with them (docs/DEMO_SPEC.md, demo 2), and the rules
+## tested here are about a run with its crew.
+func _crewed() -> GameState:
+	var s := GameState.fresh()
+	s.join_open_table_crew()
+	return s
+
+
 
 func _pond() -> Dictionary:
 	return WorldMap.get_map("town").crew_by_id("pond_hecklers")
 
 
-func test_a_new_run_has_its_starters_seen_and_recruited() -> void:
+func test_a_new_run_meets_its_crew_at_the_open_table() -> void:
 	var s := GameState.fresh()
+	check_eq(Binder.completion(s), "0/25", "the dog alone has met nobody")
+	check_eq(Binder.seen_count(s), 0)
+	s.join_open_table_crew()
 	check(s.has_recruited_species(&"owl") and s.has_recruited_species(&"raccoon"))
 	check(s.has_recruited(&"owl", "Sage"))
 	check(not s.has_seen_species(&"goose"))
 	check_eq(Binder.completion(s), "2/25")
 	check_eq(Binder.seen_count(s), 2)
+	check_eq(s.found_at.get("owl"), "Mossbank, at the open table")
 
 
 func test_meeting_a_crew_marks_each_individual_seen_once() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.mark_crew_seen(WorldMap.crew_animals(_pond()), "Ridge Road, with the Pond Hecklers")
 	check(s.has_seen(&"goose", "Honk") and s.has_seen(&"goose", "Gertie"))
 	check(s.has_seen(&"squirrel", "Nutmeg"))
@@ -36,7 +49,7 @@ func test_meeting_a_crew_marks_each_individual_seen_once() -> void:
 
 
 func test_recruiting_marks_the_individual_and_species() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	check(s.recruit(Species.individual(&"goose", 1)))
 	check(s.has_recruited(&"goose", "Gertie"))
 	check(s.has_seen(&"goose", "Gertie"), "recruiting one means you've met it")
@@ -47,14 +60,14 @@ func test_recruiting_marks_the_individual_and_species() -> void:
 
 
 func test_beating_a_crew_means_you_met_it() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.win_against("pond_hecklers", 0)
 	check(s.has_seen(&"goose", "Honk"))
 	check(s.has_seen(&"squirrel", "Nutmeg"))
 
 
 func test_binder_slots_species_locked_and_dogs() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.mark_seen(Species.individual(&"squirrel", 0))
 	check_eq(Binder.species_at(1), &"owl")
 	check_eq(Binder.species_at(6), &"possum")
@@ -70,7 +83,7 @@ func test_binder_slots_species_locked_and_dogs() -> void:
 
 
 func test_card_back_lists_individuals_met_and_yours() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.mark_seen(Species.individual(&"owl", 1))
 	var owls := Binder.individuals(s, &"owl")
 	check_eq(owls.size(), 4)
@@ -93,7 +106,7 @@ func test_type_chart_follows_the_cycle() -> void:
 
 
 func test_save_round_trip_keeps_the_binder() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.mark_crew_seen(WorldMap.crew_animals(_pond()), "Ridge Road, with the Pond Hecklers")
 	s.recruit(Species.individual(&"goose", 0))
 	check_eq(SaveFile.write(s, SAVE), OK)
@@ -147,7 +160,7 @@ func test_old_save_without_binder_fields_loads_and_is_backfilled() -> void:
 
 
 func test_bond_grows_for_the_seated_more_for_a_win_and_caps() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.recruit(Species.individual(&"goose", 0))  # benched: the party is full
 	var grew := s.grow_bonds(true)
 	check_eq(grew.size(), 2)
@@ -175,7 +188,7 @@ func test_bond_news_lines() -> void:
 
 
 func test_bond_survives_saving() -> void:
-	var s := GameState.fresh()
+	var s := _crewed()
 	s.grow_bonds(true)
 	var back := GameState.from_dict(JSON.parse_string(JSON.stringify(s.to_dict())))
 	check(is_equal_approx(back.roster[0].bond, 0.6))
