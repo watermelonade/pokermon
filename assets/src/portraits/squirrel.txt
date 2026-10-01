@@ -1,0 +1,36 @@
+# squirrel portrait, 32x32: drafted with simple shapes, then edit freely.
+outline = k
+
+[portrait]
+.......................oooooo...
+....r.................orttoooo..
+....rr................rrtttooo..
+....ro...............oortttoooo.
+....ooo..............ooottttooo.
+....oooo............oooottttoooo
+....ooottttttooooooooooottttoooo
+....oottttttttooooooooootttttooo
+....ottttttttttoooooooootttttroo
+....ottttttttttoooooooootttttroo
+....oottttttttooooooooootttttrro
+....ooottttttoooooooooootttttrro
+...oooookkooooooookkooooottttrro
+...ooookkkkooooookkkkoooottttrrr
+...ooookwkkooooookwkkoooottttrrr
+...ooookkkkooooookkkkoooottttrrr
+...ooookkkkooooookkkkoooottttrrr
+...oooookkcccccccckkooooottttrrr
+....oPPPPcccDDDDcccPPPPotttttrrr
+....PPPPPPccccccccPPPPPPttttrrrr
+....PPPPPPccccccccPPPPPPttttrrrr
+.....PPPPccccDDccccPPPPtttttrrrr
+.......ccccccwwccccccoottttrrrrr
+........cccccwwcccccooottttrrrrr
+..........eeeeweee..oooottrrrrrr
+.......ooeeeeeeeeeeoooooorrrrrr.
+......rrrrewwwwwwerrrrooorrrrrr.
+....oorrrreweeeewerrrrooorrrrr..
+....oorrrrewwwwwwerrrroooorrrr..
+...ooorrrreeeeeeeerrrroooorrr...
+...ooooocceeeeeeeeccooooooor....
+...oooooccccccwcccccooooo.......
