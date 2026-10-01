@@ -31,7 +31,20 @@ static func write(state: GameState, path := DEFAULT_PATH) -> Error:
 
 
 ## The saved state, or null if there's no save or it can't be read.
+##
+## If the save is missing or unreadable but a complete temporary file is
+## there, that's read instead: a write that got as far as the temporary file
+## and no further. On Linux the rename is atomic and this never happens, but
+## where the platform won't rename over a file, write() removes the old save
+## first, and a crash between the two left no save at all, only a complete
+## .part that nothing read (so the title offered only New game). A .part
+## cut short mid-write doesn't parse and is ignored.
 static func read(path := DEFAULT_PATH) -> GameState:
+	var s := _read_one(path)
+	return s if s != null else _read_one(path + ".part")
+
+
+static func _read_one(path: String) -> GameState:
 	if not FileAccess.file_exists(path):
 		return null
 	var json := JSON.new()  # an instance, not JSON.parse_string: that logs an error for a damaged file

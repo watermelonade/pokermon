@@ -151,7 +151,7 @@ func test_damaged_save_data_is_repaired_not_crashed_on() -> void:
 	if not check(s != null, "still loads"):
 		return
 	check_eq(s.roster.size(), 2, "unknown species dropped")
-	check_eq(s.party, [1] as Array[int], "bad and repeated indices dropped")
+	check_eq(s.party, [1, 0] as Array[int], "bad and repeated indices dropped, the empty seat filled")
 	check_eq(s.money, 0)
 	check_eq(s.map_id, WorldMap.START_MAP)
 	check_eq(GameState.from_dict({"hello": 1}), null, "not a save at all")

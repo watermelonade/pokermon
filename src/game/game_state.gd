@@ -164,13 +164,25 @@ static func from_dict(d: Dictionary) -> GameState:
 		if not entry is Dictionary or not Species.CATALOG.has(StringName(entry.get("species", ""))):
 			continue
 		s.roster.append(Animal.make(StringName(entry["species"]), str(entry.get("name", "?")), float(entry.get("bond", 0.3))))
+	if s.roster.size() < PARTY_SIZE:
+		# Lost animals (a species gone from the catalog, a damaged file):
+		# your starting pair come back, so you never sit down short-handed.
+		for a in fresh().roster:
+			if not s.has_animal(a.species, a.name):
+				s.roster.append(a)
 	s.party.clear()
-	for i: Variant in d.get("party", []):
+	var party: Variant = d.get("party", [])
+	for i: Variant in party if party is Array else []:
 		var index := int(i)
 		if index >= 0 and index < s.roster.size() and not s.party.has(index) and s.party.size() < PARTY_SIZE:
 			s.party.append(index)
-	if s.party.is_empty():  # a damaged party: seat the first animals
-		for i in mini(PARTY_SIZE, s.roster.size()):
+	# A damaged party: fill the empty seats with the first animals standing
+	# (the party screen never lets you leave a seat empty, so a load doesn't
+	# either; a one-seat party played the next match two against three).
+	for i in s.roster.size():
+		if s.party.size() >= PARTY_SIZE:
+			break
+		if not s.party.has(i):
 			s.party.append(i)
 	s.money = maxi(0, int(d.get("money", STARTING_MONEY)))
 	for b: Variant in d.get("bracelets", []):
@@ -185,7 +197,9 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.facing = _vec(d.get("facing"), Vector2i.DOWN)
 	s.heal_map = str(d.get("heal_map", WorldMap.HEAL_MAP))
 	s.heal_cell = _vec(d.get("heal_cell"), WorldMap.HEAL_CELL)
-	if not WorldMap.MAPS.has(s.heal_map):
+	if not WorldMap.MAPS.has(s.heal_map) or not WorldMap.get_map(s.heal_map).tile_walkable(s.heal_cell):
+		# A blackout would wake you inside a wall (or off the map, with no
+		# way out): wake at the diner's booth instead.
 		s.heal_map = WorldMap.HEAL_MAP
 		s.heal_cell = WorldMap.HEAL_CELL
 	s.seen_intro = bool(d.get("seen_intro", true))
