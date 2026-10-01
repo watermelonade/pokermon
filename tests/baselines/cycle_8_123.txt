@@ -1,0 +1,6 @@
+Intended cycle (each should be > 50%):
+  Bluffer          beats Rock              38%
+  Rock             beats Maniac            50%
+  Maniac           beats Shark             38%
+  Shark            beats Calling Station   88%
+  Calling Station  beats Bluffer           75%
