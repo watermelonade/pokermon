@@ -59,6 +59,11 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(UiKit.BG)  # around the small interiors
 	_build()
 	_parse_walk(Game.dev("walk"))
+	var start := WorldMap.get_map(state.map_id)
+	if not start.tile_walkable(state.cell) or start.occupied_cells().has(state.cell):
+		# A save from before a map edit can stand you in a wall: go home.
+		state.map_id = WorldMap.START_MAP
+		state.cell = WorldMap.START_CELL
 	_load_map(state.map_id, state.cell, state.facing)
 	await _fade_in()
 	if not state.seen_intro:

@@ -179,9 +179,15 @@ static func from_dict(d: Dictionary) -> GameState:
 		s.beaten[str(c)] = true
 	s.map_id = str(d.get("map", WorldMap.START_MAP))
 	s.cell = _vec(d.get("cell"), WorldMap.START_CELL)
+	if not WorldMap.MAPS.has(s.map_id):  # a map that's been renamed or removed
+		s.map_id = WorldMap.START_MAP
+		s.cell = WorldMap.START_CELL
 	s.facing = _vec(d.get("facing"), Vector2i.DOWN)
 	s.heal_map = str(d.get("heal_map", WorldMap.HEAL_MAP))
 	s.heal_cell = _vec(d.get("heal_cell"), WorldMap.HEAL_CELL)
+	if not WorldMap.MAPS.has(s.heal_map):
+		s.heal_map = WorldMap.HEAL_MAP
+		s.heal_cell = WorldMap.HEAL_CELL
 	s.seen_intro = bool(d.get("seen_intro", true))
 	return s
 

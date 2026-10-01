@@ -155,3 +155,7 @@ func test_damaged_save_data_is_repaired_not_crashed_on() -> void:
 	check_eq(s.money, 0)
 	check_eq(s.map_id, WorldMap.START_MAP)
 	check_eq(GameState.from_dict({"hello": 1}), null, "not a save at all")
+	var moved := GameState.from_dict({"version": 1, "roster": [], "map": "old_town", "cell": [3, 3], "heal_map": "old_inn"})
+	check_eq(moved.map_id, WorldMap.START_MAP, "a map that no longer exists sends you to the start")
+	check_eq(moved.cell, WorldMap.START_CELL)
+	check_eq(moved.heal_map, WorldMap.HEAL_MAP)
