@@ -56,6 +56,13 @@ func dev(flag: String, fallback := "") -> String:
 	return dev_args.get(flag, fallback)
 
 
+## Prints a line in dev runs (any dev flag given), for following a scripted
+## run from the terminal; silent in normal play.
+func dev_log(line: String) -> void:
+	if dev_args:
+		print("[game] ", line)
+
+
 func new_game() -> void:
 	state = GameState.fresh()
 	save()
@@ -79,6 +86,7 @@ func save() -> void:
 	if err != OK:
 		push_warning("save failed: %s" % error_string(err))
 		return
+	dev_log("saved: %s at %s %s, $%d, beaten %s" % [save_path, state.map_id, state.cell, state.money, state.beaten.keys()])
 	saved.emit()
 
 

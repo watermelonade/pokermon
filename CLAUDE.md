@@ -38,7 +38,9 @@ Log: `/tmp/cloud_setup.log`.
 
 - **Can verify:** all rules and AI logic through `tests/`; the table scene
   through screenshots: `xvfb-run godot --path . --rendering-driver opengl3
-  -- --autoplay --screenshot=out.png --shot-after=5` (Xvfb and Mesa are
+  scenes/table.tscn -- --autoplay --screenshot=out.png --shot-after=5`, and
+  the overworld through scripted runs (`--walk=`, `--auto`; flags listed in
+  src/game/game.gd, examples in README.md) (Xvfb and Mesa are
   installed in the sandbox).
 - **Can't verify:** feel and timing, real controllers, the Steam Deck's back
   buttons (Steam Input only passes them through when the controller layout

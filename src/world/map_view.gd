@@ -137,8 +137,17 @@ func _paint(ch: String, cell: Vector2i, at: Vector2) -> void:
 			draw_rect(Rect2(at + Vector2(0, 2), Vector2(t, 12)), WOOD)
 			draw_rect(Rect2(at + Vector2(0, 2), Vector2(t, 3)), WOOD.lightened(0.25))
 		"t":
+			# One table across several tiles: a rim only on its outer edges.
 			draw_rect(Rect2(at, Vector2(t, t)), FELT)
-			draw_rect(Rect2(at + Vector2(0, 14), Vector2(t, 2)), Color("4a3424"))
+			var rim := Color("4a3424")
+			if map.char_at(cell + Vector2i.DOWN) != "t":
+				draw_rect(Rect2(at + Vector2(0, 13), Vector2(t, 3)), rim)
+			if map.char_at(cell + Vector2i.UP) != "t":
+				draw_rect(Rect2(at, Vector2(t, 2)), rim)
+			if map.char_at(cell + Vector2i.LEFT) != "t":
+				draw_rect(Rect2(at, Vector2(2, t)), rim)
+			if map.char_at(cell + Vector2i.RIGHT) != "t":
+				draw_rect(Rect2(at + Vector2(14, 0), Vector2(2, t)), rim)
 		"b":
 			draw_rect(Rect2(at, Vector2(t, t)), FLOOR)
 			draw_rect(Rect2(at + Vector2(1, 1), Vector2(14, 15)), Color("3b5f80"))

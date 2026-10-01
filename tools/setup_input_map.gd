@@ -12,7 +12,8 @@ extends SceneTree
 ## Walking uses its own move_ actions (arrows, WASD, D-pad, left stick)
 ## rather than Godot's ui_ ones, so menus and the table's buttons keep their
 ## defaults. `menu` (Start, Tab, Esc) opens the party screen. Confirm and
-## back are Godot's ui_accept (A, Enter, Space) and ui_cancel (B, Esc).
+## back are Godot's ui_accept (A, Enter, Space) and ui_cancel (B, Esc),
+## overridden here to add the controller buttons.
 ##
 ## Entries: an int is a key (physical keycode) if >= KEY_SPACE, else a
 ## joypad button; [axis, direction] is a stick direction.
@@ -29,6 +30,11 @@ const ACTIONS := {
 	"move_left": [KEY_LEFT, KEY_A, JOY_BUTTON_DPAD_LEFT, [JOY_AXIS_LEFT_X, -1.0]],
 	"move_right": [KEY_RIGHT, KEY_D, JOY_BUTTON_DPAD_RIGHT, [JOY_AXIS_LEFT_X, 1.0]],
 	"menu": [KEY_TAB, KEY_ESCAPE, JOY_BUTTON_START],
+	# Godot's defaults for these have no controller buttons at all (checked
+	# in 4.7.2: ui_accept is Enter, Kp Enter, Space), so A and B are added.
+	# The table's buttons and "Press A" rely on ui_accept too.
+	"ui_accept": [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE, JOY_BUTTON_A],
+	"ui_cancel": [KEY_ESCAPE, JOY_BUTTON_B],
 }
 const DEADZONE := {"move_up": 0.5, "move_down": 0.5, "move_left": 0.5, "move_right": 0.5}
 

@@ -55,6 +55,7 @@ func _ready() -> void:
 			Game.new_game()
 	Game.apply_dev_state()
 	state = Game.state
+	RenderingServer.set_default_clear_color(UiKit.BG)  # around the small interiors
 	_build()
 	_parse_walk(Game.dev("walk"))
 	_load_map(state.map_id, state.cell, state.facing)
@@ -63,6 +64,8 @@ func _ready() -> void:
 		state.seen_intro = true
 		await _intro()
 		Game.save()
+		_area = ""
+		_show_area()  # the banner timed out behind the intro
 	mode = Mode.WALK
 	match Game.dev("show"):
 		"party":
@@ -376,6 +379,7 @@ func _open_party() -> void:
 
 func _encounter(crew: Dictionary, spotted: bool) -> void:
 	mode = Mode.BUSY
+	Game.dev_log("encounter: %s (%s)" % [crew["id"], "spotted you" if spotted else "you talked"])
 	var members: Array = crew_nodes[crew["id"]]
 	var leader: Critter = members[0]
 	if spotted:
@@ -392,8 +396,12 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 				if members[i]:
 					members[i].step_to(trail[i - 1])
 			await leader.step_to(cell)
-	var toward := player.cell - leader.cell
-	toward = Vector2i(signi(toward.x), signi(toward.y))
+	# Face each other along the longer axis (talking to a shoulder member
+	# leaves the leader off to one side).
+	var gap := player.cell - leader.cell
+	var toward := Vector2i(signi(gap.x), 0) if absi(gap.x) > absi(gap.y) else Vector2i(0, signi(gap.y))
+	if toward == Vector2i.ZERO:
+		toward = leader.facing
 	leader.face(toward)
 	player.face(-toward)
 	state.facing = player.facing
@@ -426,6 +434,7 @@ func _play_match(crew: Dictionary) -> void:
 		fade.color.a = 0.0
 		won = await _table_done
 		mode = Mode.BUSY
+	Game.dev_log("match against %s: %s" % [crew["id"], "won" if won else "lost"])
 	if won:
 		await _after_win(crew)
 	else:
