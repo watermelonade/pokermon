@@ -5,8 +5,17 @@ extends RefCounted
 ## out when every one of its seats is busted; if a hand limit is set and
 ## reached first, the team holding more chips wins.
 ##
-## Seats alternate teams (0, 1, 0, 1, ...) by default, as at the 3v3 table.
-## Boss tables seat crews unevenly; pass `teams` to set them explicitly.
+## Seats alternate teams (0, 1, 0, 1, ...) at the 3v3 table, but any seating
+## and any crew sizes work: `add_player` takes each seat's team and chips, in
+## seat order. Boss tables (BossTable) seat a bigger crew around you, with a
+## big-stack leader and short-stacked goons.
+##
+## The leader rule: a crew in `leaders` that loses its leader to a bust
+## goes `leaderless` (from the next hand on): its bots stop signalling and
+## play scared (PokerBot.lose_leader: tighter, fewer bluffs, fewer loose
+## calls). Losing it to the floor (thrown out) ends the match instead, as
+## below. Only boss crews have a leader in the game; with no `leaders` set
+## nothing here changes, so the 3v3 type chart is untouched.
 ##
 ## Heat: set `heat.dealer` to someone watching (Dealer.preset) and signals
 ## start to cost. This class applies what Heat decides: fines become dead
@@ -21,6 +30,9 @@ extends RefCounted
 ## it, and while off it changes nothing. The table turns it on for matches
 ## you play in; `tools/simulate.gd --interception` measures it.
 
+## A crew's leader busted (see leaderless): its goons are on their own.
+signal leader_lost(team: int)
+
 const BLIND_LEVELS := [
 	[5, 10], [10, 20], [15, 30], [25, 50], [50, 100], [75, 150],
 	[100, 200], [150, 300], [250, 500], [500, 1000],
@@ -32,7 +44,8 @@ var talk := TableTalk.new()
 var reads := TableReads.new()
 var heat := Heat.new()
 var interception := Interception.new()  ## off until enabled: see Interception
-var leaders := {}  ## team -> seat; catching a leader ends the match
+var leaders := {}  ## team -> seat; catching a leader ends the match, busting it leaves the crew leaderless
+var leaderless := {}  ## team -> hand number its leader busted on; its bots have lost their nerve
 var removed_chips := 0  ## chips that left the game with ejected seats
 var hands_per_level := 8
 var max_hands := 0  ## 0 = play until one crew is out
@@ -48,7 +61,9 @@ func _init(seed_value := 0) -> void:
 	reads.watch(table)
 	heat.watch(table, talk)
 	interception.watch(table, talk)
-	table.hand_finished.connect(func(_result: Dictionary) -> void: _apply_ejections())
+	table.hand_finished.connect(func(_result: Dictionary) -> void:
+		_apply_ejections()
+		_check_leaders())
 
 
 func add_player(player_name: String, team: int, chips: int, bot: PokerBot) -> void:
@@ -77,6 +92,21 @@ func _apply_ejections() -> void:
 	for seat in heat.pending_ejections:
 		removed_chips += table.eject(seat)
 	heat.pending_ejections.clear()
+
+
+## A crew whose leader just busted loses its nerve: every bot on it is
+## told (PokerBot.lose_leader), once. A leader thrown out isn't "busted"
+## here: that ends the match (caught_team).
+func _check_leaders() -> void:
+	for team: int in leaders:
+		var s := table.seats[leaders[team]]
+		if leaderless.has(team) or s.ejected or s.stack > 0:
+			continue
+		leaderless[team] = table.hand_number
+		for i in table.seats.size():
+			if table.seats[i].team == team and bots[i] != null:
+				bots[i].lose_leader()
+		leader_lost.emit(team)
 
 
 ## The team whose leader has been thrown out, or -1.

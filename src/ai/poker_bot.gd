@@ -23,6 +23,11 @@ extends RefCounted
 ## code runs, so decisions and random draws are exactly as before (the
 ## type chart depends on it; tests/test_interception.gd holds a golden log).
 ##
+## Leaderless (boss crews, TeamMatch.leaderless): once its crew's leader
+## busts, a goon stops signalling (nobody's calling the plays) and plays
+## scared: tighter, half the bluffs, half the loose calls (lose_leader). It
+## swaps in a copy of its style, so nothing changes for anyone else.
+##
 ## The goal is readable, beatable characters, not strong poker; each style
 ## is an exaggeration so players can learn to spot it.
 
@@ -32,6 +37,7 @@ var table_reads: TableReads  ## set by TeamMatch; null = no history to read
 var heat: Heat  ## set by TeamMatch; null = nobody watching
 var interception: Interception  ## set by TeamMatch; read only while enabled
 var equity_iterations := 120
+var leaderless := false  ## its crew's leader is out: see lose_leader()
 var rng := RandomNumberGenerator.new()
 var _signalled_street := -1
 var _bluffing_hand := -1  ## hand number of this bot's latest bluff
@@ -45,6 +51,24 @@ func _init(play_style: PlayStyle, seed_value := 0) -> void:
 		# consecutively gave 48% to 78% for the same matchup depending on the
 		# base seed, far beyond sampling noise.
 		rng.seed = hash(seed_value)
+
+
+## How a goon plays once its boss is out (see the top): its equity bar for
+## playing a hand goes up by this factor, its bluffs and loose calls down.
+const LEADERLESS_TIGHTNESS := 1.25
+const LEADERLESS_BLUFFS := 0.5
+const LEADERLESS_STICKINESS := 0.5
+
+
+## Its crew's leader just busted: no more signals, and it plays scared.
+func lose_leader() -> void:
+	if leaderless:
+		return
+	leaderless = true
+	style = style.duplicate()
+	style.tightness *= LEADERLESS_TIGHTNESS
+	style.bluff_rate *= LEADERLESS_BLUFFS
+	style.stickiness *= LEADERLESS_STICKINESS
 
 
 ## Chooses an action for seat `me`, who must be the seat to act.
@@ -189,7 +213,7 @@ func _gist(meanings: Array) -> int:
 
 
 func _maybe_signal(table: HoldemTable, me: int, talk: TableTalk, value: bool, strength: float, teammates: Array[int]) -> void:
-	if teammates.is_empty() or _signalled_street == table.street + table.hand_number * 10:
+	if leaderless or teammates.is_empty() or _signalled_street == table.street + table.hand_number * 10:
 		return
 	if rng.randf() >= style.chattiness:
 		return
