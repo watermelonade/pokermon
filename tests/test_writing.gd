@@ -1,0 +1,107 @@
+extends TestCase
+## Every line the demo says must fit the overworld's text box: at most two
+## wrapped lines (Game Boy style, read at a glance; the box has room for a
+## third under a speaker's name, kept as slack), measured with the font and
+## size DialogBox draws with at the 640x400 base resolution. With today's
+## font every line fits on one row (about 110 characters do), so the real
+## limit is the character cap on the data lines: 84, one row of the table's
+## pixel font (Departure Mono, 11px), so the text still fits if the box moves
+## to it. And no speech runs longer than four boxes. docs/WRITING.md has the
+## rules; the format strings in overworld.gd are measured with worst-case
+## names filled in instead of capped.
+
+const BASE_WIDTH := 640.0
+const MAX_WRAPPED := 2
+const MAX_CHARS := 84
+const MAX_BOXES := 4
+## Worst cases for the overworld's format strings: the longest crew title
+## (and two names joined, for the intro) and a big sum of money.
+const LONG_NAME := "Bramble the Owl and Chitter the Squirrel"
+const BIG_NUMBER := "99999"
+
+
+## The width DialogBox wraps its text to (see DialogBox._draw).
+func _box_width() -> float:
+	return (BASE_WIDTH - 16.0) - 30.0
+
+
+## Lines `text` wraps to in the box: greedy word wrap, as the box does.
+func _wrapped_lines(text: String) -> int:
+	var width := _box_width()
+	var lines := 1
+	var current := ""
+	for word in text.split(" "):
+		var attempt := word if current == "" else current + " " + word
+		if UiKit.text_width(attempt, 10) <= width or current == "":
+			current = attempt
+		else:
+			lines += 1
+			current = word
+	return lines
+
+
+func _check_line(text: String, where: String, cap_chars := true) -> void:
+	check(text.strip_edges() != "", "%s: empty line" % where)
+	if cap_chars:
+		check(text.length() <= MAX_CHARS, "%s: %d characters (max %d): %s" % [where, text.length(), MAX_CHARS, text])
+	var n := _wrapped_lines(text)
+	check(n <= MAX_WRAPPED, "%s: wraps to %d lines (max %d): %s" % [where, n, MAX_WRAPPED, text])
+
+
+func _check_speech(lines: Array, where: String) -> void:
+	check(lines.size() <= MAX_BOXES, "%s: %d boxes (max %d)" % [where, lines.size(), MAX_BOXES])
+	for i in lines.size():
+		_check_line(str(lines[i]), "%s[%d]" % [where, i])
+
+
+func test_the_measure_wraps() -> void:
+	check_eq(_wrapped_lines("Honk."), 1)
+	var long := "HONK ".repeat(60).strip_edges()
+	check(_wrapped_lines(long) >= 3, "a 300-character line wraps (measured %d lines)" % _wrapped_lines(long))
+
+
+func test_map_lines_fit_the_text_box() -> void:
+	for map_id: String in WorldMap.ids():
+		var m := WorldMap.get_map(map_id)
+		for s: Dictionary in m.signs:
+			_check_line(s["text"], "%s sign %s" % [map_id, s["cell"]])
+		for n: Dictionary in m.npcs:
+			_check_speech(n["lines"], "%s %s" % [map_id, n["id"]])
+		for c: Dictionary in m.crews:
+			_check_speech(c["before"], "%s before" % c["id"])
+			_check_line(c["after"], "%s after" % c["id"])
+
+
+func test_every_animal_has_a_bio_and_a_recruit_line() -> void:
+	for id: StringName in Species.ids():
+		for animal_name: String in Species.get_info(id)["individuals"]:
+			var bio := Bios.bio(id, animal_name)
+			var line := Bios.recruit_line(id, animal_name)
+			check(bio != "", "%s %s has a bio" % [id, animal_name])
+			check(line != "", "%s %s has a recruit line" % [id, animal_name])
+			_check_line(bio, "%s bio" % animal_name)
+			_check_line(line, "%s recruit" % animal_name)
+		check_eq(Bios.BIOS.get(id, {}).size(), 4, "%s: no bios for animals that don't exist" % id)
+	check_eq(Bios.bio(&"dog", "Rex"), "", "unknown animals have no bio (dogs come later)")
+
+
+## The overworld's own lines (the intro, blackout, recruiting, the diner)
+## are string literals in src/world/overworld.gd, some with %s and %d: read
+## the source and check each with worst-case names and sums filled in.
+func test_overworld_lines_fit_the_text_box() -> void:
+	var source := FileAccess.get_file_as_string("res://src/world/overworld.gd")
+	check(source != "", "read overworld.gd")
+	var literal := RegEx.create_from_string("\"((?:[^\"\\\\]|\\\\.)*)\"")
+	var checked := 0
+	for raw in source.split("\n"):
+		var line := raw.strip_edges()
+		if line.begins_with("#") or "dev_log" in line or "res://" in line:
+			continue
+		for m in literal.search_all(line):
+			var text := m.get_string(1).replace("\\\"", "\"")
+			if text.length() < 30 or not " " in text:
+				continue
+			text = text.replace("%s", LONG_NAME).replace("%d", BIG_NUMBER)
+			_check_line(text, "overworld.gd", false)
+			checked += 1
+	check(checked >= 10, "found the overworld's lines (%d)" % checked)
