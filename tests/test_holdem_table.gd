@@ -195,27 +195,14 @@ func test_a_seat_all_in_from_its_fine_can_win_only_the_dead_money() -> void:
 	check_eq([t.seats[0].stack, t.seats[1].stack, t.seats[2].stack], [10, 1010, 990])
 
 
-func test_folding_to_a_short_all_in_big_blind_gets_the_excess_back() -> void:
-	# Heads-up, the big blind has only 3 chips. The small blind (5 in) folds:
-	# the big blind can win only 3 from it, so 2 come back. It used to lose
-	# all 5.
-	var t := _table([1000, 3])
-	t.start_hand()
-	check(t.seats[1].all_in, "big blind all-in for 3")
-	t.act(A.FOLD)
-	check(t.hand_over, "hand over")
-	check_eq([t.seats[0].stack, t.seats[1].stack], [997, 6])
-	check_eq(t.last_result["returned"], {0: 2}, "the uncalled 2 go back")
-
-
 func test_an_uncalled_all_in_comes_back_before_the_pots() -> void:
-	var t := _table([100, 300, 1000])
+	var t := _table([1000, 300, 100])
 	t.start_hand()
-	t.act(A.RAISE, 100)  # seat 0 all-in
-	t.act(A.RAISE, 300)  # seat 1 all-in
-	t.act(A.RAISE, 1000)  # seat 2 all-in: 700 of it nobody can call
+	t.act(A.RAISE, 1000)  # seat 0 all-in: 700 of it nobody can call
+	t.act(A.CALL)  # seat 1 all-in for 300
+	t.act(A.CALL)  # seat 2 all-in for 100
 	check(t.hand_over, "board runs out")
-	check_eq(t.last_result["returned"], {2: 700})
+	check_eq(t.last_result["returned"], {0: 700})
 	var pots: Array = t.last_result["pots"]
 	check_eq(pots.map(func(p: Dictionary) -> int: return p["amount"]), [300, 400], "no pot of seat 2's own chips")
 	check_eq(t.total_chips(), 1400, "no chips made or lost")
@@ -262,8 +249,7 @@ func test_going_heads_up_nobody_posts_the_big_blind_twice() -> void:
 	t.start_hand(Card.parse_many("Kh As 7c Kd Ad 2d 3s 8h 9c Jd 4s"))
 	check_eq([t.button, t.small_blind_seat, t.big_blind_seat], [0, 1, 2])
 	t.act(A.CALL)  # seat 0 all-in for 10
-	t.act(A.FOLD)  # seat 1
-	t.act(A.CHECK)  # seat 2
+	t.act(A.FOLD)  # seat 1; seat 2 has nothing left to decide
 	check(t.hand_over, "board runs out")
 	check_eq(t.seats[0].stack, 0, "seat 0 busted")
 	t.start_hand()
@@ -285,3 +271,44 @@ func test_the_big_blind_never_skips_a_seat_when_the_small_blind_busts() -> void:
 	check_eq(t.seats[1].stack, 0, "seat 1 busted")
 	t.start_hand()
 	check_eq([t.button, t.small_blind_seat, t.big_blind_seat], [0, 2, 3])
+
+
+func test_no_decision_left_when_everyone_else_is_all_in_for_less() -> void:
+	# Heads-up, the big blind has 3 chips. The small blind already has 5 in:
+	# there's nothing to call and nobody to raise, so the board just runs
+	# out. It used to be asked to call 5 more or fold, and folding lost all 5
+	# of its chips though the big blind could only ever win 3 of them.
+	var t := _table([1000, 3])
+	t.start_hand(Card.parse_many("As Kh Ad Kd 2c 7h 9c Jh 3d"))
+	check(t.hand_over, "no one is asked to act")
+	check_eq(t.board.size(), 5)
+	check_eq(t.last_result["returned"], {0: 2}, "the small blind's extra 2 come back")
+	check_eq([t.seats[0].stack, t.seats[1].stack], [997, 6], "aces win the 3 they could")
+
+
+func test_the_big_blind_gets_no_option_against_smaller_all_ins() -> void:
+	# The button shoves 8 (short of the big blind), the small blind folds:
+	# the big blind's 10 already covers it, so the hand runs out.
+	var t := _table([8, 1000, 1000])
+	t.start_hand()
+	t.act(A.RAISE, 8)  # all-in, a call for less
+	t.act(A.FOLD)
+	check(t.hand_over, "big blind isn't asked to raise into nobody")
+	check_eq(t.last_result["returned"], {2: 2})
+
+
+func test_cannot_raise_when_everyone_else_is_all_in() -> void:
+	var t := _table([1000, 1000, 50])
+	t.start_hand()
+	t.act(A.CALL)  # seat 0
+	t.act(A.FOLD)  # seat 1
+	t.act(A.RAISE, 50)  # seat 2, big blind, all-in
+	check_eq(t.to_act, 0, "seat 0 must still call or fold")
+	check(not t.legal()["can_raise"], "but can't raise: nobody could call it")
+	var taken := []
+	t.action_taken.connect(func(seat: int, action: int, _amount: int) -> void: taken.append([seat, action]))
+	t.act(A.RAISE, 1000)  # made a call
+	check_eq(taken, [[0, A.CALL]], "the raise became a call")
+	check(t.hand_over, "board runs out")
+	check_eq(t.last_result["returned"], {}, "nothing uncalled")
+	check_eq(t.last_result["pots"][0]["amount"], 105)

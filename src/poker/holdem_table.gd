@@ -194,11 +194,13 @@ func legal() -> Dictionary:
 	var to_call := mini(current_bet - s.street_bet, s.stack)
 	var max_to := s.street_bet + s.stack
 	var min_to := mini(current_bet + min_raise, max_to)
+	# No raising when everyone else is all-in: nobody could call it.
+	var others_can_act := seats.any(func(o: Seat) -> bool: return o != s and o.can_act())
 	return {
 		"seat": to_act,
 		"to_call": to_call,
 		"can_check": to_call == 0,
-		"can_raise": max_to > current_bet,
+		"can_raise": max_to > current_bet and others_can_act,
 		"min_raise_to": min_to,
 		"max_raise_to": max_to,
 	}
@@ -280,9 +282,25 @@ func _advance() -> void:
 		# Everyone (or all but one) is all-in: run the board out.
 
 
+## Every seat that can act has acted and matched the bet; or only one seat
+## can act and it has already put in as much as anyone left this street,
+## so there's nobody to bet against. (That seat used to be asked anyway: a
+## big blind facing nothing but all-ins for less got to "raise" into
+## nobody, and a small blind with more in than an all-in big blind had to
+## call or fold chips nobody could win.)
 func _round_complete() -> bool:
+	var actors: Array[Seat] = []
+	var owing := false
 	for s in seats:
-		if s.can_act() and (not s.acted or s.street_bet < current_bet):
+		if s.can_act():
+			actors.append(s)
+			owing = owing or not s.acted or s.street_bet < current_bet
+	if not owing:
+		return true
+	if actors.size() != 1:
+		return false
+	for s in seats:
+		if s != actors[0] and s.live() and s.street_bet > actors[0].street_bet:
 			return false
 	return true
 
