@@ -13,7 +13,17 @@ implementing.
 - **Combat:** your crew of 3 against theirs at a 6-seat table, seats
   alternating. You play only your own seat and can't see teammates' cards.
   A crew is out when all its seats are busted. Bosses bring bigger crews
-  (3v4, 3v5); later regions require a crew of 4.
+  (3v4, 3v5, up to 3v6 at a 9-seat table); later regions require a crew
+  of 4.
+- **Boss tables** (src/match/boss_table.gd): the boss crew brings the same
+  total chips as yours over more seats (the leader two shares, each goon
+  one), rigs the seat draw so its members sit either side of you, and has
+  a leader: bust it and the goons stop signalling and play scared; get it
+  thrown out and you win. **Demo departure:** the design doc has the first
+  town's tournament as a 3v3 freezeout; the demo makes the Mossbank Open's
+  final a 3v4 boss table (the Regulars) so a boss table can be played. To
+  revert, drop the fourth member and `"boss"` from the hall's crew in
+  src/world/world_map.gd.
 - **Team play:** soft play (no fighting teammates for chips), whipsaws,
   chip dumps, and secret signals on the Steam Deck's back buttons. Bond
   decides how reliably teammates read signals.

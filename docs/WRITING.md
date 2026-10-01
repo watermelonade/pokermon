@@ -53,7 +53,7 @@ crows on a fence". Each has a personality and a running joke:
 | The Alley Cats | Duchess (cat, boss), Whiskers (cat), Rascal (raccoon) | Bored, superior, "weren't even trying" | Rascal always has a plan; nobody listens. You're standing in their sunbeam |
 | The Nut Club | Acorn, Hazel, Chitter (squirrels) | Jittery, officious, a toll booth with no booth | "Rule one: we call. Rule two: we always call." Stunned that it doesn't work |
 | The Night Shift | Marlo (possum, boss), Hoot (owl), Smudge (raccoon) | Nocturnal, hushed, invisible to most people | They play at night; it is not night. Marlo dies (dramatically) when he loses |
-| The Mossbank Regulars | Graves (possum, captain), Tom (cat), Bramble (owl) | The hall's boss crew: same table, same seats, every Thursday since 1971 | Their signals are older than you. Graves keels over, then is fine |
+| The Mossbank Regulars | Graves (possum, captain), Tom (cat), Bramble (owl), Dusty (possum, the fourth chair) | The hall's boss crew: same table, same seats, every Thursday since 1971. Four of them, and they sit either side of you | Their signals are older than you. Graves keels over, then is fine |
 
 **Townsfolk**
 
