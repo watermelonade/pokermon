@@ -42,6 +42,9 @@ const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank
 	"sootbridge": "Sootbridge", "washhouse": "Sootbridge Washhouse", "mill_road": "The Mill Road"}
 const PLAYER_SPRITE := "dog"  ## you are the dog (assets/sprites/dog.png)
 const OWNER_SPRITE := "npc"  ## his last walk home, in the intro
+## Where his cards land round the manhole as he falls (pixels from it).
+const SCATTER: Array[Vector2] = [Vector2(-22, -14), Vector2(14, -20), Vector2(-9, 13),
+	Vector2(23, 6), Vector2(-27, 4), Vector2(5, -27)]
 
 const ROAD_GAME_HANDS := 20
 var _settled := {}  ## the last match's outcome, applied once (see _settle)
@@ -555,16 +558,26 @@ func _rest_at_diner() -> void:
 ## layer only, so the dialog box stays readable.
 func _intro() -> void:
 	fade.color.a = 1.0
+	# Its first and last words are over black: the dialog box goes above the
+	# fade for the intro (it sits under it otherwise), and back after.
+	var ui := fade.get_parent()
+	ui.move_child(dialog, -1)
 	await dialog.say([
 		"Sootbridge, late. Coal smoke, rain on the cobbles. And him, coming home.",
 		"He lost at the Lamp again tonight. He always loses. Then it's your fault.",
 	])
 	if map.id != WorldMap.START_MAP:  # a dev run starting elsewhere (--at): the words alone
+		ui.move_child(fade, -1)
 		await _fade_in()
 		return
 	var night := CanvasModulate.new()
 	night.color = Color(0.32, 0.36, 0.62)
 	add_child(night)
+	# Nobody's out, and the Aces haven't turned up yet: the town as it is at
+	# night, back to itself in the morning.
+	ground.visible = false
+	for n in npc_nodes:
+		n.visible = false
 	var owner := Critter.make(OWNER_SPRITE, Vector2i(4, 6), Vector2i.RIGHT)
 	actors.add_child(owner)
 	player.place(Vector2i(2, 6), Vector2i.RIGHT)
@@ -584,10 +597,10 @@ func _intro() -> void:
 	var cards: Array[Node2D] = []
 	for k in 6:
 		var c := _card_on_ground(owner.cell)
-		ground.add_child(c)
+		actors.add_child(c)
 		cards.append(c)
 		var fly := create_tween()
-		fly.tween_property(c, "position", c.position + Vector2(-26 + k * 10, -10 - (k % 3) * 8), 0.35)
+		fly.tween_property(c, "position", c.position + SCATTER[k], 0.35)
 	var fall := create_tween()
 	fall.tween_property(owner, "position", owner.position + Vector2(0, 8), 0.3)
 	fall.parallel().tween_property(owner, "modulate:a", 0.0, 0.3)
@@ -603,6 +616,9 @@ func _intro() -> void:
 	for c in cards:
 		c.queue_free()
 	night.queue_free()
+	ground.visible = true
+	for n in npc_nodes:
+		n.visible = true
 	player.place(state.cell, Vector2i.DOWN)
 	state.facing = Vector2i.DOWN
 	_update_camera()
@@ -616,6 +632,7 @@ func _intro() -> void:
 		"His deck and his wallet. Yours now. You won't leave without those Aces.",
 		"Walk: arrows, WASD, D-pad or stick. Talk: A, Enter or Space. Menu: Start or Tab.",
 	])
+	ui.move_child(fade, -1)
 
 
 ## Where he falls: the open manhole on this map (the tile next to the start).
