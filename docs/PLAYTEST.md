@@ -9,7 +9,7 @@ recruit, blackout, save, quit, continue) before a person does.
 
 ```
 tools/playtest.sh runs 200 1        # 200 runs, seeds 1-200, matches skipped (~25 s each)
-tools/playtest.sh real 12 1001      # 12 runs with real matches (minutes each)
+tools/playtest.sh real 12 1001      # 12 runs with real matches (20-40 minutes each)
 tools/playtest.sh kill 150 1        # kill -9 mid-play and mid-save, then Continue, 150 times
 tools/playtest.sh damaged           # one run per kind of damaged save (list below)
 tools/playtest.sh summary           # failures with seeds and replay commands, and stats
@@ -65,7 +65,8 @@ hooks.
   handler; lose focus at random moments (which saves).
 
 Headless with `--fixed-fps 60`, every frame is exactly 1/60 s of game time
-however fast it runs, so the overworld runs at 20-25x real speed (a run of 20 game minutes takes
+however fast it runs, so the overworld runs at 20-25x real speed (a run of
+20 game minutes takes
 about a minute) and a
 run with skipped matches replays exactly from its seed (checked: same seed,
 same frames, same final save). Real matches don't replay exactly: the table
@@ -123,6 +124,34 @@ heal_wall heal_oob heal_map_unknown beaten_unknown beaten_regulars_no_bracelet
 bracelet_only facing_zero facing_weird bond_weird unbeaten_member_in_roster
 seen_intro_false part_only part_newer_main_truncated`.
 
+## Runs so far (2026-10-01, on the fixes below)
+
+- **200 runs with skipped matches** (seeds 1-200, `--pt-after=120`): 37 min
+  at 2 processes, 22 s a run on average. 197 passed; the 3 failures were
+  the driver's own (fixed, and those seeds pass now). The demo was
+  completed in 198 of 200 runs (median 117 game seconds to the bracelet,
+  longest 430). In all: 533,121 steps, 2,020 encounters (981 won, 611 lost,
+  the rest cut short by a quit), 448 recruits, 6,683 talks, 6,323 doors,
+  1,485 start menus, 2,271 quit-and-continues, 1,675 window closes, 13,831
+  focus-loss saves and 31,213 saves read back.
+- **12 runs with real matches** (seeds 1001-1012, chips 200, a quarter of
+  the matches played by random presses, the rest by a bot in your seat):
+  all passed and all completed the demo, in 19-42 minutes each (6 hours of
+  wall clock in all). 143 real matches: median 149 s, longest 382 s (the
+  Open). These runs also took the title's New game detour 143 times, which
+  is what found the Start over? bug below.
+- **Kill torture**: 300 kills at random moments (0.3-6.3 s into a run, a
+  third of them while saving 100 or 2,000 extra times a frame), each
+  followed by a run that loads what was left. 17 kills landed mid-save
+  (a `.part` left behind, from 0 bytes to complete); the save always
+  loaded, passed the state checks, and never lost a beaten crew or a
+  recruit an earlier save had. On Linux the rename is atomic and this is
+  what it promises; the `.part` fallback (below) covers platforms where it
+  isn't.
+- **Damaged saves**: every kind, twice (before and after the fixes): all
+  load without a script error and play on, except a roster holding an
+  unbeaten crew's leader (reported below).
+
 ## What it found
 
 Fixed (each with a test in `tests/test_save_safety.gd` where it's logic):
@@ -163,8 +192,10 @@ Reported, not fixed (in code other work owns this round):
   the crew is saved beaten, and the offer only comes after the dialog.
 - **A crew whose leader is in your roster crashes the encounter**
   (`_encounter`: the leader node is null), then softlocks. Only through a
-  damaged save or the `--recruit` dev flag (`--recruit=cat:0` and walk into
-  the Alley Cats), since every individual is in one crew only.
+  damaged save or the `--recruit` dev flag, since every individual is in
+  one crew only. Repro: `godot --headless --path . -- --save-slot=dev --new
+  --skip-intro --recruit=cat:0 --at=town,50,9 --walk=U2 --auto
+  --match-result=win` (overworld.gd `_encounter`, `leader.alert` on null).
 - After the bracelet is repaired on load (5 above), the demo-complete
   screen was never shown for that run.
 
@@ -182,7 +213,7 @@ The table measures every beat (deals, flips, chip slides, bot thinking, the
 2.6 s pause between hands) on `_now()`, which is the wall clock
 (`Time.get_ticks_msec()`). Engine.time_scale and `--fixed-fps` don't touch
 it, so a real road match takes minutes even in a headless run that does
-everything else at 40x. The hook:
+everything else at 20x or more. The hook:
 
 1. `var _clock := 0.0`, set to `Time.get_ticks_msec() / 1000.0` in `_ready()`;
    `_now()` returns `_clock`; the first line of `_process(delta)` is
