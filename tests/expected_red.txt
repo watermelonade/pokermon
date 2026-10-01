@@ -11,4 +11,3 @@
 # G: the game, scene tests (tests/scene/test_opening.gd, test_open_table.gd)
 
 # J: the journey (tests/scene/test_journey.gd)
-test_J_LOOP_title_to_a_crew_in_mossbank_and_back
