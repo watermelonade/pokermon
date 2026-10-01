@@ -156,3 +156,159 @@ func test_random_play_never_makes_or_loses_chips() -> void:
 				if not check(s.stack >= 0, "negative stack"):
 					return
 	check_eq(hands, 600)
+
+
+func test_a_fine_stays_in_the_pot_when_the_fined_seat_loses() -> void:
+	# Heads-up: seat 0 (button, small blind) is fined 10 dead and loses a
+	# checked-down hand to seat 1's aces. The fine used to count as a bet, so
+	# seat 0's 10 extra came back to it as a side pot only it could win.
+	var t := _table([1000, 1000])
+	t.queue_dead_money(0, 10)
+	# Deal order: seat 1, seat 0, seat 1, seat 0, then the board.
+	t.start_hand(Card.parse_many("As 2c Ad 7d Kh Qh 9s 3c 4d"))
+	check_eq(t.pot(), 25, "blinds and the fine")
+	t.act(A.CALL)
+	t.act(A.CHECK)
+	while not t.hand_over:
+		t.act(A.CHECK)
+	check_eq([t.seats[0].stack, t.seats[1].stack], [980, 1020], "the fine is lost with the hand")
+	check_eq(t.last_result["pots"].size(), 1, "dead money makes no side pot")
+
+
+func test_a_seat_all_in_from_its_fine_can_win_only_the_dead_money() -> void:
+	# Seat 0 (button) has 10 chips and is fined 10: all-in for nothing but
+	# dead money. It holds aces and wins the main pot: the dead 10, not 10
+	# from each player as if the fine were a bet.
+	var t := _table([10, 1000, 1000])
+	t.queue_dead_money(0, 10)
+	# Deal order: seat 1, seat 2, seat 0, twice, then the board.
+	t.start_hand(Card.parse_many("Kh 7c As Kd 2d Ad 3s 8h 9c Jd 4s"))
+	check(t.seats[0].all_in, "the fine puts seat 0 all-in")
+	t.act(A.CALL)  # small blind completes
+	t.act(A.CHECK)  # big blind
+	while not t.hand_over:
+		t.act(A.CHECK)
+	var pots: Array = t.last_result["pots"]
+	check_eq(pots.size(), 2, "the dead money, then the blinds")
+	check_eq([pots[0]["amount"], pots[0]["winners"]], [10, [0]], "seat 0 wins only the dead money")
+	check_eq([pots[1]["amount"], pots[1]["winners"]], [20, [1]], "kings win the rest")
+	check_eq([t.seats[0].stack, t.seats[1].stack, t.seats[2].stack], [10, 1010, 990])
+
+
+func test_an_uncalled_all_in_comes_back_before_the_pots() -> void:
+	var t := _table([1000, 300, 100])
+	t.start_hand()
+	t.act(A.RAISE, 1000)  # seat 0 all-in: 700 of it nobody can call
+	t.act(A.CALL)  # seat 1 all-in for 300
+	t.act(A.CALL)  # seat 2 all-in for 100
+	check(t.hand_over, "board runs out")
+	check_eq(t.last_result["returned"], {0: 700})
+	var pots: Array = t.last_result["pots"]
+	check_eq(pots.map(func(p: Dictionary) -> int: return p["amount"]), [300, 400], "no pot of seat 2's own chips")
+	check_eq(t.total_chips(), 1400, "no chips made or lost")
+
+
+func test_an_unknown_action_folds_instead_of_passing() -> void:
+	# An action id that isn't an Action used to mark the seat as having acted
+	# without paying: it passed while facing a bet.
+	var t := _table([1000, 1000, 1000])
+	t.start_hand()
+	t.act(99)  # seat 0, facing the big blind
+	check(t.seats[0].folded, "folds")
+	t.act(-1)  # seat 1, facing 5 more
+	check(t.hand_over, "and so does seat 1: the big blind wins")
+	check_eq([t.seats[0].stack, t.seats[1].stack, t.seats[2].stack], [1000, 995, 1005])
+
+
+func test_misuse_between_and_during_hands_is_refused() -> void:
+	# Asserts are stripped from release builds, so these were only guarded in
+	# debug: a late act() played seats[-1] on a finished hand, and starting a
+	# hand mid-hand threw away the chips in the pot.
+	expect_errors(3)
+	var t := _table([1000, 1000, 1000])
+	t.start_hand()
+	t.act(A.RAISE, 100)
+	t.start_hand()  # mid-hand: refused
+	check_eq(t.pot(), 115, "the pot is still there")
+	check_eq(t.eject(1), 0, "no ejecting mid-hand")
+	check_eq(t.seats[1].stack, 995)
+	t.act(A.FOLD)
+	t.act(A.FOLD)
+	check(t.hand_over, "hand over")
+	t.act(A.CALL)  # nobody is to act: refused
+	check_eq(t.total_chips(), 3000, "no chips made or lost")
+	check_eq(t.seats[2].stack, 990, "the last seat didn't call on a finished hand")
+
+
+func test_going_heads_up_nobody_posts_the_big_blind_twice() -> void:
+	# Seat 0 (button) busts in the first hand. The button used to move to
+	# seat 1, which heads-up posts the small blind, so seat 2 posted the big
+	# blind again. The big blind moves forward instead.
+	var t := _table([10, 1000, 1000])
+	# Deal order: seat 1, seat 2, seat 0, twice, then the board.
+	t.start_hand(Card.parse_many("Kh As 7c Kd Ad 2d 3s 8h 9c Jd 4s"))
+	check_eq([t.button, t.small_blind_seat, t.big_blind_seat], [0, 1, 2])
+	t.act(A.CALL)  # seat 0 all-in for 10
+	t.act(A.FOLD)  # seat 1; seat 2 has nothing left to decide
+	check(t.hand_over, "board runs out")
+	check_eq(t.seats[0].stack, 0, "seat 0 busted")
+	t.start_hand()
+	check_eq(t.big_blind_seat, 1, "the big blind moves on to seat 1")
+	check_eq([t.button, t.small_blind_seat], [2, 2], "seat 2 has the button and posts the small blind")
+	check_eq([t.seats[1].stack, t.seats[2].stack], [995 - 10, 1015 - 5])
+	check_eq(t.to_act, 2, "heads-up, the button acts first preflop")
+
+
+func test_the_big_blind_never_skips_a_seat_when_the_small_blind_busts() -> void:
+	# Four seats; the small blind (seat 1) busts in the first hand. The
+	# button used to jump to seat 2 and put the big blind on seat 0, so seat
+	# 3 skipped it. Now seat 3 posts it and seat 2 the small blind.
+	var t := _table([1000, 5, 1000, 1000])
+	t.start_hand(Card.parse_many("7c Ah Kd Qd 2d As Kc Qc 3s 8h 9c Jd 4s"))
+	check(t.seats[1].all_in, "small blind all-in on the blind")
+	while not t.hand_over:
+		t.act(A.CALL)
+	check_eq(t.seats[1].stack, 0, "seat 1 busted")
+	t.start_hand()
+	check_eq([t.button, t.small_blind_seat, t.big_blind_seat], [0, 2, 3])
+
+
+func test_no_decision_left_when_everyone_else_is_all_in_for_less() -> void:
+	# Heads-up, the big blind has 3 chips. The small blind already has 5 in:
+	# there's nothing to call and nobody to raise, so the board just runs
+	# out. It used to be asked to call 5 more or fold, and folding lost all 5
+	# of its chips though the big blind could only ever win 3 of them.
+	var t := _table([1000, 3])
+	t.start_hand(Card.parse_many("As Kh Ad Kd 2c 7h 9c Jh 3d"))
+	check(t.hand_over, "no one is asked to act")
+	check_eq(t.board.size(), 5)
+	check_eq(t.last_result["returned"], {0: 2}, "the small blind's extra 2 come back")
+	check_eq([t.seats[0].stack, t.seats[1].stack], [997, 6], "aces win the 3 they could")
+
+
+func test_the_big_blind_gets_no_option_against_smaller_all_ins() -> void:
+	# The button shoves 8 (short of the big blind), the small blind folds:
+	# the big blind's 10 already covers it, so the hand runs out.
+	var t := _table([8, 1000, 1000])
+	t.start_hand()
+	t.act(A.RAISE, 8)  # all-in, a call for less
+	t.act(A.FOLD)
+	check(t.hand_over, "big blind isn't asked to raise into nobody")
+	check_eq(t.last_result["returned"], {2: 2})
+
+
+func test_cannot_raise_when_everyone_else_is_all_in() -> void:
+	var t := _table([1000, 1000, 50])
+	t.start_hand()
+	t.act(A.CALL)  # seat 0
+	t.act(A.FOLD)  # seat 1
+	t.act(A.RAISE, 50)  # seat 2, big blind, all-in
+	check_eq(t.to_act, 0, "seat 0 must still call or fold")
+	check(not t.legal()["can_raise"], "but can't raise: nobody could call it")
+	var taken := []
+	t.action_taken.connect(func(seat: int, action: int, _amount: int) -> void: taken.append([seat, action]))
+	t.act(A.RAISE, 1000)  # made a call
+	check_eq(taken, [[0, A.CALL]], "the raise became a call")
+	check(t.hand_over, "board runs out")
+	check_eq(t.last_result["returned"], {}, "nothing uncalled")
+	check_eq(t.last_result["pots"][0]["amount"], 105)

@@ -5,7 +5,15 @@ extends RefCounted
 ## run on a bare Godot binary in CI and in cloud sessions with no setup.
 
 var failures: Array[String] = []
+var expected_errors := 0  ## errors this test means to cause (see expect_errors)
 var _current := ""
+
+
+## Declares that the test deliberately triggers `count` logged errors (a
+## push_error from misuse being refused); the runner fails it on any more
+## or fewer.
+func expect_errors(count: int) -> void:
+	expected_errors += count
 
 
 func check(condition: bool, message := "") -> bool:

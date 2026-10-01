@@ -9,11 +9,23 @@ extends RefCounted
 ## - No burn cards. A stacked test deck deals hole cards (one per seat at a
 ##   time, starting left of the button) and then the board, in order.
 ## - An all-in raise smaller than a full raise still reopens the betting.
-## - A short big blind still sets the bet to call at the full big blind.
+## - A short big blind still sets the bet to call at the full big blind
+##   (whatever nobody else matches comes back as an uncalled bet).
+## - The big blind moves to the next seat with chips every hand, and the
+##   small blind and button are the seats before it (heads-up, the button
+##   posts the small blind). No dead button or missed blinds: when a seat
+##   busts, someone may post the small blind twice or keep the button, but
+##   nobody posts the big blind twice in a row or skips it. (The button
+##   used to move instead: going heads-up after the button busted, the big
+##   blind posted it again.)
 ##
 ## Dead money (a fine from the floor) goes into the pot at the start of the
 ## next hand without counting as a bet, like a dead blind in a real card
-## room: the seat can still win it back.
+## room: it all goes into the main pot, so the fined seat wins it back only
+## by winning the main pot. (It used to count towards the side pots like a
+## bet: a fined seat that put in the most then got its fine back as a side
+## pot only it could win, even after losing the hand. tests/table_fuzzer.gd
+## found it.) A seat that the fine puts all-in can win only the dead money.
 
 signal hand_started(button: int)
 signal action_taken(seat: int, action: int, amount: int)
@@ -36,7 +48,8 @@ class Seat:
 	var folded := false
 	var all_in := false
 	var street_bet := 0  ## chips put in on the current street
-	var hand_bet := 0  ## chips put in over the whole hand
+	var hand_bet := 0  ## chips put in over the whole hand, dead money included
+	var dead_bet := 0  ## dead money posted this hand (in hand_bet, but not a bet)
 	var acted := false
 	var ejected := false  ## thrown out by the floor; never dealt in again
 
@@ -56,6 +69,8 @@ var seats: Array[Seat] = []
 var small_blind := 5
 var big_blind := 10
 var button := -1
+var small_blind_seat := -1  ## who posted the blinds this hand
+var big_blind_seat := -1
 var board: Array[int] = []
 var street := Street.PREFLOP
 var to_act := -1
@@ -63,6 +78,9 @@ var current_bet := 0
 var min_raise := 0
 var hand_over := true
 var hand_number := 0
+## The finished hand: {uncontested, payouts: {seat: chips won}, returned:
+## {seat: uncalled chips given back}, pots: [{amount, eligible, winners}],
+## scores: {seat: HandEvaluator score}, board}.
 var last_result := {}
 var rng := RandomNumberGenerator.new()
 var _deck: Deck
@@ -95,7 +113,9 @@ func total_chips() -> int:
 
 ## Start a new hand. `stacked` sets the exact deal order (for tests).
 func start_hand(stacked: Array[int] = []) -> void:
-	assert(players_with_chips() >= 2, "need two players with chips")
+	if players_with_chips() < 2 or not hand_over:
+		push_error("start_hand(): needs two players with chips, between hands")
+		return
 	hand_number += 1
 	for s in seats:
 		s.hole.clear()
@@ -104,6 +124,7 @@ func start_hand(stacked: Array[int] = []) -> void:
 		s.all_in = false
 		s.street_bet = 0
 		s.hand_bet = 0
+		s.dead_bet = 0
 		s.acted = false
 	board.clear()
 	last_result = {}
@@ -111,15 +132,19 @@ func start_hand(stacked: Array[int] = []) -> void:
 	hand_over = false
 	_deck = Deck.stacked(stacked) if stacked else Deck.shuffled(rng)
 
-	button = _next_dealt(button)
 	var sb: int
 	var bb: int
-	if _dealt_count() == 2:
-		sb = button  # heads-up: the button posts the small blind
-		bb = _next_dealt(button)
-	else:
-		sb = _next_dealt(button)
+	if big_blind_seat < 0:
+		button = _next_dealt(button)
+		sb = button if _dealt_count() == 2 else _next_dealt(button)
 		bb = _next_dealt(sb)
+	else:
+		# The big blind moves forward; the rest follow it (see the top).
+		bb = _next_dealt(big_blind_seat)
+		sb = _prev_dealt(bb)
+		button = sb if _dealt_count() == 2 else _prev_dealt(sb)
+	small_blind_seat = sb
+	big_blind_seat = bb
 	_put_in(seats[sb], small_blind)
 	_put_in(seats[bb], big_blind)
 	current_bet = big_blind
@@ -128,6 +153,7 @@ func start_hand(stacked: Array[int] = []) -> void:
 		var dead := mini(_dead_money[i], seats[i].stack)
 		seats[i].stack -= dead
 		seats[i].hand_bet += dead
+		seats[i].dead_bet += dead
 		seats[i].all_in = seats[i].stack == 0
 	_dead_money.clear()
 
@@ -150,7 +176,10 @@ func queue_dead_money(seat: int, chips: int) -> void:
 ## Removes a seat from play between hands; its chips leave the game.
 ## Returns how many chips were removed.
 func eject(seat: int) -> int:
-	assert(hand_over, "eject between hands")
+	if not hand_over:
+		# Mid-hand the seat's bets would stay in the pot, and it could win them.
+		push_error("eject(): only between hands")
+		return 0
 	var s := seats[seat]
 	var removed := s.stack
 	s.stack = 0
@@ -165,11 +194,13 @@ func legal() -> Dictionary:
 	var to_call := mini(current_bet - s.street_bet, s.stack)
 	var max_to := s.street_bet + s.stack
 	var min_to := mini(current_bet + min_raise, max_to)
+	# No raising when everyone else is all-in: nobody could call it.
+	var others_can_act := seats.any(func(o: Seat) -> bool: return o != s and o.can_act())
 	return {
 		"seat": to_act,
 		"to_call": to_call,
 		"can_check": to_call == 0,
-		"can_raise": max_to > current_bet,
+		"can_raise": max_to > current_bet and others_can_act,
 		"min_raise_to": min_to,
 		"max_raise_to": max_to,
 	}
@@ -177,39 +208,43 @@ func legal() -> Dictionary:
 
 ## The seat to act folds, checks, calls or raises. For RAISE, `amount` is the
 ## total to raise to on this street; it's clamped into the legal range, and
-## raising everything is going all-in.
+## raising everything is going all-in. Nothing illegal is refused, it's made
+## legal: a free fold is a check, a check facing a bet is a call, a raise
+## that isn't allowed is a call, and an action id that isn't an Action is a
+## fold. (An unknown id used to count as having acted without paying: the
+## seat passed while facing a bet. tests/table_fuzzer.gd found it.)
 func act(action: int, amount := 0) -> void:
-	assert(not hand_over and to_act >= 0, "no one is to act")
+	# Not an assert: those are stripped from release builds, where a late
+	# button press would act for seats[-1] on a finished hand.
+	if hand_over or to_act < 0:
+		push_error("act(): no one is to act")
+		return
 	var s := seats[to_act]
 	var to_call := current_bet - s.street_bet
+	var range_ := legal()
+	if action == Action.RAISE and not range_["can_raise"]:
+		action = Action.CALL
 	match action:
-		Action.FOLD:
-			if to_call <= 0:
-				action = Action.CHECK  # never fold when checking is free
-			else:
-				s.folded = true
-		Action.CHECK:
-			if to_call > 0:
-				action = Action.CALL
-				_put_in(s, to_call)
-		Action.CALL:
+		Action.RAISE:
+			var raise_to := clampi(amount, range_["min_raise_to"], range_["max_raise_to"])
+			_put_in(s, raise_to - s.street_bet)
+			min_raise = maxi(min_raise, raise_to - current_bet)
+			current_bet = raise_to
+			for other in seats:
+				if other != s:
+					other.acted = false
+		Action.CHECK, Action.CALL:
 			if to_call <= 0:
 				action = Action.CHECK
 			else:
-				_put_in(s, to_call)
-		Action.RAISE:
-			var range_ := legal()
-			if not range_["can_raise"]:
 				action = Action.CALL
 				_put_in(s, to_call)
+		_:
+			if to_call <= 0:
+				action = Action.CHECK  # never fold when checking is free
 			else:
-				var raise_to := clampi(amount, range_["min_raise_to"], range_["max_raise_to"])
-				_put_in(s, raise_to - s.street_bet)
-				min_raise = maxi(min_raise, raise_to - current_bet)
-				current_bet = raise_to
-				for other in seats:
-					if other != s:
-						other.acted = false
+				action = Action.FOLD
+				s.folded = true
 	s.acted = true
 	var shown := s.street_bet if action == Action.RAISE else (mini(to_call, s.street_bet) if action == Action.CALL else 0)
 	action_taken.emit(seats.find(s), action, shown)
@@ -247,9 +282,25 @@ func _advance() -> void:
 		# Everyone (or all but one) is all-in: run the board out.
 
 
+## Every seat that can act has acted and matched the bet; or only one seat
+## can act and it has already put in as much as anyone left this street,
+## so there's nobody to bet against. (That seat used to be asked anyway: a
+## big blind facing nothing but all-ins for less got to "raise" into
+## nobody, and a small blind with more in than an all-in big blind had to
+## call or fold chips nobody could win.)
 func _round_complete() -> bool:
+	var actors: Array[Seat] = []
+	var owing := false
 	for s in seats:
-		if s.can_act() and (not s.acted or s.street_bet < current_bet):
+		if s.can_act():
+			actors.append(s)
+			owing = owing or not s.acted or s.street_bet < current_bet
+	if not owing:
+		return true
+	if actors.size() != 1:
+		return false
+	for s in seats:
+		if s != actors[0] and s.live() and s.street_bet > actors[0].street_bet:
 			return false
 	return true
 
@@ -276,6 +327,15 @@ func _next_dealt(from: int) -> int:
 	return -1
 
 
+## Previous seat before `from` that's in this hand.
+func _prev_dealt(from: int) -> int:
+	for k in range(1, seats.size() + 1):
+		var i := posmod(from - k, seats.size())
+		if seats[i].dealt:
+			return i
+	return -1
+
+
 func _dealt_count() -> int:
 	return seats.filter(func(s: Seat) -> bool: return s.dealt).size()
 
@@ -290,6 +350,7 @@ func _next_owing(from: int) -> int:
 
 
 func _finish_uncontested(winner: Seat) -> void:
+	var returned := _return_uncalled()
 	var amount := pot()
 	_clear_bets()
 	winner.stack += amount
@@ -297,6 +358,7 @@ func _finish_uncontested(winner: Seat) -> void:
 	_end_hand({
 		"uncontested": true,
 		"payouts": {w: amount},
+		"returned": returned,
 		"pots": [{"amount": amount, "eligible": [w], "winners": [w]}],
 		"scores": {},
 		"board": board.duplicate(),
@@ -309,6 +371,7 @@ func _showdown() -> void:
 	for i in seats.size():
 		if seats[i].live():
 			scores[i] = HandEvaluator.evaluate(seats[i].hole + board)
+	var returned := _return_uncalled()
 	var pots := build_pots()
 	var payouts := {}
 	for p: Dictionary in pots:
@@ -334,43 +397,72 @@ func _showdown() -> void:
 	_end_hand({
 		"uncontested": false,
 		"payouts": payouts,
+		"returned": returned,
 		"pots": pots,
 		"scores": scores,
 		"board": board.duplicate(),
 	})
 
 
-## Main pot and side pots from what each seat put in. Each pot is
-## {amount, eligible}: every live seat that put in at least that pot's level.
-## Folded chips count toward the pots but can't win them.
-func build_pots() -> Array[Dictionary]:
-	var left := {}
+## The uncalled bet: whatever the biggest bettor put in beyond what anyone
+## else bet goes straight back to it, before the pots are built. Mostly that
+## only tidies the result (it used to come back as a side pot the bettor
+## alone could win), but not when the biggest bettor folded: a short all-in
+## big blind still makes the others call the full big blind, and a small
+## blind that folded to one all-in for 3 lost all 5 of its chips, 2 more
+## than the big blind could ever have won from it. Returns {seat: chips}.
+func _return_uncalled() -> Dictionary:
+	var top := 0
 	for i in seats.size():
-		if seats[i].hand_bet > 0:
-			left[i] = seats[i].hand_bet
+		if _bet(seats[i]) > _bet(seats[top]):
+			top = i
+	var second := 0
+	for i in seats.size():
+		if i != top:
+			second = maxi(second, _bet(seats[i]))
+	var excess := _bet(seats[top]) - second
+	if excess <= 0:
+		return {}
+	seats[top].hand_bet -= excess
+	seats[top].street_bet = maxi(0, seats[top].street_bet - excess)
+	seats[top].stack += excess
+	return {top: excess}
+
+
+## Main pot and side pots from what each seat put in. Each pot is
+## {amount, eligible}: every live seat that bet at least that pot's level.
+## Folded chips count toward the pots but can't win them. Dead money isn't a
+## bet: it all goes into the main pot.
+func build_pots() -> Array[Dictionary]:
+	var dead := 0
+	var levels: Array[int] = []
+	for s in seats:
+		dead += s.dead_bet
+		if s.live() and not levels.has(_bet(s)):
+			levels.append(_bet(s))
+	levels.sort()
 	var pots: Array[Dictionary] = []
-	while not left.is_empty():
-		var level := -1
-		for i: int in left:
-			if seats[i].live() and (level < 0 or left[i] < level):
-				level = left[i]
-		if level < 0:
-			# Only folded chips remain: they belong to the last pot.
-			for i: int in left:
-				pots[-1]["amount"] += left[i]
-			break
-		var amount := 0
+	var below := 0
+	for level in levels:
+		var amount := dead if pots.is_empty() else 0
 		var eligible: Array[int] = []
-		for i: int in left.keys():
-			var take := mini(left[i], level)
-			amount += take
-			left[i] -= take
-			if seats[i].live():
+		for i in seats.size():
+			amount += clampi(_bet(seats[i]) - below, 0, level - below)
+			if seats[i].live() and _bet(seats[i]) >= level:
 				eligible.append(i)
-			if left[i] == 0:
-				left.erase(i)
-		pots.append({"amount": amount, "eligible": eligible})
+		if amount > 0:
+			pots.append({"amount": amount, "eligible": eligible})
+		below = level
+	# Folded chips above every live seat's bet belong to the last pot.
+	for s in seats:
+		if _bet(s) > below and not pots.is_empty():
+			pots[-1]["amount"] += _bet(s) - below
 	return pots
+
+
+## What a seat has bet this hand: its share of the pot minus dead money.
+func _bet(s: Seat) -> int:
+	return s.hand_bet - s.dead_bet
 
 
 func _from_button(i: int) -> int:

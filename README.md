@@ -44,20 +44,37 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-36 tests, about 8 seconds. They cover hand ranking, equity against known odds
-(AA vs a random hand ~85%), blinds and action order (including heads-up),
-side pots, split pots and odd chips, busted seats, a 600-hand random-play run
-that checks no chip is ever created or lost, full bot matches, soft play
+51 tests, about 13 seconds. They cover hand ranking, equity against known odds
+(AA vs a random hand ~85%), blinds and action order (including heads-up and
+going heads-up), side pots, split pots and odd chips, uncalled bets, busted
+seats, fines as dead money (in the main pot), full bot matches, soft play
 between teammates, signals, and Heat: what signals cost, cooling, one
-warning per episode, fines as dead money, ejections, bought dealers,
-catching a boss, and careful animals going quiet. The runner fails any test that logs a script
-error (GDScript has no exceptions, so a crashing test would otherwise pass).
+warning per episode, fines, ejections, bought dealers, catching a boss, and
+careful animals going quiet.
+
+Then the randomized ones (`tests/test_table_fuzz.gd`). `tests/table_fuzzer.gd`
+plays 6,000 hands at random tables (2-9 seats, stacks from 1 chip up, legal
+and illegal actions, dead money and ejections) and checks after every action
+that no chip is made or lost, the right seat is to act, and the action did
+what `act()` promises; after every hand it settles the hand again with an
+independent model (blind positions, uncalled bet, main and side pots, winners
+by a brute-force evaluator, odd chips, every stack). Run on the engine as it
+was, it fails on the bugs fixed on the way (fines refunded through side
+pots, blinds after a bust, decisions with nobody left to bet against, and
+unknown action ids passing, which it found by itself), and it catches 11 of 12 deliberate one-line breakages of the engine (the
+twelfth changes nothing). Also 150 random crew matches (uneven crews, random
+fines, ejections, leaders; chips, blind levels and who wins) and Heat under
+random signals against a model of its rules. The runner fails any test that
+logs a script error (GDScript has no exceptions, so a crashing test would
+otherwise pass); a test that misuses the API on purpose declares the errors
+it expects.
 CI runs the same thing on every push (`.github/workflows/tests.yml`).
 
 ## Tools
 
 ```
 godot --headless --path . -s tools/verify_evaluator.gd        # all 2,598,960 five-card hands
+godot --headless --path . -s tools/soak_rules.gd -- 50000 1 --bots=60   # rules fuzzing soak, plus bot matches under a strict dealer
 godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style balance, 40 matches a pairing, seed 7
 godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=)
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
@@ -160,6 +177,14 @@ How it got there (details in `src/crew/play_style.gd`'s docstring):
   only ever from seeds the tuning never saw, at the game's 120 equity
   samples per decision (tuning used 60 for speed and then 120).
 
+Rules fixes since (the big blind moving forward after a bust, no decision
+or raise when everyone else is all-in) change some hands the bots play.
+`tools/simulate.gd -- 60 90001 --cycle`, before / after: Bluffer > Rock
+65% / 58%, Rock > Maniac 68% / 57%, Maniac > Shark 50% / 63%, Shark >
+Station 62% / 73%, Station > Bluffer 43% / 57%; 45 / 43 hands a match. At
+60 matches a link that's +-6.5 points of noise, so no link moved
+measurably, but the 640-a-link table above predates the fixes.
+
 Off-cycle pairings (Rock vs Shark and so on) aren't part of the type chart
 and weren't tuned. Each match takes about 0.9s at the game's settings.
 **Heat.** How often each dealer costs a crew a seat (the share of matches in
@@ -226,7 +251,7 @@ controller.
 | `src/poker/deck.gd` | Seeded shuffles (replayable), stacked decks for tests |
 | `src/poker/hand_evaluator.gd` | Best five of up to seven cards, as one comparable int |
 | `src/poker/equity.gd` | Monte Carlo win chance against N random hands |
-| `src/poker/holdem_table.gd` | The rules: blinds, betting rounds, side pots, showdown. No nodes, so it runs headless |
+| `src/poker/holdem_table.gd` | The rules: blinds, betting rounds, side pots, uncalled bets, dead money, showdown. No nodes, so it runs headless |
 | `src/crew/play_style.gd` | The five styles (Rock, Maniac, Shark, Calling Station, Bluffer) as numbers |
 | `src/crew/table_talk.gd` | Signals between teammates, and misreads when the bond is weak |
 | `src/crew/table_reads.gd` | What a watchful player learns: who re-raises when bet into |
@@ -240,7 +265,7 @@ controller.
 | `assets/audio/` | Placeholder sound effects and a lounge loop, generated by `tools/make_sfx.py`; its README lists every sound and where to trigger it |
 | `scenes/table.tscn` | Main scene |
 | `tests/` | Test runner and tests |
-| `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio) |
+| `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
 | `scripts/export.sh` | Exports both presets headless into `build/` |
