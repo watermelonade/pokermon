@@ -151,6 +151,12 @@ seen_intro_false part_only part_newer_main_truncated`.
   load without a script error and play on, except a roster holding an
   unbeaten crew's leader (reported below).
 
+- **With the Open's final as a 3v4 boss table** (2026-10-01): 20 runs
+  with skipped matches (seeds 12001-12020) all passed and all completed
+  the demo (median 129 game seconds to the bracelet); one run with real
+  matches (seed 13001, chips 200) passed, played 10 real matches and won
+  the 3v4 Open at the 7-seat table, 1,476 s of wall clock in all.
+
 ## What it found
 
 Fixed (each with a test in `tests/test_save_safety.gd` where it's logic):
