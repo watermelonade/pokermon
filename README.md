@@ -38,8 +38,10 @@ signal freely). Win and they pay up, and you can ask one of them to join
 you; lose and you wake up at Rosie's Diner with half your money, and the
 crew will deal you in again. Two of the crews block the road; the other
 two can be walked around. In the hall, talk to the Mossbank Regulars to
-play the Open (the dealer's asleep); winning gives you the first bracelet
-and the demo-complete screen. Start (or Tab) opens the menu: Crew (pick
+play the Open's final (the dealer's asleep): a 3v4 boss table, four
+Regulars against your three, Graves leading on a big stack with the seat
+draw rigged around you (see "Boss tables" below); winning gives you the
+first bracelet and the demo-complete screen. Start (or Tab) opens the menu: Crew (pick
 which two animals sit with you), Binder, Save, Options (text speed, volume).
 
 The Binder is the collection: 25 card pockets on one page (the demo's six
@@ -102,6 +104,35 @@ signaller is thrown out after the hand; if that's you, your crew forfeits.
 Try another dealer with `godot --path . -- --dealer=STRICT` (or STREET,
 ASLEEP, RELAXED, BOUGHT).
 
+### Boss tables
+
+Bosses bring bigger crews: 3v4, 3v5, up to 3v6 at a 9-seat table
+(`src/match/boss_table.gd`). The boss crew brings the same chips as your
+crew, spread over more seats: its leader two shares, each goon one (3v4
+at 1000: Graves on 1200, three goons on 600). The boss rigs the seat
+draw: its leader sits right after you (acting behind you every hand), a
+goon right before you, and your teammates are split up with Regulars
+between them. The table opens on the seating for a moment and says so,
+and who holds what. The leader wears a crown on its name plate.
+
+While the leader plays, the boss crew plays as one ("our signals are older
+than you": each member knows its teammates' cards and steps aside for a
+better hand). **Bust the leader** and the crew is leaderless: no more
+signals, no more playing as one, and the goons play scared (tighter, half
+the bluffs and loose calls); the text box says so. **Get the leader thrown
+out** (Heat) and you win on the spot. Bigger crews signal more, and a
+crew's second and third signals in a hand are easier to catch, so boss
+crews leak more to interception (about 47 boss signals a match against
+about 30 from a road crew, measured below).
+
+The Mossbank Open's final is one: the Regulars (Graves, Tom, Bramble and
+Dusty) at 3v4, with Lou asleep. To play boss tables on their own:
+`godot --path . scenes/table.tscn -- --boss=4` (3v4; `--boss=5`, `--boss=6`
+for 3v5 and 3v6; the table's default dealer is watchful, `--dealer=ASLEEP`
+for the Open's), and `-- --boss-test` for a 3v5 boss table with a bought
+dealer (the floor in the boss's pocket: a quarter of the Heat for the boss
+crew).
+
 ### The tutorial
 
 A new game ends its intro with Rosie (from the diner) offering to show you
@@ -143,7 +174,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-159 tests, about 20 seconds. They cover hand ranking, equity against known odds
+172 tests, about 20 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -167,6 +198,20 @@ from before the Binder existed loading with it rebuilt from the roster and
 beaten crews, the Binder's slots and completion count, and bond growth
 (seated animals only, more for a win, capped, read by the bots); and that missing art falls back to
 placeholders and a sprite sheet is cut into walk frames and facings.
+
+Boss tables (`tests/test_boss_table.gd`, `tests/test_seat_layout.gd`):
+the boss crew's stacks (the same total as yours, leader-heavy), the rigged
+seat draw (the leader right after you, a goon right before, nobody on your
+crew beside another) and a fair one, the setup the table gets, the leader
+rule on a stacked deck (the leader busts, its crew goes leaderless, once),
+a leaderless goon going quiet and scared, a led crew playing its best
+hand, whole 3v4-3v6 bot matches keeping every chip, the Open as a 3v4
+boss table, and a save from before boss tables loading with its cracked
+codes; and the table's layout: 6 seats or fewer exactly where they always
+were, and at 6-9 seats nothing at one seat (name plate, portrait, cards
+face down and at showdown, bet, button, crown, bubbles, an intercepted
+signal, a tell, the dealer's glance; each at its worst case) overlapping
+another seat or the HUD.
 
 The tutorial (`tests/test_tutorial.gd`, 13 tests): each lesson deals its
 cards from the right button; following Rosie produces each lesson's
@@ -205,6 +250,7 @@ godot --headless --path . -s tools/soak_rules.gd -- 50000 1 --bots=60   # rules 
 godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style balance, 40 matches a pairing, seed 7
 godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=, --interception)
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
+godot --headless --path . -s tools/boss_sim.gd -- 200 50001 --crews=all  # boss tables: your crews vs the Open's Regulars (also --vs=road, --boss=5, --dealer=BOUGHT, --fair)
 godot --headless --path . -s tools/heat_report.gd -- 30 1 STRICT     # how often a dealer warns, fines, ejects each style
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
 python3 tools/make_sfx.py --music                             # rebuild the placeholder sounds (assets/audio/README.md)
@@ -462,6 +508,63 @@ chart's thinnest link when both crews intercept. If interception is ever
 on in bot-vs-bot play (rival crews among themselves, say), the Bluffer
 wants a reason to stay quiet when bluffing (a fake "strong", or caution).
 
+**Boss tables, bot vs bot** (`tools/boss_sim.gd`; how each match is set
+up is how the game sets up yours: the rigged draw, leader-heavy stacks,
+interception on, 1000 chips). Your side is a Shark bot in your seat (what
+`--autoplay` plays) with two animals, in five mixes: the starters (Owl,
+Raccoon), Cat + Goose, Possum + Squirrel, Raccoon + Goose, Owl + Cat; 40
+matches each, 200 a number, all on seeds the tuning never saw:
+
+| Table (seed) | Your crews win | Boss leader busted | ...first of its crew | Boss signals a match (you notice) |
+| --- | --- | --- | --- | --- |
+| The Open: 3v4, asleep dealer (50011) | 48.0% | 57.5% | 4.0% | 46.7 (37%) |
+| ...with a fair, random seat draw (50011) | 48.0% | 59.5% | 8.0% | 45.7 (38%) |
+| ...with a bought dealer (50011) | 47.0% | 55.5% | 7.0% | 51.9 (39%) |
+| ...without the boss crew playing as one (50011) | 54.0% | 69.0% | 8.0% | 46.7 (37%) |
+| 3v5, asleep (50015) | 54.0% | 65.0% | 4.5% | 48.9 (36%) |
+| 3v5, bought dealer (50015) | 48.5% | 67.5% | 6.5% | 54.0 (38%) |
+| Road crews, 3v3 at the same chips, no hand cap (50003) | 46.0% | - | - | 29.6 (40%) |
+
+And the starters alone (the crew a new game sits down with), 200 matches
+each: 43.5% against the Open (50012), 49.0% against the four road crews
+at the same chips (50013).
+
+At 200 matches a number is +-3.5 points (one standard error), +-5 for a
+difference. What that says:
+
+- **The Open lands at the top of the aim (35-50% for a bot crew) but is
+  not harder than a road crew** for the five mixes on average (48.0% against
+  46.0%); for the starters it is (43.5% against 49.0%: 5.5 points, about 1.6 standard errors). A person
+  with signals and reads should do better than the Shark bot in your seat,
+  and the boxing-in (the leader acting right after you) works on a person,
+  not a bot. Unchecked: nobody has played it.
+- **The leader is rarely busted first** (4-8%): its goons, on half its
+  stack, go first, as designed ("picking goons off early swings the
+  numbers"). When it does bust the match is usually nearly over: 6-9
+  leaderless hands of about 62.
+- **Playing as one is the boss's real edge**: without it your crews won
+  54.0% on the same deals (6 points, about 1.7 standard errors).
+- **The bought dealer** costs your crew 1 point at 3v4 and 5.5 at 3v5 (the
+  same deals each way; 6.5 at 3v4 on seed 50001), mostly by throwing out
+  your careless animals (Goose, Squirrel: 0.14-0.27 of your seats a match)
+  while it never catches the boss crew (a quarter of the Heat).
+- **Bigger crews leak more:** a boss crew makes about 47 signals a match
+  against 30 for a road crew (more seats, longer matches), and you notice
+  the same share of them.
+- **Tried, and moved nothing measurable** (150 matches each, exploration
+  seeds 2-10, most of them before the boss crew played as one): the seat draw (rigged as now, the boss crew in the nearest
+  seats with your crew together, or random: 48-55% every way), the Regulars'
+  bond (1.0: their signals always read right), the leader calling "raise
+  behind me" so the goons either side of you squeeze (52.7% against 50.7%),
+  the fourth Regular's species (cat, owl, possum, goose: 52-56%), Tom
+  leading instead of Graves (45% against 47%). Chips move it some: the
+  leader holding one share (even stacks) 49%, four shares 58% (seed 5); and the boss
+  crew bringing more chips than yours (`BossTable.CHIP_EDGE`, 1.0 as
+  designed): 1.4x gave 48.0% against 51.0% (seed 50001), 1.5x 37% against
+  51% (seed 10). In this bot ecosystem who's playing (the type chart)
+  moves a match more than seats or chips. If the Open should be harder,
+  CHIP_EDGE is the one-line knob; it's left at the design's same total.
+
 **The table on screen:** checked with screenshots under a virtual display:
 the preflop decision, a showdown (the right hand wins, the busted seat greys
 out). Not checked: how it feels to play, on a real Steam Deck, or with a real
@@ -526,6 +629,15 @@ hole cards add to the board (a puff over its picture and a line in the text
 box). Heat: when anyone signals, the dealer's eyes flash over that seat and
 in the Heat panel, and the bar climbs to its new level.
 
+Boss tables at 7, 8 and 9 seats (`--boss=4/5/6`, `--boss-test`) were
+checked by screenshots too (in /tmp/claude-0/agents3/boss/ when they were
+made): the seating and the rigged-draw lines before the first deal, the
+deal, bets, a signal bubble from your crew, an intercepted rival signal
+with the dealer's eyes over it, a tell's puff in the 48 px between two
+side seats at 9, showdowns with the cards turned over beside the badges,
+the leader's crown, and the Open from the hall (four Regulars in a row,
+Graves's lines, the embedded 7-seat table). 6 seats are unchanged (a
+before/after screenshot differs only in the animals' idle animation).
 Checked by screenshots at 640x400 (and zoomed x2-x3, as on the Deck): the
 deal in flight, a flop mid-flip, chips to the pot, a showdown and the pot
 going to the winner, the command menu, the raise picker after LB/RB and
@@ -578,6 +690,8 @@ skip is tested headless only).
 | `src/match/team_match.gd` | Crew vs crew: rising blinds, fines and ejections, who's out, who won |
 | `src/match/dealer.gd` | Who's watching: street (nobody), asleep, relaxed, watchful, strict, bought |
 | `src/match/heat.gd` | Each crew's Heat: warnings, fines, ejections |
+| `src/match/boss_table.gd` | Boss tables: the rigged seat draw (and a fair one), the leader-heavy stacks, the table's setup |
+| `src/ui/seat_layout.gd` | Where everything at a seat goes, for 2-9 seats (the ellipse up to 6, two columns for 7-9) |
 | `src/ui/table_view.gd` | The table scene: layout, flow, input, drawing (placeholder art drawn from code) |
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
 | `src/audio/sfx.gd` | The `Sfx` autoload: plays sounds by name from a pool, with per-play pitch/volume variation; no-op without an audio device |
@@ -614,7 +728,7 @@ skip is tested headless only).
 | `src/tutorial/coach_box.gd` | The coach's text box at the table |
 | `assets/fonts/` | Tiny5 and Departure Mono (SIL OFL 1.1, licenses alongside) |
 | `tests/` | Test runner and tests |
-| `tools/` | Evaluator check, balance simulator, chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
+| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
 | `scripts/export.sh` | Exports both presets headless into `build/` |
