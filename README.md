@@ -142,8 +142,24 @@ until the crew cools off.
 The Calling Station is caught most: it plays long hands, so it has more to
 say, and a caution of 0.4 lets it say it. With no dealer, the bots draw the
 same random numbers as before Heat existed (the simulator's output is
-identical), so the type chart above is unchanged. Not measured yet: how the
-type chart shifts under each dealer.
+identical), so the type chart above is unchanged.
+
+**The type chart under each dealer** (`tools/simulate.gd -- 60 110001
+--cycle --dealer=...` and seeds 110002-110004: 240 matches per link):
+
+| Link | No dealer | Asleep | Relaxed | Watchful | Strict |
+| --- | --- | --- | --- | --- | --- |
+| Bluffer beats Rock | 59.8% | 57.2% | 61.5% | 57.5% | 52.2% |
+| Rock beats Maniac | 59.8% | 63.0% | 67.0% | 75.2% | 82.5% |
+| Maniac beats Shark | 57.2% | 57.0% | 44.0% | 34.8% | 24.5% |
+| Shark beats Calling Station | 63.8% | 63.0% | 69.5% | 72.2% | 83.8% |
+| Calling Station beats Bluffer | 56.0% | 55.5% | 51.8% | 42.5% | 39.0% |
+
+The cycle holds with no dealer and with a sleepy one. From a relaxed dealer
+up, the careless styles (Maniac, Calling Station) lose ground: they keep
+signalling and get fined and thrown out. Open design question: is that the
+point (a strict city favours careful crews, like weather in Pokemon), or
+should careless styles get something back under a watchful dealer?
 
 **The table on screen:** checked with screenshots under a virtual display:
 the preflop decision, a showdown (the right hand wins, the busted seat greys
