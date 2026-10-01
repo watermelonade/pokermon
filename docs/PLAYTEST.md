@@ -66,9 +66,8 @@ hooks.
 
 Headless with `--fixed-fps 60`, every frame is exactly 1/60 s of game time
 however fast it runs, so the overworld runs at 20-25x real speed (a run of
-20 game minutes takes
-about a minute) and a
-run with skipped matches replays exactly from its seed (checked: same seed,
+20 game minutes takes about a minute) and a run with skipped matches
+replays exactly from its seed (checked: same seed,
 same frames, same final save). Real matches don't replay exactly: the table
 runs on the wall clock (see "Speeding up real matches" below).
 
