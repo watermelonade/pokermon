@@ -1260,7 +1260,7 @@ func _draw_hud(now: float) -> void:
 		_text(cards_at + Vector2(CARD_YOURS.x * 2 + 8, 20), readout, L, GOLD)
 
 	_draw_text_box(now, readout)
-	if _menu_open:
+	if _menu_open and not _coach_showing():  # Start mid-turn: the skip question takes the whole box
 		_draw_menu(now)
 
 
@@ -1443,6 +1443,8 @@ func _draw_help() -> void:
 		["Raise: up / down", "one big blind more / less"],
 		["Select    H", "this card"],
 	]
+	if tutorial:
+		rows.append(["Start     Tab", "skip the lesson"])
 	for row: Array in rows:
 		_text(Vector2(x, y), row[0], L, INK)
 		_text(Vector2(col, y), row[1], L, INK_SOFT)
