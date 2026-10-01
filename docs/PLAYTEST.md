@@ -197,9 +197,11 @@ branch at 35a0bae merged: **pass**, 537 s of wall clock in all.
 - **Kill torture**, 10 kills (0.3-6.3 s into a run, a third while saving
   100 or 2,000 extra times a frame), each followed by a load check that
   now also holds the deck and the taken pickups to the floor: 10 passed.
-- Seed 7 (an open-table session in its first 15,000 frames) run twice
-  gives the same frames, final save and session: each table gets a seed
-  from the run's.
+- The soak run twice (before and after a fix to the driver's setup that
+  changes no decision) gave the same results to the chip, the real run
+  included (71,843 frames, the same final save), and seed 7 run twice the
+  same frames, save and open-table session: each table gets a seed from
+  the run's, so real matches replay now too.
 - **Damaged saves** (`tools/playtest.sh damaged`, 51 kinds now, on a
   post-opening save): all load and play on with no script error; 45 of 51
   finished the demo. `pre_demo` and `pre_demo_alone` load past the opening
