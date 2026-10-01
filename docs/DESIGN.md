@@ -19,11 +19,13 @@ implementing.
   total chips as yours over more seats (the leader two shares, each goon
   one), rigs the seat draw so its members sit either side of you, and has
   a leader: bust it and the goons stop signalling and play scared; get it
-  thrown out and you win. **Demo departure:** the design doc has the first
-  town's tournament as a 3v3 freezeout; the demo makes the Mossbank Open's
-  final a 3v4 boss table (the Regulars) so a boss table can be played. To
-  revert, drop the fourth member and `"boss"` from the hall's crew in
-  src/world/world_map.gd.
+  thrown out and you win.
+- **City 1's tournament (the Mossbank Open):** the early rounds are 3v3;
+  the final is a 3v4 boss table against the Mossbank Regulars, led by
+  Graves, with Lou the dealer asleep. It's the first taste of the uneven
+  tables the regional boss tables build on (3v5, 3v6, bought dealers).
+  (The full design doc's first version had city 1's tournament as a 3v3
+  freezeout; the owner confirmed the 3v4 final.)
 - **Team play:** soft play (no fighting teammates for chips), whipsaws,
   chip dumps, and secret signals on the Steam Deck's back buttons. Bond
   decides how reliably teammates read signals.
