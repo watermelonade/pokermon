@@ -28,10 +28,7 @@ jobs:
       - name: A pretend Xbox pad signals at the real table (buttons and triggers)
         run: ./godot --headless --path . res://tests/pad_check.tscn
       # The real game from the title, driven by pad events (tests/scene/).
-      # Demo 2's scene tests are red on purpose until it lands (they're in
-      # tests/expected_red.txt too); continue-on-error keeps one that hangs or
-      # breaks half-built from failing CI meanwhile. Remove continue-on-error
-      # when demo 2 lands.
+      # Tests written ahead of their feature go in tests/expected_red.txt,
+      # which keeps them from failing this step while they fail on a check.
       - name: Scene tests (the real game, pad events, a throwaway user dir)
-        continue-on-error: true
         run: XDG_DATA_HOME=$(mktemp -d) ./godot --headless --fixed-fps 60 --path . res://tests/scene_tests.tscn

@@ -51,6 +51,9 @@ tone of docs/DESIGN.md's Story section: this opening is the heavy part.
   toss are later work (docs/DESIGN.md).
 - Saves from before this demo load as runs that are past the opening: full
   deck, starters kept, standing where they saved.
+- Quitting the game while seated at the open table loses the chips on the
+  table: the buy-in is saved the moment you sit down, so quitting can't undo
+  a bad session (the owner confirmed, 2026-10-01).
 
 ## Outcomes
 
