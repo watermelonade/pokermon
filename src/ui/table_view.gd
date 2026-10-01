@@ -34,6 +34,16 @@ extends Control
 ## legend says what your next signal would cost. Get thrown out and your crew
 ## forfeits the match.
 ##
+## Boss tables (BossTable): 7-9 seats (SeatLayout fits them), each seat's
+## own starting chips (`"chips"` in its setup entry; else starting_chips),
+## and the boss crew's leader (`"leader": true`) wears a crown on its name
+## plate and is TeamMatch's leader: bust it and the goons lose their nerve
+## (the text box says so), get it thrown out and you win. Before the first
+## hand the table shows the seating for a moment and says the boss rigged
+## the draw, and who holds what. Dev: --boss=N plays a 3vN boss table
+## (4-6: the Mossbank Regulars plus goons) and --boss-test the 3v5 one with
+## a bought dealer.
+##
 ## Embedding: set `setup` (who sits where), `dealer_kind`, `starting_chips`,
 ## `max_hands` (optional) and `embedded = true` before adding the scene to
 ## the tree; it emits `finished(won)` once, when the match ends and the
@@ -58,7 +68,8 @@ extends Control
 ## and the bots repeatable; --help-open starts with the help card shown.
 ## --tutorial plays the tutorial, --lesson=N starts it at lesson N (1-5),
 ## --coach-auto=S moves the coach on by itself after S seconds a line (for
-## screenshots; --autoplay implies it).
+## screenshots; --autoplay implies it). --boss=N (4-6) and --boss-test (3v5,
+## bought dealer) seat a boss table; see above.
 
 const YOUR_CREW := Color("2f6f6a")
 const RIVALS := Color("7a3b2e")
@@ -178,6 +189,9 @@ var _coach_held := false  ## the coach held the flow last frame
 ## go is freed before the frame renders, and drew as a white block.
 var _coach_sprite: Texture2D
 var _intercept: InterceptOverlay  # interception: rival signals your crew catches, drawn over the table
+var _leader := -1  ## the boss crew's leader's seat, or -1 (no boss here)
+## How long the seating shows before a boss table's first deal.
+const BOSS_INTRO := 3.2
 
 
 func _ready() -> void:
@@ -214,6 +228,12 @@ func _ready() -> void:
 			tutorial.start_lesson = clampi(int(arg.get_slice("=", 1)) - 1, 0, TutorialScript.count() - 1)
 		elif arg.begins_with("--coach-auto="):
 			_coach_auto = float(arg.get_slice("=", 1))
+		elif arg.begins_with("--boss=") and setup.is_empty():
+			setup = boss_setup(clampi(int(arg.get_slice("=", 1)), 4, 6))
+		elif arg == "--boss-test" and setup.is_empty():
+			# The bought-dealer boss table: 3v5, the floor in the boss's pocket.
+			setup = boss_setup(5)
+			dealer_kind = Dealer.Kind.BOUGHT
 	if autoplay and _coach_auto < 0.0:
 		_coach_auto = 1.2
 	if setup.is_empty():
@@ -237,6 +257,23 @@ static func demo_setup() -> Array[Dictionary]:
 		out.append({"name": "You" if mine == null else mine.name, "team": 0, "animal": mine})
 		out.append({"name": rivals[i].name, "team": 1, "animal": rivals[i]})
 	return out
+
+
+## A 3vN boss table for dev runs: you, the Owl and the Raccoon against the
+## Mossbank Regulars (Graves leading), with more goons for N over 4, seated
+## the way the boss rigs it (BossTable).
+static func boss_setup(boss_size: int) -> Array[Dictionary]:
+	var mine: Array[Dictionary] = [{"name": "You", "animal": null}]
+	for a: Animal in [Species.individual(&"owl", 0), Species.individual(&"raccoon", 0)]:
+		mine.append({"name": a.name, "animal": a})
+	var crew: Dictionary = WorldMap.get_map("hall").crews[0]
+	var boss_animals := WorldMap.crew_animals(crew)
+	for extra: Array in [[&"possum", 2], [&"owl", 3]]:  # Pudding, Pip
+		boss_animals.append(Species.individual(extra[0], extra[1]))
+	var boss: Array[Dictionary] = []
+	for a in boss_animals.slice(0, boss_size):
+		boss.append({"name": a.name, "animal": a})
+	return BossTable.setup(mine, boss, 1000, true, crew["id"] if boss_size == crew["members"].size() else "")
 
 
 # --- Controls -------------------------------------------------------------
@@ -269,7 +306,13 @@ func _new_match() -> void:
 			bot = animal.make_bot(bot_seed)
 		elif autoplay:
 			bot = PokerBot.new(PlayStyle.preset(PlayStyle.Kind.SHARK), bot_seed)
-		match_.add_player(setup[i]["name"], setup[i]["team"], starting_chips, bot)
+		match_.add_player(setup[i]["name"], setup[i]["team"], int(setup[i].get("chips", starting_chips)), bot)
+	_leader = BossTable.leader_seat(setup)
+	if _leader >= 0:
+		match_.leaders[setup[_leader]["team"]] = _leader
+		# Deferred: TeamMatch reports it from the hand's end, before this
+		# table has booked the payout it should come after.
+		match_.leader_lost.connect(_on_leader_lost, CONNECT_DEFERRED)
 	match_.heat.dealer = Dealer.preset(dealer_kind)
 	match_.max_hands = tutorial.hands() if tutorial else max_hands
 	if tutorial == null:
@@ -297,7 +340,53 @@ func _new_match() -> void:
 	_match_banner = ""
 	_match_banner_at = INF
 	_decided_sent = false
-	_next_hand()
+	if _leader >= 0 and tutorial == null:
+		_boss_intro()
+	else:
+		_next_hand()
+
+
+## A boss table opens on the seating: the text box says the draw was
+## rigged and who holds what (the leader's big stack, the goons' short
+## ones), and the first hand waits a moment so you can look.
+func _boss_intro() -> void:
+	var t := match_.table
+	var now := _now()
+	var boss := t.seats[_leader]
+	var goon := -1
+	var flanked := 0
+	for i in t.seats.size():
+		if t.seats[i].team == boss.team and i != _leader:
+			goon = t.seats[i].stack if goon < 0 else mini(goon, t.seats[i].stack)
+	for i in [1, t.seats.size() - 1]:
+		if t.seats[i].team == boss.team:
+			flanked += 1
+	var crew := _boss_crew_name()
+	_say("%s rigged the seat draw!%s" % [crew, " They're on both sides of you." if flanked == 2 else ""], RIVAL_FRAME.darkened(0.25), now)
+	_say("%s sits on %d. The other %d on %d each." % [boss.name, boss.stack, _team_size(boss.team) - 1, goon], INK, now + 1.4)
+	_flow = Flow.HAND_DONE
+	_next_hand_at = now + BOSS_INTRO
+	_result_at = -INF  # nothing to settle: A deals at once
+
+
+func _team_size(team: int) -> int:
+	return match_.table.seats.filter(func(s: HoldemTable.Seat) -> bool: return s.team == team).size()
+
+
+## "The Mossbank Regulars", from the crew's id, or "The boss crew".
+func _boss_crew_name() -> String:
+	var id: String = setup[_leader].get("crew", "")
+	for map_id: String in WorldMap.ids():
+		for c: Dictionary in WorldMap.get_map(map_id).crews:
+			if c["id"] == id:
+				var crew_name: String = c["name"]
+				return crew_name.left(1).to_upper() + crew_name.substr(1)
+	return "The boss crew"
+
+
+func _on_leader_lost(_team: int) -> void:
+	_sound(&"lose", _result_at + PAYOUT)
+	_say("%s is out! The rest of the crew loses its nerve." % match_.table.seats[_leader].name, RIVAL_FRAME.darkened(0.25), _result_at + PAYOUT + 0.2)
 
 
 ## True once the match is over (or you were thrown out) and the table is
@@ -1017,47 +1106,13 @@ func _pot_pos() -> Vector2:
 
 
 func _seat_pos(i: int) -> Vector2:
-	var n := maxi(match_.table.seats.size(), 2)
-	var angle := deg_to_rad(90.0 + i * 360.0 / n)
-	return _layout_center() + Vector2(cos(angle) * 262, sin(angle) * 132)
+	return SeatLayout.seat_pos(match_.table.seats.size(), i, size)
 
 
-## Where everything at seat `i` goes: badge, portrait, cards, bet, button.
-## The portrait sits on the outer side so the table side stays clear for
-## cards and chips. `revealed`: hands turned over at showdown grow to board
-## size, since a 16x22 card is too small to read across a 7" screen.
+## Where everything at seat `i` goes (SeatLayout: up to 6 seats on an
+## ellipse as always, 7-9 in two columns).
 func _seat_geom(i: int, revealed := false) -> Dictionary:
-	var p := _seat_pos(i)
-	var c := _layout_center()
-	var toward := (c - p).normalized()
-	var badge := Rect2((p - Vector2(48, 16)).floor(), Vector2(96, 32))
-	var card_size := CARD_YOURS if i == HUMAN else (CARD_BOARD if revealed else CARD_SMALL)
-	var pair_width := card_size.x * 2 + 2
-	var cards: Vector2
-	var portrait: Vector2
-	var dealer_button: Vector2
-	if i == HUMAN:
-		cards = Vector2(p.x - pair_width / 2, badge.position.y - card_size.y - 4)
-		portrait = Vector2(badge.position.x - 34, badge.end.y - 32)
-		dealer_button = Vector2(badge.end.x + 9, badge.position.y + 7)
-	elif absf(toward.x) > 0.5:  # side seats: cards beside the badge, toward the table
-		var right := toward.x > 0
-		cards = Vector2(badge.end.x + 4 if right else badge.position.x - pair_width - 4, p.y - card_size.y / 2)
-		portrait = Vector2(badge.position.x - 34 if right else badge.end.x + 2, badge.end.y - 32)
-		dealer_button = Vector2(badge.end.x + 7 if right else badge.position.x - 7, badge.position.y - 4)
-	else:  # top seat: cards under the badge
-		cards = Vector2(p.x - pair_width / 2, badge.end.y + 4)
-		portrait = Vector2(badge.position.x - 34, badge.end.y - 32)
-		dealer_button = Vector2(badge.end.x + 9, badge.position.y + 7)
-	return {
-		"center": p,
-		"badge": badge,
-		"portrait": portrait.floor(),
-		"cards": cards.floor(),
-		"card_size": card_size,
-		"bet": (p.lerp(c, 0.55) + Vector2(0, 8)).floor(),
-		"dealer_button": dealer_button,
-	}
+	return SeatLayout.geom(match_.table.seats.size(), i, size, revealed)
 
 
 # --- Drawing ----------------------------------------------------------------
@@ -1154,6 +1209,10 @@ func _draw_seat(i: int, now: float) -> void:
 		frame = GOLD if fmod(now, 0.5) < 0.35 else CREAM
 	PixelFrame.panel(self, badge, fill, frame)
 	_text(badge.position + Vector2(5, 13), s.name, L, ink)
+	if i == _leader:
+		var crown_geom := geom.duplicate()
+		crown_geom["badge"] = badge  # hops with the badge
+		_draw_crown(SeatLayout.crown_rect(crown_geom), out)
 	var stack := _held("stack%d" % i, s.stack)
 	_draw_chip_stack(badge.position + Vector2(8, 24), 1)
 	_text(badge.position + Vector2(14, 27), "%d" % stack, L, ink)
@@ -1216,8 +1275,7 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 		var text: String = bubbles[i][0]
 		var w := UiFont.small().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, S).x + 8
 		# Over the badge, except yours: your cards sit above your badge.
-		var top: float = geom["cards"].y if i == HUMAN else badge.position.y
-		var r := Rect2(Vector2(clampf(p.x - w / 2, 2, size.x - w - 2), top - 14).floor(), Vector2(w, 11))
+		var r := SeatLayout.bubble_rect(geom, i, w, size)
 		draw_rect(r, TEXT)
 		draw_rect(Rect2(Vector2(p.x - 1, r.end.y), Vector2(3, 2)), TEXT)
 		_text(r.position + Vector2(4, 8), text, S, ROOM)
@@ -1225,12 +1283,10 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 		var since: float = now - _tells[i][1]
 		if since >= 0.0 and since < TELL_TIME:
 			var text: String = _tells[i][0]
-			var portrait: Vector2 = geom["portrait"]
 			var rise := floorf(minf(since / 0.4, 1.0) * 5.0)
 			var alpha := clampf((TELL_TIME - since) / 0.4, 0.0, 1.0)
 			var w := UiFont.small().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, S).x + 6
-			var x := clampf(portrait.x + 16 - w / 2, 2, size.x - w - 2)
-			var r := Rect2(Vector2(x, portrait.y - 9 - rise).floor(), Vector2(w, 10))
+			var r := SeatLayout.puff_rect(geom, w, size, rise)
 			draw_rect(r.grow(1), Color(INK, alpha))
 			draw_rect(r, Color(GOLD, alpha))
 			draw_rect(r.grow(-1), Color(CREAM, alpha))
@@ -1240,12 +1296,11 @@ func _draw_seat_overlays(i: int, now: float) -> void:
 		if since < GLANCE_TIME and fmod(since, 0.3) < 0.22:
 			# The dealer's eyes on this seat, big enough to catch from the
 			# corner of your eye: 2x, on a dark plate.
-			var at := Vector2(badge.end.x - 26, badge.position.y - 12)
-			if i == HUMAN:  # above your cards, beside your bubble, not over a card
-				at = Vector2(p.x + 24, geom["cards"].y - 14)
-			draw_rect(Rect2(at - Vector2(2, 2), Vector2(26, 14)), PANEL)
-			draw_rect(Rect2(at - Vector2(2, 2), Vector2(26, 14)), HOT, false)
-			_draw_eyes(at, 0, false, 2)
+			# (Yours sits above your cards, beside your bubble, not over a card.)
+			var plate := SeatLayout.glance_rect(geom, i)
+			draw_rect(plate, PANEL)
+			draw_rect(plate, HOT, false)
+			_draw_eyes(plate.position + Vector2(2, 2), 0, false, 2)
 	for g in _gains:
 		if g[0] != i:
 			continue
@@ -1492,6 +1547,24 @@ func _draw_help() -> void:
 	]:
 		_text(Vector2(x, y), line, L, INK_SOFT)
 		y += 13
+
+
+## The boss leader's crown, 11x8: three gold points on a band, outlined
+## in ink; greyed once the leader is out.
+func _draw_crown(r: Rect2, out: bool) -> void:
+	var at := r.position.floor()
+	var gold := GOLD.lerp(INK_SOFT, 0.6) if out else GOLD
+	var px := func(x: int, y: int, w: int, h: int, col: Color) -> void:
+		draw_rect(Rect2(at + Vector2(x, y), Vector2(w, h)), col)
+	px.call(0, 2, 11, 6, INK)  # outline
+	px.call(0, 0, 3, 2, INK)
+	px.call(4, 0, 3, 2, INK)
+	px.call(8, 0, 3, 2, INK)
+	px.call(1, 1, 1, 6, gold)
+	px.call(5, 1, 1, 6, gold)
+	px.call(9, 1, 1, 6, gold)
+	px.call(1, 4, 9, 3, gold)
+	px.call(5, 5, 1, 1, HOT if not out else INK_SOFT)  # a jewel
 
 
 ## Chips as a little stack of coins, `count` high.

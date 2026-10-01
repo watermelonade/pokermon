@@ -166,9 +166,8 @@ func _draw() -> void:
 ## dealer's eyes at the plate's right end. Returns its right edge.
 func _draw_bubble(seat: int, text: String, understood: bool) -> float:
 	var geom: Dictionary = table.call("_seat_geom", seat)
-	var badge: Rect2 = geom["badge"]
 	var w := UiFont.small().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, S).x + 16
-	var r := Rect2(Vector2(clampf(badge.position.x, 2, size.x - w - 2), badge.position.y - 14).floor(), Vector2(w, 11))
+	var r := SeatLayout.intercept_rect(geom, w, size)
 	draw_rect(r.grow(1), RIVAL)
 	draw_rect(r, PixelFrame.CREAM)
 	draw_rect(Rect2(Vector2(r.position.x + 10, r.end.y + 1), Vector2(3, 2)), RIVAL)
