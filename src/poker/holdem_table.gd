@@ -13,7 +13,11 @@ extends RefCounted
 ##
 ## Dead money (a fine from the floor) goes into the pot at the start of the
 ## next hand without counting as a bet, like a dead blind in a real card
-## room: the seat can still win it back.
+## room: it all goes into the main pot, so the fined seat wins it back only
+## by winning the main pot. (It used to count towards the side pots like a
+## bet: a fined seat that put in the most then got its fine back as a side
+## pot only it could win, even after losing the hand. tests/table_fuzzer.gd
+## found it.) A seat that the fine puts all-in can win only the dead money.
 
 signal hand_started(button: int)
 signal action_taken(seat: int, action: int, amount: int)
@@ -36,7 +40,8 @@ class Seat:
 	var folded := false
 	var all_in := false
 	var street_bet := 0  ## chips put in on the current street
-	var hand_bet := 0  ## chips put in over the whole hand
+	var hand_bet := 0  ## chips put in over the whole hand, dead money included
+	var dead_bet := 0  ## dead money posted this hand (in hand_bet, but not a bet)
 	var acted := false
 	var ejected := false  ## thrown out by the floor; never dealt in again
 
@@ -104,6 +109,7 @@ func start_hand(stacked: Array[int] = []) -> void:
 		s.all_in = false
 		s.street_bet = 0
 		s.hand_bet = 0
+		s.dead_bet = 0
 		s.acted = false
 	board.clear()
 	last_result = {}
@@ -128,6 +134,7 @@ func start_hand(stacked: Array[int] = []) -> void:
 		var dead := mini(_dead_money[i], seats[i].stack)
 		seats[i].stack -= dead
 		seats[i].hand_bet += dead
+		seats[i].dead_bet += dead
 		seats[i].all_in = seats[i].stack == 0
 	_dead_money.clear()
 
@@ -341,36 +348,39 @@ func _showdown() -> void:
 
 
 ## Main pot and side pots from what each seat put in. Each pot is
-## {amount, eligible}: every live seat that put in at least that pot's level.
-## Folded chips count toward the pots but can't win them.
+## {amount, eligible}: every live seat that bet at least that pot's level.
+## Folded chips count toward the pots but can't win them. Dead money isn't a
+## bet: it all goes into the main pot.
 func build_pots() -> Array[Dictionary]:
-	var left := {}
-	for i in seats.size():
-		if seats[i].hand_bet > 0:
-			left[i] = seats[i].hand_bet
+	var dead := 0
+	var levels: Array[int] = []
+	for s in seats:
+		dead += s.dead_bet
+		if s.live() and not levels.has(_bet(s)):
+			levels.append(_bet(s))
+	levels.sort()
 	var pots: Array[Dictionary] = []
-	while not left.is_empty():
-		var level := -1
-		for i: int in left:
-			if seats[i].live() and (level < 0 or left[i] < level):
-				level = left[i]
-		if level < 0:
-			# Only folded chips remain: they belong to the last pot.
-			for i: int in left:
-				pots[-1]["amount"] += left[i]
-			break
-		var amount := 0
+	var below := 0
+	for level in levels:
+		var amount := dead if pots.is_empty() else 0
 		var eligible: Array[int] = []
-		for i: int in left.keys():
-			var take := mini(left[i], level)
-			amount += take
-			left[i] -= take
-			if seats[i].live():
+		for i in seats.size():
+			amount += clampi(_bet(seats[i]) - below, 0, level - below)
+			if seats[i].live() and _bet(seats[i]) >= level:
 				eligible.append(i)
-			if left[i] == 0:
-				left.erase(i)
-		pots.append({"amount": amount, "eligible": eligible})
+		if amount > 0:
+			pots.append({"amount": amount, "eligible": eligible})
+		below = level
+	# Folded chips above every live seat's bet belong to the last pot.
+	for s in seats:
+		if _bet(s) > below and not pots.is_empty():
+			pots[-1]["amount"] += _bet(s) - below
 	return pots
+
+
+## What a seat has bet this hand: its share of the pot minus dead money.
+func _bet(s: Seat) -> int:
+	return s.hand_bet - s.dead_bet
 
 
 func _from_button(i: int) -> int:

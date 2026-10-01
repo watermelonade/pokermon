@@ -156,3 +156,40 @@ func test_random_play_never_makes_or_loses_chips() -> void:
 				if not check(s.stack >= 0, "negative stack"):
 					return
 	check_eq(hands, 600)
+
+
+func test_a_fine_stays_in_the_pot_when_the_fined_seat_loses() -> void:
+	# Heads-up: seat 0 (button, small blind) is fined 10 dead and loses a
+	# checked-down hand to seat 1's aces. The fine used to count as a bet, so
+	# seat 0's 10 extra came back to it as a side pot only it could win.
+	var t := _table([1000, 1000])
+	t.queue_dead_money(0, 10)
+	# Deal order: seat 1, seat 0, seat 1, seat 0, then the board.
+	t.start_hand(Card.parse_many("As 2c Ad 7d Kh Qh 9s 3c 4d"))
+	check_eq(t.pot(), 25, "blinds and the fine")
+	t.act(A.CALL)
+	t.act(A.CHECK)
+	while not t.hand_over:
+		t.act(A.CHECK)
+	check_eq([t.seats[0].stack, t.seats[1].stack], [980, 1020], "the fine is lost with the hand")
+	check_eq(t.last_result["pots"].size(), 1, "dead money makes no side pot")
+
+
+func test_a_seat_all_in_from_its_fine_can_win_only_the_dead_money() -> void:
+	# Seat 0 (button) has 10 chips and is fined 10: all-in for nothing but
+	# dead money. It holds aces and wins the main pot: the dead 10, not 10
+	# from each player as if the fine were a bet.
+	var t := _table([10, 1000, 1000])
+	t.queue_dead_money(0, 10)
+	# Deal order: seat 1, seat 2, seat 0, twice, then the board.
+	t.start_hand(Card.parse_many("Kh 7c As Kd 2d Ad 3s 8h 9c Jd 4s"))
+	check(t.seats[0].all_in, "the fine puts seat 0 all-in")
+	t.act(A.CALL)  # small blind completes
+	t.act(A.CHECK)  # big blind
+	while not t.hand_over:
+		t.act(A.CHECK)
+	var pots: Array = t.last_result["pots"]
+	check_eq(pots.size(), 2, "the dead money, then the blinds")
+	check_eq([pots[0]["amount"], pots[0]["winners"]], [10, [0]], "seat 0 wins only the dead money")
+	check_eq([pots[1]["amount"], pots[1]["winners"]], [20, [1]], "kings win the rest")
+	check_eq([t.seats[0].stack, t.seats[1].stack, t.seats[2].stack], [10, 1010, 990])
