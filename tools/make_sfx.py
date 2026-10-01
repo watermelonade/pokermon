@@ -353,7 +353,9 @@ def sfx_chips_pot(rng):
         parts.append((clink(rng, rng.uniform(2500, 3900), rng.uniform(0.6, 1.0)), t, rng.uniform(0.35, 0.8)))
     slide = lowpass(bandpass(noise(dur, rng), 700, q=0.6), 1500)
     slide = shape_by(slide, lambda t: math.sin(math.pi * min(1.0, t / 0.6)) ** 2)
-    parts.append((slide, 0.0, 2.2))
+    # 2.2 at first: the preview showed the slide's noise outweighing the
+    # chips for half a second, a "shhh" more than a clatter.
+    parts.append((slide, 0.0, 0.9))
     return mix(dur, *parts), -3.0
 
 
@@ -511,7 +513,7 @@ def sfx_step_grass(rng):
     for _ in range(9):
         grain = env(highpass(noise(0.006, rng), 2500), 0.0003, 0.0015)
         parts.append((grain, rng.uniform(0.0, 0.06), rng.uniform(0.3, 0.8)))
-    parts.append((thump(rng, 120, 70, 0.06, 0.012), 0, 0.25))
+    parts.append((thump(rng, 120, 70, 0.06, 0.012), 0, 0.08))  # a hint of weight; 0.25 drowned the crunch
     return mix(dur, *parts), -9.0
 
 
