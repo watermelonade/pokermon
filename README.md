@@ -85,6 +85,7 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 | Signal your teammates | 1 2 3 4 | X Y LT RT (on a Deck also the back buttons L4 R4 L5 R5, once mapped) |
 | Fake a signal (for rival eyes; your teammates ignore it) | Shift + 1-4 | hold LB + a signal button |
 | Help card (controls, signals, Heat) | H or F1 | Select |
+| Open table: leave (after a hand) | Tab / Esc, then Enter | Start or B, then A |
 | Next hand (it also moves on by itself) | Enter | A |
 | Tutorial: next line / skip the lesson | Enter / Tab | A / Start |
 
@@ -132,6 +133,33 @@ for 3v5 and 3v6; the table's default dealer is watchful, `--dealer=ASLEEP`
 for the Open's), and `-- --boss-test` for a 3v5 boss table with a bought
 dealer (the floor in the boss's pocket: a quarter of the Heat for the boss
 crew).
+
+### The open table
+
+Mossbank's street table (by the pond, west of the diner) is a cash game,
+not a crew match: talk to any of its players and you're offered a seat
+for the buy-in ($100; if you can't cover it they say so and that's that).
+Everyone at it plays for themselves (`src/match/cash_match.gd`: a
+TeamMatch underneath with one team per seat, so nobody has teammates,
+signals or soft play), at fixed blinds of 1/2: the buy-in is 50 big
+blinds, and the blinds never go up (`CashMatch.blinds_for`). There's no
+"match won": after any hand, Start or B asks "Leave the table?" (leaving
+is under the cursor; the next hand waits for your answer), and Start
+mid-hand asks as soon as the hand is over. You leave with your stack and
+it goes back in your money (money after = money before - buy-in + stack,
+exact). Bust and you're out the buy-in; clean the table out and A cashes
+you out. A rival who busts gets up ("left" on its plate). The top right
+shows your chips against your buy-in (+/-), the bottom left how to leave;
+your seat shows the dog. The buy-in is saved the moment you sit down (so
+quitting at the table can't undo a bad session) and the cash-out the
+moment you get up.
+
+After your first sit, win or lose, Sage the Owl and Bandit the Raccoon
+ask to come along and join your crew (`src/world/open_table.gd`). To play
+a cash table on its own: `godot --path . scenes/table.tscn -- --cash`
+(you and four animals at $100); in a scripted overworld run
+`--autoplay --cash-hands=3` has the bot in your seat get up after three
+hands.
 
 ### The tutorial
 
@@ -279,7 +307,8 @@ codes; and the table's layout: 6 seats or fewer exactly where they always
 were, and at 6-9 seats nothing at one seat (name plate, portrait, cards
 face down and at showdown, bet, button, crown, bubbles, an intercepted
 signal, a tell, the dealer's glance; each at its worst case) overlapping
-another seat or the HUD.
+another seat or the HUD; a cash table's 3-6 seats on the 6-seat ring's
+places, clockwise.
 
 The tutorial (`tests/test_tutorial.gd`, 13 tests): each lesson deals its
 cards from the right button; following Rosie produces each lesson's
@@ -319,6 +348,7 @@ godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style b
 godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=, --interception)
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
 godot --headless --path . -s tools/boss_sim.gd -- 200 50001 --crews=all  # boss tables: your crews vs the Open's Regulars (also --vs=road, --boss=5, --dealer=BOUGHT, --fair)
+godot --headless --path . -s tools/cash_sim.gd -- 200 20 1   # the open table: what a 20-hand session is worth (also --buy-in=, --players=, --you=)
 godot --headless --path . -s tools/heat_report.gd -- 30 1 STRICT     # how often a dealer warns, fines, ejects each style
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
 python3 tools/make_sfx.py --music                             # rebuild the placeholder sounds (assets/audio/README.md)
@@ -576,6 +606,22 @@ chart's thinnest link when both crews intercept. If interception is ever
 on in bot-vs-bot play (rival crews among themselves, say), the Bluffer
 wants a reason to stay quiet when bluffing (a fake "strong", or caution).
 
+**The open table, bot vs bot** (`tools/cash_sim.gd`): what a session at
+Mossbank's open table is worth, with a Shark bot in your seat (what
+`--autoplay` plays) against Sage (Rock), Bandit (Bluffer) and Waddles
+(Maniac), all at the $100 buy-in and 1/2 blinds, up to 20 hands, leaving
+then (or on a bust). 200 sessions a seed:
+
+| Seed | Your average cash-out | Busted | Sage | Bandit | Waddles |
+| --- | --- | --- | --- | --- | --- |
+| 1 | $100.1 (+-5.2) | 27 | $115.7 | $94.4 | $89.7 |
+| 2 | $97.2 (+-4.3) | 25 | $112.1 | $99.6 | $91.1 |
+
+So a session about breaks even for a decent player, with one in eight
+going bust within 20 hands; the Rock takes the money off the Maniac. No
+target yet: it's the starting point for the money-as-health economy
+(docs/DESIGN.md).
+
 **Boss tables, bot vs bot** (`tools/boss_sim.gd`; how each match is set
 up is how the game sets up yours: the rigged draw, leader-heavy stacks,
 interception on, 1000 chips). Your side is a Shark bot in your seat (what
@@ -781,12 +827,13 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `src/match/dealer.gd` | Who's watching: street (nobody), asleep, relaxed, watchful, strict, bought |
 | `src/match/heat.gd` | Each crew's Heat: warnings, fines, ejections |
 | `src/match/boss_table.gd` | Boss tables: the rigged seat draw (and a fair one), the leader-heavy stacks, the table's setup |
-| `src/ui/seat_layout.gd` | Where everything at a seat goes, for 2-9 seats (the ellipse up to 6, two columns for 7-9) |
+| `src/match/cash_match.gd` | The open table's cash game: every seat its own team, fixed blinds from the buy-in, leaving between hands, busted rivals leave, sitting down and cashing out (money) |
+| `src/ui/seat_layout.gd` | Where everything at a seat goes, for 2-9 seats (the ellipse up to 6, two columns for 7-9; a cash table's 3-6 on the 6-seat ring's places) |
 | `src/ui/table_view.gd` | The table scene: layout, flow, input, drawing (placeholder art drawn from code) |
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
 | `src/audio/sfx.gd` | The `Sfx` autoload: plays sounds by name from a pool, with per-play pitch/volume variation; no-op without an audio device |
 | `assets/audio/` | Placeholder sound effects and a lounge loop, generated by `tools/make_sfx.py`; its README lists every sound and where to trigger it |
-| `scenes/table.tscn` | The table; embeddable (`setup`, `dealer_kind`, `starting_chips`, `embedded`, `finished(won)`) and still runnable on its own |
+| `scenes/table.tscn` | The table; embeddable (`setup`, `dealer_kind`, `starting_chips`, `embedded`, `finished(won)`; in cash mode `cash_game`, `buy_in`, `left(chips)`) and still runnable on its own |
 | `scenes/title.tscn`, `src/game/title_screen.gd` | Main scene: Continue / New game |
 | `src/game/game.gd` | The `Game` autoload: the run's state, saving, scene changes, dev flags |
 | `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position; what wins, blackouts and recruits do |
@@ -820,8 +867,8 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `tests/` | The unit runner (`run_tests.gd`) and tests, the compile and pad checks, `expected_red.txt` (tests written ahead of their feature), `world_paths.gd` (reachability over the maps, for tests) |
 | `tests/scene_tests.tscn`, `tests/scene_runner.gd`, `tests/scene_test_case.gd`, `tests/scene/` | Scene tests: the real game from the title, driven by pad events (README "Tests") |
 | `tools/test.sh` | Every test tier from one command, with a pass/fail table |
-| `src/match/cash_match.gd`, `src/world/open_table.gd` | Demo 2's cash game and Mossbank's open table: stubs until built (docs/DEMO_SPEC.md) |
-| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
+| `src/world/open_table.gd` | Mossbank's open table from the overworld: the seat offer, the buy-in, the cash table, the cash-out, Sage and Bandit joining |
+| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), open-table sessions (`cash_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
 | `scripts/export.sh` | Exports both presets headless into `build/` |
