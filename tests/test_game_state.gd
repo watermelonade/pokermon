@@ -159,3 +159,16 @@ func test_damaged_save_data_is_repaired_not_crashed_on() -> void:
 	check_eq(moved.map_id, WorldMap.START_MAP, "a map that no longer exists sends you to the start")
 	check_eq(moved.cell, WorldMap.START_CELL)
 	check_eq(moved.heal_map, WorldMap.HEAL_MAP)
+
+
+func test_cracked_codes_survive_a_save() -> void:
+	var s := GameState.fresh()
+	var seats := s.table_setup(WorldMap.crew_animals(WorldMap.get_map("town").crews[0]), "pond_hecklers")
+	check_eq(seats[1].get("crew"), "pond_hecklers", "rival seats carry the crew id")
+	s.codebook = CodeBook.from_dict({"player": {"pond_hecklers": {"1": 0}}})  # you know their gesture 1 means STRONG
+	var back := GameState.from_dict(JSON.parse_string(JSON.stringify(s.to_dict())))
+	check(not s.codebook.to_dict().is_empty(), "the test has something to save")
+	check_eq(back.codebook.to_dict(), s.codebook.to_dict(), "code book round trip")
+	var old := s.to_dict()
+	old.erase("codebook")
+	check(GameState.from_dict(JSON.parse_string(JSON.stringify(old))).codebook != null, "older saves load with an empty code book")

@@ -581,7 +581,8 @@ func _play_match(crew: Dictionary) -> void:
 	else:
 		await _fade_out(0.2)
 		table = TABLE_SCENE.instantiate()
-		table.setup = state.table_setup(rivals)
+		table.setup = state.table_setup(rivals, crew["id"])
+		table.codebook = state.codebook  # interception: cracked codes carry over to rematches
 		table.dealer_kind = crew["dealer"]
 		table.starting_chips = int(Game.dev("chips", str(crew["chips"])))
 		table.embedded = true

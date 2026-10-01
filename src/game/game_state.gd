@@ -60,6 +60,9 @@ var seen_intro := false
 var seen := {}  ## species id (String) -> Array of individual names met, in order met
 var recruited := {}  ## species id (String) -> Array of names that joined you
 var found_at := {}  ## species id (String) -> where you first met one (for the Binder)
+## Rival crews' signal codes cracked so far, and what they've cracked of
+## yours (interception: src/crew/code_book.gd). Kept so a rematch remembers.
+var codebook := CodeBook.new()
 
 
 ## A new run: the Owl and the Raccoon from the table demo, standing outside
@@ -246,7 +249,9 @@ func add_bracelet(id: String) -> void:
 
 ## Who sits where for TableView.setup: you in seat 0, then teams alternate
 ## 0, 1, 0, 1, ... so each of your animals sits between two rivals.
-func table_setup(rivals: Array[Animal]) -> Array[Dictionary]:
+## `crew_id` names the rival crew for interception's code book, so what you
+## crack of their code is remembered across rematches.
+func table_setup(rivals: Array[Animal], crew_id := "") -> Array[Dictionary]:
 	var mine: Array[Animal] = [null]
 	mine.append_array(party_animals())
 	var out: Array[Dictionary] = []
@@ -255,7 +260,10 @@ func table_setup(rivals: Array[Animal]) -> Array[Dictionary]:
 			var a: Animal = mine[i]
 			out.append({"name": "You" if a == null else a.name, "team": 0, "animal": a})
 		if i < rivals.size():
-			out.append({"name": rivals[i].name, "team": 1, "animal": rivals[i]})
+			var seat := {"name": rivals[i].name, "team": 1, "animal": rivals[i]}
+			if crew_id:
+				seat["crew"] = crew_id
+			out.append(seat)
 	return out
 
 
@@ -281,6 +289,7 @@ func to_dict() -> Dictionary:
 		"seen": seen.duplicate(true),
 		"recruited": recruited.duplicate(true),
 		"found_at": found_at.duplicate(),
+		"codebook": codebook.to_dict(),
 	}
 
 
@@ -330,6 +339,10 @@ static func from_dict(d: Dictionary) -> GameState:
 			if Species.CATALOG.has(StringName(str(k))):
 				s.found_at[str(k)] = str(found[k])
 	s.backfill_binder()
+	if d.has("codebook"):  # older saves have none: start empty
+		var book := CodeBook.from_dict(d["codebook"])
+		if book:
+			s.codebook = book
 	return s
 
 
