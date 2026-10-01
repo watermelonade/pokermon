@@ -263,7 +263,11 @@ speed, so there are few of them. A kill on Linux can't test a power cut: the
 data is in the page cache once written, so a missing fsync can't show up
 (Godot's FileAccess has no fsync).
 
-## Speeding up real matches (a proposal for table_view.gd)
+## Speeding up real matches (proposed here, now in table_view.gd)
+
+This went in (TableView `_now()` is a clock advanced by the frame delta),
+and the playtester no longer sleeps at tables; its table softlock and
+match-length limits are counted in game frames. The proposal as it was:
 
 The table measures every beat (deals, flips, chip slides, bot thinking, the
 2.6 s pause between hands) on `_now()`, which is the wall clock
