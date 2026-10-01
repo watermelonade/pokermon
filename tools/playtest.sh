@@ -55,14 +55,15 @@ kill_torture() {
 	mkdir -p "$dir"
 	local data
 	data=$(mktemp -d "${TMPDIR:-/tmp}/pt-kill.XXXXXX")
-	local fails=0
+	local fails=0 midsave=0
 	for i in $(seq "$first" $((first + count - 1))); do
-		local spam=$(( (i % 3 == 0) ? 0 : (i % 3) * 25 ))
+		local spam=$(( (i % 3 == 0) ? 0 : (i % 3) * 50 ))
 		local ms=$(( 300 + (RANDOM * 32768 + RANDOM) % 6000 ))
-		XDG_DATA_HOME="$data" timeout -s KILL "$(printf '%d.%03d' $((ms / 1000)) $((ms % 1000)))" "$GODOT" --headless --fixed-fps 60 --path . \
+		( XDG_DATA_HOME="$data" timeout -s KILL "$(printf '%d.%03d' $((ms / 1000)) $((ms % 1000)))" "$GODOT" --headless --fixed-fps 60 --path . \
 			-s tools/playtest.gd -- --pt-start=continue --pt-seed="$i" --pt-save-spam="$spam" --pt-reload=0.02 --pt-win=0.7 \
-			> "$dir/$i.killed.log" 2>&1
+			> "$dir/$i.killed.log" 2>&1 ) 2>/dev/null
 		local code=$?
+		[ -e "$data/AFriendInNeed/playtest.json.part" ] && midsave=$((midsave + 1))
 		cp "$data/AFriendInNeed/playtest.json" "$dir/$i.save.json" 2>/dev/null
 		cp "$data/AFriendInNeed/playtest.json.part" "$dir/$i.save.json.part" 2>/dev/null
 		# The check: load what the kill left, a few frames, no saving over it first.
@@ -75,7 +76,7 @@ kill_torture() {
 		printf 'kill %s after %sms (spam %s, exit %s): check %s\n' "$i" "$ms" "$spam" "$code" "${ok:-no result}"
 	done
 	rm -rf "$data"
-	echo "kill torture: $count kills, $fails failed checks"
+	echo "kill torture: $count kills ($midsave left a .part: killed mid-save), $fails failed checks"
 }
 
 DAMAGE_KINDS="ok truncated empty garbage array minimal no_version future_version unknown_species
@@ -91,7 +92,9 @@ damaged() {
 	for kind in $DAMAGE_KINDS; do
 		n=$((n + 1))
 		echo "$n $kind"
-	done | xargs -P "$JOBS" -n 2 bash -c 'one_run damaged "$0" 300 --pt-damage="$1" --pt-frames=20000 '"$*"
+	# Lenient about what a damaged save legitimately carries in (strangers in
+	# the roster, unknown crews, a bracelet without the win).
+	done | xargs -P "$JOBS" -n 2 bash -c 'one_run damaged "$0" 300 --pt-damage="$1" --pt-frames=20000 --pt-lenient=roster_stranger,beaten_unknown,bracelet '"$*"
 }
 
 summary() {
@@ -140,7 +143,7 @@ cmd=${1:-}
 shift || true
 case "$cmd" in
 	runs) batch runs "${1:-20}" "${2:-1}" 600 "${@:3}" ;;
-	real) batch real "${1:-4}" "${2:-1001}" 3600 --pt-real=1 --pt-human=0.25 --pt-after=40 --pt-chips=200 "${@:3}" ;;
+	real) batch real "${1:-4}" "${2:-1001}" 3600 --pt-real=1 --pt-human=0.25 --pt-after=40 --pt-chips=200 --pt-seconds=3300 "${@:3}" ;;
 	kill) kill_torture "${1:-50}" "${2:-1}" ;;
 	damaged) damaged "$@" ;;
 	summary) summary "${1:-$OUT}" ;;

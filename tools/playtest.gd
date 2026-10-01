@@ -124,6 +124,7 @@ var last_cell := Vector2i(-999, -999)
 var history: Array[String] = []  ## what the driver did, for the failure report
 var failures: Array[Dictionary] = []
 var notes: Array[Dictionary] = []  ## lenient failures
+var noted_cutoffs := {}
 var stats := {"decisions": 0, "closes": 0, "focus_saves": 0, "continue_moved": 0, "steps": 0, "encounters": 0, "wins": 0, "losses": 0, "real_matches": 0,
 	"recruits": 0, "saves": 0, "reloads": 0, "talks": 0, "menus": 0, "doors": 0, "bumps": 0,
 	"maps": {}, "demo_complete": false, "reached_hall": false, "title_new_declined": 0,
@@ -137,6 +138,9 @@ var sig_frame := 0
 var table_seen: Object = null
 var table_started_ms := 0
 var table_sig_ms := 0
+var table_frames := 0  ## frames spent at real tables: not counted against --pt-frames
+var table_hand := 0
+var in_table := false
 var table_mode := "auto"  ## how the next real match is played: auto or human
 var expect := {}  ## a match's expected outcome, checked on the next walk
 var encounter_money := 0
@@ -234,7 +238,7 @@ func _tick() -> void:
 			_check_world(scene)
 		if not done:
 			_act_world(scene)
-	if frame >= max_frames:
+	if frame - table_frames >= max_frames:
 		_finish("frame budget")
 	elif Time.get_ticks_msec() - started_ms > max_ms:
 		_finish("time budget")
@@ -277,21 +281,29 @@ func _act_world(ow: Node) -> void:
 		if mode == WALK:
 			_on_walk_again(ow)
 		prev_mode = mode
-	if mode != WALK and rng.randf() < p_close:
+	# At a real table frames are real-time sixtieths: far rarer there, or no
+	# match would ever finish.
+	var at_table: bool = ow.get("table") != null
+	if mode != WALK and rng.randf() < p_close * (0.01 if at_table else 1.0):
 		# Closing the window saves (Game._notification) and quits, mid-dialog,
 		# mid-match, mid-fade: Continue must still make sense of it.
 		stats["closes"] += 1
 		_log("close the window (mode %d, %s)" % [mode, _screen(ow)])
 		_reload(ow, true, true)
 		return
-	if rng.randf() < p_focus:
+	if rng.randf() < p_focus * (0.05 if at_table else 1.0):
 		stats["focus_saves"] += 1
 		game.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	var table: Object = ow.get("table")
 	if table != null:
 		_act_table(ow, table)
 		return
-	Engine.max_fps = 0
+	if in_table:  # (a freed table compares equal to null, so a flag)
+		in_table = false
+		stats["match_ms"].append(Time.get_ticks_msec() - table_started_ms)
+		_log("table closed after %d s" % ((Time.get_ticks_msec() - table_started_ms) / 1000))
+		table_seen = null
+		table_hand = 0
 	if cooldown > 0:
 		cooldown -= 1
 		return
@@ -325,6 +337,25 @@ func _act_world(ow: Node) -> void:
 		_act_walk(ow)
 	else:
 		_release_move()
+		var other := _other_screen(ow)
+		if other or rng.randf() < 0.03:
+			# A screen the driver doesn't know (a new one in the start menu),
+			# or a fade or a crew walking over: mash B or A, as a player would.
+			cooldown = rng.randi_range(5, 40)
+			_press("ui_cancel" if other and rng.randf() < 0.7 else "ui_accept")
+			if other:
+				_log("unknown screen %s: pressing buttons" % other)
+
+
+## A visible full-screen Control on the overworld's UI layer that isn't one
+## of the screens the driver knows: its name, or "".
+func _other_screen(ow: Node) -> String:
+	var known := [ow.get("dialog"), ow.get("menu"), ow.get("party_screen"), ow.get("options_screen"), ow.get("demo_complete"), ow.get("fade")]
+	var ui: Node = (ow.get("dialog") as Node).get_parent()
+	for c: Node in ui.get_children():
+		if c is Control and c.visible and not known.has(c) and c != ow.get("_hud"):
+			return c.name
+	return ""
 
 
 ## Real matches: a bot plays your seat (autoplay) or the driver presses
@@ -333,10 +364,18 @@ func _act_world(ow: Node) -> void:
 ## capped meanwhile instead of spinning.
 func _act_table(_ow: Node, table: Object) -> void:
 	_release_move()
-	Engine.max_fps = 60
+	# Engine.max_fps doesn't hold headless with --fixed-fps: sleep instead,
+	# about a 60 Hz frame (the table's clock is the wall clock anyway).
+	OS.delay_msec(15)
+	table_frames += 1
 	var now := Time.get_ticks_msec()
+	var hand: int = table.get("match_").get("table").get("hand_number")
+	if hand != table_hand:
+		table_hand = hand
+		_log("table: hand %d" % hand)
 	if table != table_seen:
 		table_seen = table
+		in_table = true
 		table_started_ms = now
 		table_sig_ms = now
 		stats["real_matches"] += 1
@@ -783,6 +822,15 @@ func _on_walk_again(ow: Node) -> void:
 			stats["continue_moved"] += 1
 			_log("continue moved you from a taken cell to %s" % state.cell)
 			got = got.replace(_cell_json(state.cell), moved)
+		var saved: Dictionary = JSON.parse_string(want)
+		if (saved.get("party", []) as Array).size() < GameState.PARTY_SIZE:
+			# Saved with the party screen half-way: the load fills the seats.
+			var a := saved.duplicate()
+			var b: Dictionary = JSON.parse_string(got)
+			a.erase("party")
+			b.erase("party")
+			if JSON.stringify(a, "", true) == JSON.stringify(b, "", true):
+				got = want
 		if got != want:
 			_fail("continue_mismatch", "after quit and continue the run isn't as saved:\n  saved:  %s\n  loaded: %s\n  diff: %s"
 				% [_brief(want), _brief(got), _diff(want, got)])
@@ -825,6 +873,16 @@ func _cell_json(cell: Vector2i) -> String:
 	return '"cell":' + JSON.stringify([cell.x, cell.y])
 
 
+func _only_bracelets_added(want: String, got: String) -> bool:
+	var a: Dictionary = JSON.parse_string(want)
+	var b: Dictionary = JSON.parse_string(got)
+	if (b.get("bracelets", []) as Array).size() <= (a.get("bracelets", []) as Array).size():
+		return false
+	a.erase("bracelets")
+	b.erase("bracelets")
+	return JSON.stringify(a, "", true) == JSON.stringify(b, "", true)
+
+
 func _check_match_outcome(state: GameState) -> void:
 	var e := expect
 	if e["won"]:
@@ -865,11 +923,16 @@ func _on_saved() -> void:
 		b.erase("party")
 		if JSON.stringify(a, "", true) == JSON.stringify(b, "", true):
 			got = want
+	if got != want and _only_bracelets_added(want, got):
+		# Saved between beating the Regulars and the bracelet (the window
+		# closed during the win dialog): the load gives the bracelet.
+		_note("bracelet_pending", "saved after beating the Regulars, before the bracelet; the load adds it")
+		got = want
 	if got != want:
 		_fail("save_roundtrip", "the save reads back different:\n  state: %s\n  file:  %s\n  diff: %s" % [_brief(want), _brief(got), _diff(want, got)])
 	if FileAccess.file_exists(path + ".part"):
 		_fail("save_leftover", "a .part file is left after a save")
-	last_saved = want
+	last_saved = _norm(loaded.to_dict())  # what Continue will bring back
 	if start == "continue":
 		# For the kill torture: what this run has saved, so the next run can
 		# check none of it was lost (written after the save, so it can only
@@ -918,6 +981,17 @@ func _check_world(ow: Node) -> void:
 				_fail("followers", "follower %d is a %s, seat %d is a %s" % [i, followers[i].get("sprite_id"), i + 1, party[i].species])
 	if frame % 30 == 0 and _bfs(ow, _warp_cells(m)).is_empty() and m.warp_at(cell).is_empty():
 		_fail("trapped", "no door reachable from %s on %s (bodies at %s)" % [cell, m.id, _live_bodies(ow).keys()])
+	if frame % 30 == 0 and m.id == "town" and not state.bracelets.has("mossbank"):
+		# The hall must stay reachable: crews that walked over to you stand
+		# where they stopped until the map reloads.
+		var hall: Array = []
+		for w: Dictionary in m.warps:
+			if w["to"] == "hall":
+				hall.append(w["cell"])
+		var bodies := str(_live_bodies(ow).keys())
+		if not noted_cutoffs.has(bodies) and _bfs(ow, hall).is_empty() and m.warp_at(cell).is_empty() and cell not in hall:
+			noted_cutoffs[bodies] = true
+			_note("hall_cut_off", "the hall door can't be reached from %s past the crews standing at %s (a door resets them)" % [cell, _live_bodies(ow).keys()])
 
 
 func _warp_cells(m: WorldMap) -> Array:
@@ -1020,6 +1094,8 @@ func _check_slot_on_disk(when: String) -> void:
 	var s := SaveFile.read(path)
 	stats["slot_read"] = s != null
 	_log("slot at %s: save %s, .part %s, reads %s" % [when, main_exists, part_exists, "ok" if s else "NO"])
+	print("[pt] slot at %s: save %s, .part %s (%d bytes), reads %s" % [when, main_exists, part_exists,
+		FileAccess.get_file_as_string(path + ".part").length() if part_exists else 0, "ok" if s else "NO"])
 	if s:
 		_check_state(s, false)
 		var floor_path := path + ".floor"
@@ -1193,6 +1269,8 @@ func _screen(ow: Node) -> String:
 			parts.append(key)
 	if ow.get("table") != null:
 		parts.append("table")
+	if _other_screen(ow):
+		parts.append(_other_screen(ow))
 	return "showing %s, fade %.2f, at %s %s" % [parts, ow.get("fade").color.a, ow.get("map").id, ow.get("player").get("cell")]
 
 
@@ -1235,7 +1313,6 @@ func _finish(why: String) -> void:
 		return
 	done = true
 	_release_move()
-	Engine.max_fps = 0
 	if game and game.state and failures.is_empty() and current_scene and current_scene.scene_file_path == WORLD_SCENE:
 		game.save()  # the window closing saves; the check on it runs in _on_saved
 	if watch.errors:
