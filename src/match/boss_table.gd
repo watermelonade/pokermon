@@ -25,10 +25,14 @@ extends RefCounted
 ##   there to measure the rig against.
 ##
 ##   Tried first: the boss in the seats nearest yours and your teammates
-##   side by side across the table. It looked like boxing you in, but it
-##   helped your crew: bot crews won 51.0% of 3v4 Opens that way against
-##   42.5% with your crew split up (tools/boss_sim.gd, seed 50001, 200
-##   matches each, the same deals), so the rig splits your crew instead.
+##   side by side across the table. On seed 50001 bot crews won 51.0% of
+##   3v4 Opens that way against 42.5% with your crew split up
+##   (tools/boss_sim.gd, 200 matches each, the same deals), so the rig
+##   splits your crew now. But on fresh seeds (50011) the split rig and a
+##   random draw both came out at 48.0%: for bot crews the seat draw hardly
+##   matters, and the 50001 gap was mostly noise. What the rig does is for a
+##   person: the boss's leader acts right after you every hand, and no
+##   teammate sits next to you.
 ## Seat 0 is always you, in both draws: the table and its layout count on it.
 
 ## Shares of the boss crew's chips: the leader holds this many, a goon one.
