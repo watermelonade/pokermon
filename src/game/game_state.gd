@@ -66,13 +66,29 @@ var found_at := {}  ## species id (String) -> where you first met one (for the B
 ## yours (interception: src/crew/code_book.gd). Kept so a rematch remembers.
 var codebook := CodeBook.new()
 
-# --- Demo 2: the opening (docs/DEMO_SPEC.md, "Interfaces fixed up front") ---
-# STUB (demo 2): the world and opening agent fills these in. Until then
-# they do nothing: a new game starts as before, and none of them is saved.
+# --- Demo 2: the opening (docs/DEMO_SPEC.md) ----------------------------------
+# You are a dog. Your owner fell down a manhole in Sootbridge and the four
+# Aces of his deck went with him; the deck you're left holding is short
+# until you find them (pickups around Sootbridge, WorldMap "pickups" and a
+# townsperson's "gives_card"). The deck is a list of the cards held rather
+# than a count of missing ones so a later demo can lose and find other
+# cards (the design's simple card games with the cards you have) with no
+# change to the save. Pickups are recorded by id, not by card, so a card
+# that lies in two places (a later map) can't be taken twice from one.
+#
+# Saves from before demo 2 have no "deck": they're runs past the opening
+# (a full deck, opening_done) with their roster as it was.
 
 ## The cards the dog wakes up without: the four Aces went down the manhole
 ## with its owner (Card.parse format).
 const OPENING_MISSING := ["As", "Ah", "Ad", "Ac"]
+const DECK_SIZE := 52
+## Who joins after your first sit at Mossbank's open table ([species,
+## individual]): the table demo's starters, now met on the road.
+const OPEN_TABLE_CREW := [[&"owl", 0], [&"raccoon", 0]]
+## Their bond when they join: what the starters began with, so the matches
+## after the open table play as they did when the game began with them.
+const OPEN_TABLE_BOND := 0.5
 
 var deck: Array[int] = []  ## the cards you hold (Card ints); a new game holds 48
 var taken_pickups := {}  ## pickup id (String) -> true, once taken
@@ -80,21 +96,29 @@ var opening_done := false  ## past the opening (the deck is complete and you've 
 var met_open_table := false  ## you've sat at Mossbank's open table at least once
 
 
-## A new run: the Owl and the Raccoon from the table demo, standing outside
-## your house in Mossbank.
+## A new run: the dog, alone, waking by the manhole in Sootbridge with its
+## owner's wallet and a deck missing its four Aces. Nobody's in the roster
+## until the open table in Mossbank (join_open_table_crew).
 static func fresh() -> GameState:
 	var s := GameState.new()
-	s.roster = [Species.individual(&"owl", 0, 0.5), Species.individual(&"raccoon", 0, 0.5)]
-	s.party = [0, 1]
 	s.map_id = WorldMap.START_MAP
 	s.cell = WorldMap.START_CELL
 	s.facing = Vector2i.DOWN
 	s.heal_map = WorldMap.HEAL_MAP
 	s.heal_cell = WorldMap.HEAL_CELL
-	for a in s.roster:
-		s.mark_seen(a, "Your crew from the start")
-		s.mark_recruited(a)
+	var missing := opening_missing_cards()
+	for c in DECK_SIZE:
+		if not missing.has(c):
+			s.deck.append(c)
 	return s
+
+
+## OPENING_MISSING as cards.
+static func opening_missing_cards() -> Array[int]:
+	var out: Array[int] = []
+	for c: String in OPENING_MISSING:
+		out.append(Card.parse(c))
+	return out
 
 
 func party_animals() -> Array[Animal]:
@@ -265,38 +289,68 @@ func add_bracelet(id: String) -> void:
 # --- Demo 2: the deck, pickups and the open table's crew -----------------------
 
 ## Adds `card` to the deck if it's missing: true if it was added, false if
-## you already hold it.
-## STUB (demo 2): the world and opening agent fills it in.
-func collect_card(_card: int) -> bool:
-	return false
+## you already hold it (or it isn't a card).
+func collect_card(card: int) -> bool:
+	if card < 0 or card >= DECK_SIZE or deck.has(card):
+		return false
+	deck.append(card)
+	return true
 
 
 ## True exactly when all 52 cards are held.
-## STUB (demo 2): the world and opening agent fills it in.
 func has_full_deck() -> bool:
-	return false
+	return missing_cards().is_empty()
 
 
 ## The cards not in the deck, lowest first.
-## STUB (demo 2): the world and opening agent fills it in.
 func missing_cards() -> Array[int]:
-	return []
+	var out: Array[int] = []
+	for c in DECK_SIZE:
+		if not deck.has(c):
+			out.append(c)
+	return out
 
 
 ## Takes the pickup (or the townsperson's gift) with this id: its card goes
 ## into the deck and the id is recorded, once. Returns the card, or -1 if
-## it's already taken or there's no such pickup.
-## STUB (demo 2): the world and opening agent fills it in.
-func take_pickup(_id: String) -> int:
-	return -1
+## it's already taken or there's no such pickup. A card you already hold
+## (a save from before the opening walking back into Sootbridge) gives
+## nothing, and the spot is marked taken so it isn't drawn again.
+func take_pickup(id: String) -> int:
+	if taken_pickups.has(id):
+		return -1
+	var card := WorldMap.pickup_card(id)
+	if card < 0:
+		return -1
+	taken_pickups[id] = true
+	return card if collect_card(card) else -1
+
+
+## Whether the pickup (or gift) with this id still has a card to give you.
+func pickup_waiting(id: String, card: int) -> bool:
+	return not taken_pickups.has(id) and not deck.has(card)
 
 
 ## After your first sit at the open table: Sage (owl) and Bandit (raccoon)
 ## join the roster and the party. Returns who joined; empty if nobody (a
-## second call, or they're already yours).
-## STUB (demo 2): the world and opening agent fills it in.
+## second call, or they're already yours: an old save had them from the
+## start). Guarded by who's in the roster, not by met_open_table, so the
+## open table can mark the sit first and then call this (the order J-OLD
+## uses).
 func join_open_table_crew() -> Array[Animal]:
-	return []
+	var joined: Array[Animal] = []
+	met_open_table = true
+	for entry: Array in OPEN_TABLE_CREW:
+		var a := Species.individual(entry[0], entry[1], OPEN_TABLE_BOND)
+		if has_animal(a.species, a.name):
+			continue
+		roster.append(a)
+		mark_seen(a, "Mossbank, at the open table")
+		mark_recruited(a)
+		if party.size() < PARTY_SIZE:
+			party.append(roster.size() - 1)
+		joined.append(a)
+	return joined
 
 
 ## Who sits where for TableView.setup: you in seat 0, then teams alternate
@@ -358,6 +412,10 @@ func to_dict() -> Dictionary:
 		"codebook": codebook.to_dict(),
 		"pending_recruit": pending_recruit,
 		"demo_complete_seen": demo_complete_seen,
+		"deck": deck.duplicate(),
+		"taken_pickups": taken_pickups.keys(),
+		"opening_done": opening_done,
+		"met_open_table": met_open_table,
 	}
 
 
@@ -381,10 +439,16 @@ static func from_dict(d: Dictionary) -> GameState:
 		if not moved.has(i):
 			moved[i] = s.roster.size()
 			s.roster.append(a)
-	if s.roster.size() < PARTY_SIZE:
+	# Before demo 2 a save had no deck: it's a run past the opening.
+	var old_save := not d.has("deck")
+	s.met_open_table = bool(d.get("met_open_table", false))
+	if s.roster.size() < PARTY_SIZE and (old_save or s.met_open_table):
 		# Lost animals (a species gone from the catalog, a damaged file):
-		# your starting pair come back, so you never sit down short-handed.
-		for a in fresh().roster:
+		# the pair you started with (or met at the open table) come back,
+		# so you never sit down short-handed. Not before the open table: a
+		# dog alone has an empty roster, and that's no damage.
+		for entry: Array in OPEN_TABLE_CREW:
+			var a := Species.individual(entry[0], entry[1], OPEN_TABLE_BOND)
 			if not s.has_animal(a.species, a.name):
 				s.roster.append(a)
 	s.party.clear()
@@ -442,6 +506,19 @@ static func from_dict(d: Dictionary) -> GameState:
 		if book:
 			s.codebook = book
 	s.pending_recruit = str(d.get("pending_recruit", ""))
+	s.deck.clear()
+	var cards: Variant = d.get("deck")
+	if old_save or not cards is Array:
+		for c in DECK_SIZE:
+			s.deck.append(c)
+	else:
+		for c: Variant in cards:
+			if (c is int or c is float) and int(c) >= 0 and int(c) < DECK_SIZE and not s.deck.has(int(c)):
+				s.deck.append(int(c))
+	var taken: Variant = d.get("taken_pickups", [])
+	for id: Variant in taken if taken is Array else []:
+		s.taken_pickups[str(id)] = true
+	s.opening_done = bool(d.get("opening_done", old_save))
 	# Older saves: a won Open means the end screen was already seen.
 	s.demo_complete_seen = bool(d.get("demo_complete_seen", not s.bracelets.is_empty()))
 	return s

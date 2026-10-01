@@ -16,6 +16,8 @@ const STEP_TIME := 0.16  ## seconds per tile; Pokemon walks about 4 tiles a seco
 ## Placeholder palette per sprite id: body, detail.
 const LOOKS := {
 	"player": [Color("2f6f6a"), Color("f0c8a0")],
+	"dog": [Color("b86f50"), Color("3e2731")],
+	"npc": [Color("be4a2f"), Color("f0c8a0")],
 	"owl": [Color("8a6a48"), Color("e8c35a")],
 	"raccoon": [Color("7d7a86"), Color("2a2830")],
 	"goose": [Color("ece8de"), Color("e8873a")],

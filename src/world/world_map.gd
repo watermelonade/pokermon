@@ -2,8 +2,10 @@ class_name WorldMap
 extends RefCounted
 ## One overworld map: its tiles, written as text so a map can be read and
 ## edited in a diff, plus what stands on it (rival crews, townsfolk, signs,
-## doors). The demo has four: Mossbank and Ridge Road (one long outdoor map,
-## so walking out of town is seamless), and three interiors.
+## doors, and since demo 2 cards lying about and gates). The demo starts in
+## Sootbridge (with its washhouse), takes the Mill Road east, and comes into
+## Mossbank and Ridge Road (one long outdoor map, so walking out of town is
+## seamless) on its west side; Mossbank has three interiors.
 ##
 ## Tiles are 16x16, one character each (legend in TILES). Pure data and
 ## queries, no nodes: line of sight, where a crew walks to meet you and
@@ -19,8 +21,8 @@ extends RefCounted
 ## and third can't be walked around and the other two can, with care.
 
 const TILE := 16
-const START_MAP := "town"
-const START_CELL := Vector2i(17, 7)
+const START_MAP := "sootbridge"
+const START_CELL := Vector2i(12, 5)  ## by the open manhole, where the dog wakes
 const HEAL_MAP := "diner"
 const HEAL_CELL := Vector2i(5, 3)  ## facing the cook across the counter
 
@@ -47,10 +49,161 @@ const TILES := {
 	"b": ["bed", false],
 	"p": ["plant", false],
 	"X": ["mat", true],
+	":": ["cobble", true],
+	"B": ["brick", false],
+	"o": ["manhole", false],
+	"g": ["gate", true],  ## walkable: the overworld refuses it while the deck is short (see gate_at)
+	"x": ["crate", false],
+	"u": ["washtub", false],
+}
+
+## Mossbank's open table (docs/DEMO_SPEC.md W-TABLE): a street game anyone
+## can sit at, one npc entry per player standing round the felt, each
+## carrying this same dictionary (OpenTable.play reads it). Sage and Bandit
+## play here until your first sit, then join you (GameState.OPEN_TABLE_CREW).
+const OPEN_TABLE := {
+	"id": "mossbank_open_table", "buy_in": 100, "dealer": Dealer.Kind.STREET,
+	"players": [[&"owl", 0], [&"raccoon", 0], [&"goose", 3]],
 }
 
 
 const MAPS := {
+	# Demo 2's first town (docs/DEMO_SPEC.md): soot-stained terraces on a
+	# canal, the street where the dog wakes by the open manhole, and the
+	# gate east to the Mill Road. The four Aces are found four ways: one in
+	# the gutter in plain sight, one inside the washhouse, one at the dead
+	# end of the coal yard's alley (behind the crates), one given by Mags.
+	"sootbridge": {
+		"outdoor": true,
+		"rows": [
+			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+			"TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
+			"TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
+			"TTBwBDBBwBBBwBBdBBwBBwBdBwwBdBwBBBBTTTTT",
+			"T:::::::::::::::::::::::::::::::::g::::T",
+			"T:::::::::::::::::::::::::::::::::g::::T",
+			"T:::::::::::o:::::::::::::::::::::BTTTTT",
+			"T:::::::S:::::::::::::::::::::::::BTTTTT",
+			"TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
+			"T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
+			"T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
+			"TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
+			"T::::::::::::::::::;x.............BTTTTT",
+			"T...........:.........xxxxxxxxxxxxBTTTTT",
+			"T..RRRRRR...:..........xx....xx...BTTTTT",
+			"T..RRRRRR...:....,.....xx....xx...BTTTTT",
+			"T..BwBdBB...:.....................BTTTTT",
+			"T...........::::::::::::::::::::..BTTTTT",
+			"T..,,.......:..........xx....xx...BTTTTT",
+			"T..,,...TT..:..........xx....xx...BTTTTT",
+			"T.......TT........................BTTTTT",
+			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+		],
+		"labels": [
+			{"rect": Rect2i(2, 1, 8, 2), "text": "WASHHOUSE"},
+			{"rect": Rect2i(11, 1, 9, 2), "text": "THE LAMP"},
+		],
+		"warps": [
+			{"cell": Vector2i(5, 3), "to": "washhouse", "to_cell": Vector2i(5, 6), "facing": Vector2i.UP},
+			{"cell": Vector2i(38, 4), "to": "mill_road", "to_cell": Vector2i(2, 5), "facing": Vector2i.RIGHT},
+			{"cell": Vector2i(38, 5), "to": "mill_road", "to_cell": Vector2i(2, 6), "facing": Vector2i.RIGHT},
+		],
+		"gates": [
+			{"cells": [Vector2i(34, 4), Vector2i(34, 5)], "requires": "full_deck",
+				"text": "The gate out of town. You can't leave. Not without the Aces."},
+		],
+		"pickups": [
+			{"id": "ace_gutter", "cell": Vector2i(18, 7), "card": 51},  # As: in plain sight
+			{"id": "ace_coal_yard", "cell": Vector2i(33, 12), "card": 48},  # Ac: the alley's dead end
+		],
+		"signs": [
+			{"cell": Vector2i(8, 7), "text": "SOOTBRIDGE. Mind the drains. The council will fix that manhole cover. Soon."},
+		],
+		"npcs": [
+			{"id": "mags", "name": "Mags", "sprite": "possum", "cell": Vector2i(5, 12), "facing": Vector2i.DOWN, "lines": [
+				"Mags. I keep the drains. Don't look at me like that, it's honest work.",
+				"Found this in my grate at dawn. A card. Smells of him. Of the Lamp's beer.",
+				"Here. It's more yours than his, I reckon. Go careful, dog."],
+				"gives_card": {"id": "ace_mags", "card": 50},  # Ah
+				"after": ["The drains run all over town, dog. What goes down comes up somewhere."]},
+			{"id": "ash", "name": "Ash", "sprite": "cat", "cell": Vector2i(17, 4), "facing": Vector2i.DOWN, "lines": [
+				"You're his dog. The one he shouted at. ...He's not shouting now, is he?",
+				"I won't say sorry. I'll say: the coal yard. Something shines behind the crates."]},
+			{"id": "cinder", "name": "Cinder, the sweep", "sprite": "npc_kid", "cell": Vector2i(26, 7), "facing": Vector2i.UP, "lines": [
+				"They're not opening the manhole. Too deep, the constable says. Too late.",
+				"Mum says the drains run under half the town. Even under the washhouse."]},
+		],
+		"crews": [],
+	},
+	"washhouse": {
+		"outdoor": false,
+		"rows": [
+			"WWWWWWWWWWWW",
+			"W_uu_uu_uu_W",
+			"W__________W",
+			"W__________W",
+			"WCCCC______W",
+			"W__________W",
+			"W_______p__W",
+			"W____XX____W",
+			"WWWWWWWWWWWW",
+		],
+		"labels": [],
+		"warps": [
+			{"cell": Vector2i(5, 7), "to": "sootbridge", "to_cell": Vector2i(5, 4), "facing": Vector2i.DOWN},
+			{"cell": Vector2i(6, 7), "to": "sootbridge", "to_cell": Vector2i(5, 4), "facing": Vector2i.DOWN},
+		],
+		"pickups": [
+			{"id": "ace_washhouse", "cell": Vector2i(10, 2), "card": 49},  # Ad: up the floor drain
+		],
+		"signs": [],
+		"npcs": [
+			{"id": "nell", "name": "Nell", "sprite": "npc_cook", "cell": Vector2i(7, 3), "facing": Vector2i.DOWN, "lines": [
+				"Out, dog, I've just mopped. ...Oh. You're his. I heard.",
+				"Something came up my floor drain this morning. A card. It's by the tubs."]},
+		],
+		"crews": [],
+	},
+	# The road between the towns: short, a couple of folk on it, no crews
+	# (the dog has none to play them with yet).
+	"mill_road": {
+		"outdoor": true,
+		"rows": [
+			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+			"TTTTT......TTTTT.....RRRRRR.....TTTTTTTT",
+			"TTT.........,,.......RRRRRR.........TTTT",
+			"TT...;;;.............#w#d#w....S......TT",
+			"TT...;;;..........................,,..TT",
+			"T======================================T",
+			"T======================================T",
+			"TT.........,,,...............;;;.....TTT",
+			"TT....TTT...............,,,.........TTTT",
+			"TTTT....TTTT......TTTTT......TTTT...TTTT",
+			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+		],
+		"labels": [
+			{"rect": Rect2i(21, 1, 6, 2), "text": "OLD MILL"},
+		],
+		"warps": [
+			{"cell": Vector2i(1, 5), "to": "sootbridge", "to_cell": Vector2i(37, 4), "facing": Vector2i.LEFT},
+			{"cell": Vector2i(1, 6), "to": "sootbridge", "to_cell": Vector2i(37, 5), "facing": Vector2i.LEFT},
+			{"cell": Vector2i(38, 5), "to": "town", "to_cell": Vector2i(2, 11), "facing": Vector2i.RIGHT},
+			{"cell": Vector2i(38, 6), "to": "town", "to_cell": Vector2i(2, 12), "facing": Vector2i.RIGHT},
+		],
+		"signs": [
+			{"cell": Vector2i(31, 3), "text": "THE MILL ROAD. West: Sootbridge. East: Mossbank. Mind the geese."},
+		],
+		"npcs": [
+			{"id": "flint", "name": "Flint, a carter", "sprite": "npc", "cell": Vector2i(10, 7), "facing": Vector2i.UP, "lines": [
+				"Sootbridge behind you, Mossbank ahead. Nothing between but the mill and me.",
+				"There's a card table in Mossbank, out on the street. Anyone can sit. Even you."]},
+			{"id": "hedda", "name": "Hedda", "sprite": "npc_badger", "cell": Vector2i(30, 4), "facing": Vector2i.DOWN, "lines": [
+				"The mill's been shut for years. The wheel still turns. Nobody knows why.",
+				"You look like you've had a night. Mossbank's kind to strays. Mostly."]},
+		],
+		"crews": [],
+	},
 	"town": {
 		"outdoor": true,
 		"rows": [
@@ -65,15 +218,15 @@ const MAPS := {
 			"TT.....=,,...,...=....,....=......TT...............==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
 			"TT.....=.........=.....,...=.......................==;;;TTTTTTTTTTT..==..T.TTTTTTTTTTT..#w#wDw#w#.TT",
 			"TT.....=.........=.........=...S...................==;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
-			"TT===================================================;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
-			"TT===================================================...TTTTTTTTTT...==....TTTTTTTTTTT....,.=.,...TT",
+			"T====================================================;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
+			"T====================================================...TTTTTTTTTT...==....TTTTTTTTTTT....,.=.,...TT",
 			"TT........................S...........;;;;;..;;;........TTTTTTTTTT;;.==....TTTTTTTTTTT......=.....TT",
 			"TT....................................;;;;;..;;;........TTTTTTTTTT;;.==..................,..=..,..TT",
 			"TT...~~~~...,,,,,,,...FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.....................=.....TT",
 			"TT..~~~~~~..,,,,,,,...F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.................S...=.....TT",
-			"TT..~~~~~~............F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
-			"TT..~~~~~~............F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
-			"TT...~~~~....,,,,,....F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT................................TT",
+			"TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
+			"TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
+			"TT...~~~~...S,,,,,....F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT................................TT",
 			"TT...........,,,,,....FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT......,,,,....;;;;;.............TT",
 			"TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...,,,,....;;;;;.............TT",
 			"TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
@@ -90,6 +243,8 @@ const MAPS := {
 			{"cell": Vector2i(7, 6), "to": "diner", "to_cell": Vector2i(6, 7), "facing": Vector2i.UP},
 			{"cell": Vector2i(17, 6), "to": "home", "to_cell": Vector2i(4, 6), "facing": Vector2i.UP},
 			{"cell": Vector2i(92, 9), "to": "hall", "to_cell": Vector2i(9, 10), "facing": Vector2i.UP},
+			{"cell": Vector2i(1, 11), "to": "mill_road", "to_cell": Vector2i(37, 5), "facing": Vector2i.LEFT},
+			{"cell": Vector2i(1, 12), "to": "mill_road", "to_cell": Vector2i(37, 6), "facing": Vector2i.LEFT},
 		],
 		"signs": [
 			{"cell": Vector2i(9, 7), "text": "ROSIE'S DINER. Pie, coffee, booths. Lose on the road? You'll wake up here."},
@@ -97,6 +252,7 @@ const MAPS := {
 			{"cell": Vector2i(26, 13), "text": "MOSSBANK. Population 212. Squirrels, please stop counting yourselves twice."},
 			{"cell": Vector2i(27, 6), "text": "SHOP. Closed for the Mossbank Open. The shopkeeper entered. Wish her luck."},
 			{"cell": Vector2i(88, 16), "text": "MOSSBANK TOURNAMENT HALL. Tonight: the Mossbank Open. Dealer: Lou. Lou: asleep."},
+			{"cell": Vector2i(12, 19), "text": "OPEN TABLE. Anyone may sit. $100 buy-in. Leave whenever you like."},
 		],
 		"npcs": [
 			{"id": "bertram", "name": "Old Bertram", "sprite": "npc_badger", "cell": Vector2i(30, 9), "facing": Vector2i.DOWN, "lines": [
@@ -108,6 +264,24 @@ const MAPS := {
 				"Lou the dealer has been asleep since before I was born. Mom says so.",
 				"So in the hall you can signal your crew all you like! Nose! Ear! Hat!",
 				"When I grow up I'm gonna have a crew of nine geese. Nine!"]},
+			{"id": "tally", "name": "Tally, the census", "sprite": "squirrel", "cell": Vector2i(5, 9), "facing": Vector2i.DOWN, "lines": [
+				"Two hundred and twelve! Two hundred and thirteen! Wait. Did I count me?",
+				"A dog! Do dogs count? I'll count you. Two hundred and fourteen!"]},
+			{"id": "dot", "name": "Dot", "sprite": "goose", "cell": Vector2i(20, 14), "facing": Vector2i.LEFT, "lines": [
+				"HONK. THE TABLE BY THE POND IS OPEN TO ALL. EVEN DOGS. ESPECIALLY DOGS.",
+				"THEY NEED A FOURTH. THEY ALWAYS NEED A FOURTH. GO ON. SIT."]},
+			# The open table's players: one entry each, all carrying OPEN_TABLE;
+			# "animal" says which player each one is, so whoever has joined you
+			# stops standing here (the overworld hides them).
+			{"id": "table_sage", "name": "Sage", "sprite": "owl", "cell": Vector2i(13, 17), "facing": Vector2i.RIGHT,
+				"open_table": OPEN_TABLE, "animal": [&"owl", 0], "lines": [
+				"Ah. A dog. Do sit, if you have the buy-in. We play for money, not pats."]},
+			{"id": "table_bandit", "name": "Bandit", "sprite": "raccoon", "cell": Vector2i(16, 18), "facing": Vector2i.LEFT,
+				"open_table": OPEN_TABLE, "animal": [&"raccoon", 0], "lines": [
+				"*psst* fresh chips. i mean, hi. sit down, sit down."]},
+			{"id": "table_waddles", "name": "Waddles", "sprite": "goose", "cell": Vector2i(15, 16), "facing": Vector2i.DOWN,
+				"open_table": OPEN_TABLE, "animal": [&"goose", 3], "lines": [
+				"DEAL THE DOG IN. DEAL EVERYONE IN. THIS IS MY TABLE NOW."]},
 		],
 		"crews": [
 			{"id": "pond_hecklers", "name": "the Pond Hecklers", "cell": Vector2i(44, 8), "facing": Vector2i.DOWN, "sight": 6,
@@ -251,6 +425,8 @@ var signs: Array = []
 var npcs: Array = []
 var crews: Array = []
 var labels: Array = []
+var gates: Array = []
+var _pickups: Array = []
 
 
 static func ids() -> Array:
@@ -272,6 +448,8 @@ static func get_map(map_id: String) -> WorldMap:
 		m.npcs = data["npcs"]
 		m.crews = data["crews"]
 		m.labels = data["labels"]
+		m.gates = data.get("gates", [])
+		m._pickups = data.get("pickups", [])
 		_cache[map_id] = m
 	return _cache[map_id]
 
@@ -326,22 +504,57 @@ func crew_by_id(crew_id: String) -> Dictionary:
 ## "pickups" (all of them; which are taken is the run's business,
 ## GameState.taken_pickups). An Ace a townsperson gives is the npc entry's
 ## "gives_card" instead.
-## STUB (demo 2): the world and opening agent fills it in.
 func pickups() -> Array:
-	return []
+	return _pickups
 
 
-## The gate covering `cell` ({"cells", "requires", "text"}), or {}.
-## STUB (demo 2): the world and opening agent fills it in.
-func gate_at(_cell: Vector2i) -> Dictionary:
+## The pickup lying on `cell` ({"id", "cell", "card"}), or {}.
+func pickup_at(cell: Vector2i) -> Dictionary:
+	for p: Dictionary in _pickups:
+		if p["cell"] == cell:
+			return p
+	return {}
+
+
+## The card behind a pickup id, on any map, a gift's included; -1 if no
+## pickup has that id. Ids are unique across the maps (tests/test_demo_state).
+static func pickup_card(pickup_id: String) -> int:
+	for map_id: String in MAPS:
+		var data: Dictionary = MAPS[map_id]
+		for p: Dictionary in data.get("pickups", []):
+			if p["id"] == pickup_id:
+				return p["card"]
+		for n: Dictionary in data["npcs"]:
+			if n.has("gives_card") and n["gives_card"]["id"] == pickup_id:
+				return n["gives_card"]["card"]
+	return -1
+
+
+## The gate covering `cell` ({"cells", "requires", "text"}), or {}. Gate
+## cells are walkable tiles; whether you may step on one is the run's
+## business (the overworld asks GameState.has_full_deck for "full_deck"),
+## so the map and its paths stay the same whichever way the gate stands.
+func gate_at(cell: Vector2i) -> Dictionary:
+	for g: Dictionary in gates:
+		if (g["cells"] as Array).has(cell):
+			return g
 	return {}
 
 
 ## The townsfolk on this map who sit at an open table: npc entries with an
 ## "open_table" ({"id", "buy_in", "players", "dealer"}).
-## STUB (demo 2): the world and opening agent fills it in.
 func open_tables() -> Array:
-	return []
+	return npcs.filter(func(n: Dictionary) -> bool: return n.has("open_table"))
+
+
+## Whether this townsperson has gone off with you: an open-table player
+## ("animal": [species, individual]) who has joined your roster. They stop
+## standing at home, like a recruit from a crew.
+static func npc_joined(npc: Dictionary, state: GameState) -> bool:
+	if not npc.has("animal") or state == null:
+		return false
+	var a: Array = npc["animal"]
+	return state.has_animal(a[0], Species.individual(a[0], a[1]).name)
 
 
 ## Where a crew stands at home: the leader, then its two shoulders.
@@ -385,7 +598,8 @@ func occupied_cells() -> Dictionary:
 func standing_cells(state: GameState) -> Dictionary:
 	var out := {}
 	for n: Dictionary in npcs:
-		out[n["cell"]] = true
+		if not npc_joined(n, state):
+			out[n["cell"]] = true
 	for c: Dictionary in crews:
 		var cells := crew_cells(c)
 		var animals := crew_animals(c)
@@ -449,10 +663,12 @@ func view_cells(from: Vector2i, facing: Vector2i, distance: int, occupied := {})
 ## The first unbeaten crew that can see `player_cell` from its home spot,
 ## or {}. Other crews and townsfolk block the view; the player's own
 ## followers don't (they walk behind). `party_size` is how many animals
-## sit with you: a dog on its own (0) is nobody a crew would deal in.
-## STUB (demo 2): party_size is ignored until the world and opening agent
-## fills it in; the default (a full party) is how every caller works today.
-func spotter(player_cell: Vector2i, beaten: Dictionary, _party_size := GameState.PARTY_SIZE) -> Dictionary:
+## sit with you: a dog on its own (0) is nobody a crew would deal in, so
+## nobody spots it (docs/DEMO_SPEC.md S-PARTY). The default (a full party)
+## keeps every other caller as it was.
+func spotter(player_cell: Vector2i, beaten: Dictionary, party_size := GameState.PARTY_SIZE) -> Dictionary:
+	if party_size <= 0:
+		return {}
 	var occupied := occupied_cells()
 	for c: Dictionary in crews:
 		if c["sight"] <= 0 or beaten.has(c["id"]):
