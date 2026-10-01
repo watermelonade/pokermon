@@ -15,16 +15,21 @@ extends SceneTree
 ##                            cap (the comparison: "harder than a road crew")
 ##   --boss=5                 a made-up boss crew of this size (3v5, 3v6):
 ##                            the Regulars plus goons from --goons
-##   --goons=CAT,POSSUM       species for the extra goons (default cat, owl,
-##                            possum, cat...)
+##   --goons=cat:3,goose:2    the extra goons (species:index; default as the
+##                            table's --boss=N: Pudding the possum, Pip the owl)
 ##   --dealer=BOUGHT          who's watching (default: the crew's own dealer;
 ##                            BOUGHT looks away from the boss crew)
 ##   --fair                   a fair seat draw instead of the boss's rigged one
 ##   --crews=all              your side: the starters only (default) or a mix
 ##                            of decent crews (see CREWS)
+##   --no-crew-cards          the boss crew doesn't play as one (each member
+##                            on its own cards, PokerBot.knows_crew_cards)
+##   --edge=1.2               the boss crew's chips over yours (BossTable)
 ##   --no-interception        nobody reads anybody's signals
 ##   --shares=2               the leader's chips in goon shares (BossTable)
 ##   --chips=1000             your seats' chips (the Open's)
+##   --members=cat:3,owl:2  the boss crew's animals instead (species:index,
+##                            leader first), for trying other line-ups
 ##   --boss-bond=0.9          the boss crew's bond (how well they read each
 ##                            other; default the crew's own)
 ##
@@ -44,7 +49,9 @@ const CREWS := {
 	"owl+cat": [&"owl", &"cat"],
 }
 const ROAD := ["pond_hecklers", "alley_cats", "nut_club", "night_shift"]
-const DEFAULT_GOONS := [&"cat", &"owl", &"possum", &"cat", &"owl"]
+## Extra goons past the Regulars' four, as the table's --boss=N seats them
+## (TableView.boss_setup): Pudding, then Pip.
+const DEFAULT_GOONS := [[&"possum", 2], [&"owl", 3]]
 
 var dealer := -1
 var rigged := true
@@ -54,6 +61,9 @@ var chips := 1000
 var boss_size := 0
 var goons: Array = DEFAULT_GOONS
 var boss_bond := -1.0
+var members: Array = []
+var edge := BossTable.CHIP_EDGE
+var crew_cards := true
 
 
 func _init() -> void:
@@ -68,17 +78,24 @@ func _init() -> void:
 		elif arg.begins_with("--goons="):
 			goons = []
 			for g in arg.get_slice("=", 1).split(","):
-				goons.append(StringName(g.to_lower()))
+				goons.append([StringName(g.get_slice(":", 0)), int(g.get_slice(":", 1))])
 		elif arg.begins_with("--dealer="):
 			dealer = Dealer.Kind.keys().find(arg.get_slice("=", 1))
 		elif arg == "--fair":
 			rigged = false
+		elif arg == "--no-crew-cards":
+			crew_cards = false
+		elif arg.begins_with("--edge="):
+			edge = float(arg.get_slice("=", 1))
 		elif arg == "--no-interception":
 			interception = false
 		elif arg.begins_with("--crews="):
 			crews = CREWS.keys() if arg.get_slice("=", 1) == "all" else Array(arg.get_slice("=", 1).split(","))
 		elif arg.begins_with("--shares="):
 			shares = int(arg.get_slice("=", 1))
+		elif arg.begins_with("--members="):
+			for m in arg.get_slice("=", 1).split(","):
+				members.append([StringName(m.get_slice(":", 0)), int(m.get_slice(":", 1))])
 		elif arg.begins_with("--boss-bond="):
 			boss_bond = float(arg.get_slice("=", 1))
 		elif arg.begins_with("--chips="):
@@ -89,10 +106,10 @@ func _init() -> void:
 	var seed_value := int(args[1]) if args.size() > 1 else 1
 	var started := Time.get_ticks_msec()
 	var opponents: Array = ROAD if vs == "road" else [vs]
-	print("%d matches per crew, seed %d, %s, dealer %s, %s draw, interception %s, leader %d shares, %d chips" % [
+	print("%d matches per crew, seed %d, %s, dealer %s, %s draw, interception %s, leader %d shares, edge %.2f, %d chips" % [
 		matches, seed_value, "road crews (3v3)" if vs == "road" else vs + (" at 3v%d" % boss_size if boss_size else ""),
 		"(each crew's own)" if dealer < 0 else Dealer.Kind.keys()[dealer], "rigged" if rigged else "fair",
-		"on" if interception else "off", shares, chips])
+		"on" if interception else "off", shares, edge, chips])
 	var all := _tally()
 	for crew_name: String in crews:
 		var t := _tally()
@@ -114,15 +131,17 @@ func _crew(id: String) -> Dictionary:
 		for c: Dictionary in WorldMap.get_map(map_id).crews:
 			if c["id"] == id:
 				var out := c.duplicate()
+				if members and c.has("bracelet"):
+					out["members"] = members
 				if boss_bond >= 0.0 and c.has("bracelet"):
 					out["bond"] = boss_bond
 				if boss_size and c.has("bracelet"):
-					var members: Array = c["members"].duplicate()
+					var line_up: Array = c["members"].duplicate()
 					var k := 0
-					while members.size() < boss_size:
-						members.append([goons[k % goons.size()], 3 - k / goons.size()])
+					while line_up.size() < boss_size:
+						line_up.append(goons[k % goons.size()])
 						k += 1
-					out["members"] = members
+					out["members"] = line_up
 				return out
 	push_error("no crew %s" % id)
 	quit(1)
@@ -152,7 +171,7 @@ func _play(seed_value: int, mates: Array, crew: Dictionary, road: bool, t: Dicti
 			them["team"] = 1
 			setup.append(them)
 	else:
-		setup = BossTable.setup(mine, rivals, chips, rigged, crew["id"], shares)
+		setup = BossTable.setup(mine, rivals, chips, rigged, crew["id"], shares, edge)
 	var m := TeamMatch.new(seed_value)
 	var kind: int = crew["dealer"] if dealer < 0 else dealer
 	m.heat.dealer = Dealer.preset(kind as Dealer.Kind, 1)
@@ -160,8 +179,12 @@ func _play(seed_value: int, mates: Array, crew: Dictionary, road: bool, t: Dicti
 		var animal: Animal = setup[i]["animal"]
 		var bot := animal.make_bot(seed_value + i * 7919) if animal else PokerBot.new(PlayStyle.preset(K.SHARK), seed_value + i * 7919)
 		m.add_player(setup[i]["name"], setup[i]["team"], setup[i].get("chips", chips), bot)
+	for i in setup.size():
 		if setup[i].get("leader", false):
-			m.leaders[1] = i
+			m.set_leader(1, i)
+	if not crew_cards:
+		for bot in m.bots:
+			bot.knows_crew_cards = false
 	m.max_hands = 400
 	if interception:
 		m.interception.enable_for_table(setup, 0)

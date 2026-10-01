@@ -28,13 +28,20 @@ extends RefCounted
 
 ## Shares of the boss crew's chips: the leader holds this many, a goon one.
 const LEADER_SHARES := 2
+## The boss crew's chips over yours: 1.0, the same total, as designed.
+## It's a knob, measured with tools/boss_sim.gd --edge (your five test
+## crews against the Regulars, bot vs bot): at 1.4 your crews won 48.0%
+## against 51.0% at 1.0 (seed 50001, 200 matches each: inside the noise);
+## at 1.5, 37% against 51% (seed 10, 150 each). Chips move a boss table
+## less than who's playing: see README, "Boss tables".
+const CHIP_EDGE := 1.0
 
 
 ## Starting chips for the boss crew, leader first: `boss` seats sharing
 ## `mine` x `base` chips (see the top). `shares`: the leader's stack in
 ## goon stacks (tools/boss_sim.gd --shares tries others).
-static func stacks(mine: int, boss: int, base: int, shares := LEADER_SHARES) -> Array[int]:
-	var total := mine * base
+static func stacks(mine: int, boss: int, base: int, shares := LEADER_SHARES, edge := CHIP_EDGE) -> Array[int]:
+	var total := roundi(mine * base * edge)
 	var goon := total / (boss - 1 + shares)
 	var out: Array[int] = [total - goon * (boss - 1)]
 	for _i in boss - 1:
@@ -84,8 +91,8 @@ static func seat_order(mine: int, boss: int, rigged := true) -> Array[Vector2i]:
 ## its team, its starting `chips` (yours: `base`; the boss crew's: stacks())
 ## and the leader is marked `"leader": true`. `crew_id` names the boss crew
 ## for interception's code book, as in GameState.table_setup.
-static func setup(mine: Array[Dictionary], boss: Array[Dictionary], base: int, rigged := true, crew_id := "", shares := LEADER_SHARES) -> Array[Dictionary]:
-	var chips := stacks(mine.size(), boss.size(), base, shares)
+static func setup(mine: Array[Dictionary], boss: Array[Dictionary], base: int, rigged := true, crew_id := "", shares := LEADER_SHARES, edge := CHIP_EDGE) -> Array[Dictionary]:
+	var chips := stacks(mine.size(), boss.size(), base, shares, edge)
 	var out: Array[Dictionary] = []
 	for slot in seat_order(mine.size(), boss.size(), rigged):
 		var seat: Dictionary
