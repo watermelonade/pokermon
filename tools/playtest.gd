@@ -396,6 +396,18 @@ func _act_table(_ow: Node, table: Object) -> void:
 	if table.call("is_waiting_to_continue"):
 		_press("ui_accept")
 		return
+	# Rosie's lessons (the tutorial): her text box holds the table until A,
+	# and some lines wait for a signal (A has her do it). Mostly A, now and
+	# then a signal, rarely Start (the skip question, answered next time).
+	if table.has_method("_coach_holding") and table.call("_coach_holding"):
+		var c := rng.randf()
+		if c < 0.85:
+			_press("ui_accept")
+		elif c < 0.97:
+			_press("signal_%d" % rng.randi_range(1, 4))
+		else:
+			_press("menu")
+		return
 	var flow: int = table.get("_flow")
 	if flow == FLOW_HAND_DONE and rng.randf() < 0.7:
 		_press("ui_accept")
