@@ -60,10 +60,12 @@ const TILES := {
 ## Mossbank's open table (docs/DEMO_SPEC.md W-TABLE): a street game anyone
 ## can sit at, one npc entry per player standing round the felt, each
 ## carrying this same dictionary (OpenTable.play reads it). Sage and Bandit
-## play here until your first sit, then join you (GameState.OPEN_TABLE_CREW).
+## play here until your first sit, then join you (GameState.OPEN_TABLE_CREW);
+## five players so the three left after that still make a game (CashMatch
+## wants two rivals at least).
 const OPEN_TABLE := {
 	"id": "mossbank_open_table", "buy_in": 100, "dealer": Dealer.Kind.STREET,
-	"players": [[&"owl", 0], [&"raccoon", 0], [&"goose", 3]],
+	"players": [[&"owl", 0], [&"raccoon", 0], [&"goose", 3], [&"possum", 2], [&"cat", 3]],
 }
 
 
@@ -282,6 +284,12 @@ const MAPS := {
 			{"id": "table_waddles", "name": "Waddles", "sprite": "goose", "cell": Vector2i(15, 16), "facing": Vector2i.DOWN,
 				"open_table": OPEN_TABLE, "animal": [&"goose", 3], "lines": [
 				"DEAL THE DOG IN. DEAL EVERYONE IN. THIS IS MY TABLE NOW."]},
+			{"id": "table_pudding", "name": "Pudding", "sprite": "possum", "cell": Vector2i(13, 18), "facing": Vector2i.RIGHT,
+				"open_table": OPEN_TABLE, "animal": [&"possum", 2], "lines": [
+				"Sit, if you like. I play slow. If I lose, I lie down for a bit. It's fine."]},
+			{"id": "table_mittens", "name": "Mittens", "sprite": "cat", "cell": Vector2i(14, 19), "facing": Vector2i.UP,
+				"open_table": OPEN_TABLE, "animal": [&"cat", 3], "lines": [
+				"A dog at the table. How novel. Do try not to drool on the felt."]},
 		],
 		"crews": [
 			{"id": "pond_hecklers", "name": "the Pond Hecklers", "cell": Vector2i(44, 8), "facing": Vector2i.DOWN, "sight": 6,

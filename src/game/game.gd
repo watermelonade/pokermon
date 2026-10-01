@@ -17,6 +17,7 @@ extends Node
 ##   --choice=N            ...picking option N in menus (default 0)
 ##   --match-result=win|lose   skip the poker table, as if it ended so
 ##   --chips=N             starting chips at real tables (shorter matches)
+##   --cash-hands=N        at the open table, an --autoplay seat leaves after N hands
 ##   --walk=R12U3A         scripted input: a direction (U D L R) and steps,
 ##                         A to press confirm, M for the menu, W to wait
 ##   --at=map,x,y          start there; --beaten=all or id,id; --money=N;
