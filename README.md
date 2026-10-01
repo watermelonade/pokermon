@@ -40,7 +40,18 @@ crew will deal you in again. Two of the crews block the road; the other
 two can be walked around. In the hall, talk to the Mossbank Regulars to
 play the Open (the dealer's asleep); winning gives you the first bracelet
 and the demo-complete screen. Start (or Tab) opens the menu: Crew (pick
-which two animals sit with you), Save, Options (text speed, volume).
+which two animals sit with you), Binder, Save, Options (text speed, volume).
+
+The Binder is the collection: 25 card pockets on one page (the demo's six
+species, 18 locked "???" slots for the full game, and a dog silhouette that
+"won't sit at your table... yet"). A species you've only sat across from
+shows greyed, with its style, where you met it and which of its four named
+animals you've met; once one joins, the card is in colour and its back
+fills in (tell, favourite snack, your animals' bond). The counter is
+species recruited of 25. Bond grows each match an animal sits with you
+(+0.05, or +0.1 for a win, capped at 1.0; "Sage's bond grew!" after the
+match), and bond is how often it reads your signals right: 60% at a
+recruit's 0.2, every time at 1.0.
 
 The look and feel is a handheld RPG of the Game Boy Advance era: grid
 steps with a walk cycle, a "!" when a crew spots you, a bordered text box
@@ -60,7 +71,7 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 | Walk | arrows or WASD | D-pad or left stick |
 | Talk, read, confirm | Enter / Space | A |
 | Back | Esc | B |
-| Menu (Crew, Save, Options) | Tab / Esc | Start |
+| Menu (Crew, Binder, Save, Options) | Tab / Esc | Start |
 
 | Table | Keyboard | Controller / Steam Deck |
 | --- | --- | --- |
@@ -93,7 +104,7 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-106 tests, about 15 seconds. They cover hand ranking, equity against known odds
+118 tests, about 15 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -106,7 +117,11 @@ and bodies), the walk-up path, that two crews can't be snuck past and two
 can, and that beaten crews don't block the road; and for the run: seating
 for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
-including damaged and missing saves; and that missing art falls back to
+including damaged and missing saves; the Binder's record (who you've met
+and recruited, per individual, where you first met each species), a save
+from before the Binder existed loading with it rebuilt from the roster and
+beaten crews, the Binder's slots and completion count, and bond growth
+(seated animals only, more for a win, capped, read by the bots); and that missing art falls back to
 placeholders and a sprite sheet is cut into walk frames and facings.
 
 Then the randomized ones (`tests/test_table_fuzz.gd`). `tests/table_fuzzer.gd`
@@ -155,7 +170,7 @@ xvfb-run godot --path . --rendering-driver opengl3 -- --save-slot=dev --new --sk
 
 Drop `--match-result` and add `--autoplay --chips=60` to play the real
 table with a bot in your seat (a few minutes). `--show=party`,
-`--show=start`, `--show=options`, `--show=demo_complete`, `--recruit=cat:1`, `--beaten=all` and
+`--show=start`, `--show=binder` (with `--binder-at=N`), `--show=options`, `--show=demo_complete`, `--recruit=cat:1`, `--beaten=all` and
 `--money=` jump to a state; any dev flag also prints what happens
 (encounters, results, saves) to the terminal.
 
@@ -319,6 +334,10 @@ controller.
 the intro, a crew's "!" and walk-up, its dialogue, the recruit menu after a
 win (the save then has the money, the crew beaten and the recruit), a
 blackout waking at the diner with half the money, the party screen, the
+Binder (recruited, seen, unseen, locked and dog slots; after a scripted
+road game the save has the crew's animals seen, "Ridge Road, with the Pond
+Hecklers" as where, and both seated animals' bond at 0.6 from 0.5, with
+"Sage and Bandit's bonds grew!" on screen), the
 tournament hall, the Open at the embedded table with the asleep dealer, and
 the demo-complete screen. Two runs played real matches at the embedded
 table end to end (a bot in your seat, 60 chips each, each under three
@@ -410,6 +429,7 @@ the Deck's screen.
 | `src/world/critter.gd` | Anyone walking around; placeholder animals drawn from rectangles |
 | `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |
 | `src/world/dialog_box.gd`, `choice_menu.gd`, `party_screen.gd`, `options_screen.gd`, `demo_complete.gd`, `ui_kit.gd` | The overworld's screens (text box, Start menu, crew, options, the end) and their shared look |
+| `src/world/binder.gd`, `binder_screen.gd`, `pocket_art.gd` | The Binder: what each slot shows and the completion count (headless), the screen, and the hearts and greyed/silhouette portraits it shares with the crew screen |
 | `src/game/settings.gd` | Text speed and volume, in `user://settings.cfg`, apart from the save |
 | `src/ui/sprites.gd` | Loads the art by name (species, portraits, tiles, walk animations); null when a file is missing |
 | `assets/` | Placeholder art and its palette, generated from the text grids in `assets/src/` (see assets/README.md) |
