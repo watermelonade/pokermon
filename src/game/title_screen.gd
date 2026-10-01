@@ -9,7 +9,10 @@ extends Control
 ## Dev flags: --new or --continue skip straight to the overworld (see
 ## src/game/game.gd for the rest).
 
-var _options: Array[String] = []
+## Untyped on purpose: _draw picks between this and the confirmation's
+## literal with a ternary, and an Array[String] there made every frame of
+## "Start over?" a script error, so the question never showed.
+var _options: Array = []
 var _cursor := 0
 var _confirming := false
 var _t := 0.0
