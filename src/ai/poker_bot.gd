@@ -14,6 +14,15 @@ extends RefCounted
 ## bluffing as often as its `persistence` allows. Those two are what make
 ## the type chart's cycle work: see PlayStyle.
 ##
+## Interception (when the match has it on): what its crew has noticed and
+## understood of the other crew's signals this hand nudges it. Facing a bet
+## from a seat that said "I'm strong" it reads its equity down 15% more, from
+## one that said "I'm weak" 15% less, and a pot where an opponent said "I'm
+## weak" (and nobody "strong") gets bluffed more; the sizes are
+## Interception's constants. With it off, none of that
+## code runs, so decisions and random draws are exactly as before (the
+## type chart depends on it; tests/test_interception.gd holds a golden log).
+##
 ## The goal is readable, beatable characters, not strong poker; each style
 ## is an exaggeration so players can learn to spot it.
 
@@ -21,6 +30,7 @@ var style: PlayStyle
 var bond := 0.5  ## how well this animal reads its teammates' signals, 0..1
 var table_reads: TableReads  ## set by TeamMatch; null = no history to read
 var heat: Heat  ## set by TeamMatch; null = nobody watching
+var interception: Interception  ## set by TeamMatch; read only while enabled
 var equity_iterations := 120
 var rng := RandomNumberGenerator.new()
 var _signalled_street := -1
@@ -58,6 +68,9 @@ func decide(table: HoldemTable, me: int, talk: TableTalk) -> Dictionary:
 
 	var others := opponents + teammates.size()
 	var equity := Equity.estimate(seat.hole, table.board, others, equity_iterations, rng)
+	var heard := {}  ## seat -> meanings this crew intercepted and understood
+	if interception and interception.enabled:
+		heard = interception.readings(seat.team)
 
 	# Facing a real bet (not just the blinds), equity is read down by how much
 	# this style respects aggression: a pot-sized bet means "they have it".
@@ -71,6 +84,13 @@ func decide(table: HoldemTable, me: int, talk: TableTalk) -> Dictionary:
 		var respect := style.respect * (1.0 - style.reads * _relentlessness(table, me))
 		equity *= 1.0 - respect * pressure * 0.5
 		strong_equity *= 1.0 - respect * style.doubt * pressure * 0.5
+		var bettor_said := _bettor_said(table, me, heard) if heard else -1
+		if bettor_said >= 0:
+			# The bettor told its crew it's strong (believe the bet more) or
+			# weak (less): equity moves by READ_WEIGHT either way.
+			var shift := Interception.READ_WEIGHT * (1.0 if bettor_said == TableTalk.Sig.STRONG else -1.0)
+			equity *= 1.0 - shift
+			strong_equity *= 1.0 - shift * style.doubt
 	var strength := equity * (others + 1)  # 1.0 = exactly a fair share
 	var value := strong_equity * (others + 1) >= style.tightness * 1.5
 	var playable := strength >= style.tightness
@@ -103,6 +123,8 @@ func decide(table: HoldemTable, me: int, talk: TableTalk) -> Dictionary:
 	# style only keeps bluffing as often as its persistence allows.
 	var resisted := facing_bet or _bluffing_hand == table.hand_number
 	var bluff_chance := style.bluff_rate * (style.persistence if resisted else 1.0)
+	if heard and _weak_pot(table, heard):
+		bluff_chance = minf(1.0, bluff_chance + Interception.WEAK_BLUFF)
 	if legal["can_raise"] and rng.randf() < bluff_chance:
 		var bluff := _raise(table, legal)
 		var risked: int = bluff["amount"] - seat.street_bet
@@ -131,6 +153,39 @@ func _relentlessness(table: HoldemTable, me: int) -> float:
 	if bettor < 0:
 		return 0.0
 	return clampf((table_reads.reraise_rate(bettor) - 0.15) / 0.35, 0.0, 1.0)
+
+
+## What the seat that made the bet we face said, as far as this crew could
+## tell: TableTalk.Sig.STRONG (also for "let me have it"), WEAK, or -1.
+func _bettor_said(table: HoldemTable, me: int, heard: Dictionary) -> int:
+	for i in table.seats.size():
+		if i != me and table.seats[i].live() and table.seats[i].street_bet == table.current_bet and heard.has(i):
+			return _gist(heard[i])
+	return -1
+
+
+## True when an opponent still in the pot said "I'm weak" and none said strong.
+func _weak_pot(table: HoldemTable, heard: Dictionary) -> bool:
+	var weak := false
+	for i: int in heard:
+		if not table.seats[i].live():
+			continue
+		var gist := _gist(heard[i])
+		if gist == TableTalk.Sig.STRONG:
+			return false
+		weak = weak or gist == TableTalk.Sig.WEAK
+	return weak
+
+
+## The latest strong-or-weak thing a seat said this hand, or -1.
+func _gist(meanings: Array) -> int:
+	for k in range(meanings.size() - 1, -1, -1):
+		match meanings[k]:
+			TableTalk.Sig.STRONG, TableTalk.Sig.BACK_OFF:
+				return TableTalk.Sig.STRONG
+			TableTalk.Sig.WEAK:
+				return TableTalk.Sig.WEAK
+	return -1
 
 
 func _maybe_signal(table: HoldemTable, me: int, talk: TableTalk, value: bool, strength: float, teammates: Array[int]) -> void:

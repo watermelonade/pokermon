@@ -18,6 +18,11 @@ extends SceneTree
 ##                        {"ROCK": {"tightness": 1.5}, "SHARK": {...}}
 ##   --dealer=STRICT      who's watching (default STREET: nobody, which is
 ##                        what the styles were tuned under); see Dealer
+##   --interception       both crews notice and learn each other's signals
+##                        (src/crew/interception.gd; off by default, as in
+##                        tuning); also prints how often signals were noticed
+##                        and codes learned. Without the flag the output is
+##                        identical to before interception existed.
 
 const K := PlayStyle.Kind
 const CYCLE := [K.BLUFFER, K.ROCK, K.MANIAC, K.SHARK, K.CALLING_STATION]
@@ -26,6 +31,8 @@ const CYCLE := [K.BLUFFER, K.ROCK, K.MANIAC, K.SHARK, K.CALLING_STATION]
 var overrides := {}
 var iterations := 0
 var dealer := Dealer.Kind.STREET
+var interception := false
+var intercept_totals := {}  ## stat -> total over all matches (with --interception)
 
 
 func _init() -> void:
@@ -43,6 +50,8 @@ func _init() -> void:
 			cycle_only = true
 		elif arg.begins_with("--dealer="):
 			dealer = Dealer.Kind.keys().find(arg.get_slice("=", 1)) as Dealer.Kind
+		elif arg == "--interception":
+			interception = true
 		elif arg.begins_with("--iterations="):
 			iterations = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--styles="):
@@ -73,6 +82,8 @@ func _init() -> void:
 				var m := _match(seed_value * 100003 + i * 1009 + j * 101 + k, a, b)
 				var w := m.run_to_end()
 				total_hands += m.table.hand_number
+				for stat: String in m.interception.stats:
+					intercept_totals[stat] = intercept_totals.get(stat, 0) + m.interception.stats[stat]
 				played += 1
 				var i_team := 1 if swap else 0
 				if w == i_team:
@@ -108,6 +119,10 @@ func _print_cycle(wins: Array, matches: int, total_hands: int, played: int, star
 			continue
 		print("  %-16s beats %-16s %3d%%" % [PlayStyle.KIND_NAMES[CYCLE[i]], PlayStyle.KIND_NAMES[CYCLE[j]], roundi(100.0 * wins[i][j] / matches)])
 	print("\n%d matches, %.0f hands per match, %.1fs" % [played, float(total_hands) / played, (Time.get_ticks_msec() - started) / 1000.0])
+	if interception:
+		var signals: int = intercept_totals.get("signals", 0)
+		print("Interception: %d signals, %.1f%% noticed by the other crew, %.1f gestures learned per match" % [
+			signals, 100.0 * intercept_totals.get("noticed", 0) / maxi(signals, 1), float(intercept_totals.get("learned", 0)) / played])
 
 
 func _style(kind: int) -> PlayStyle:
@@ -128,4 +143,6 @@ func _match(seed_value: int, team0: int, team1: int) -> TeamMatch:
 			bot.equity_iterations = iterations
 		m.add_player("P%d" % seat, seat % 2, 1000, bot)
 	m.max_hands = 300
+	if interception:
+		m.interception.enable_for_bots(m.bots)
 	return m
