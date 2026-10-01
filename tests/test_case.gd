@@ -16,6 +16,24 @@ func expect_errors(count: int) -> void:
 	expected_errors += count
 
 
+## Test names (method names, e.g. test_S_DECK_collect_adds_once) listed in
+## tests/expected_red.txt, one per line, `#` starting a comment: tests
+## written before the feature they check (docs/DEMO_SPEC.md is built test
+## first). Both runners (this one's and tests/scene_runner.gd) report them as
+## "red (expected)" without failing the run while they fail on a check, and
+## fail the run if one passes (whoever turns it green deletes its line) or
+## breaks instead (a script error, a timeout: that's not red, that's broken).
+static func expected_red(path := "res://tests/expected_red.txt") -> Dictionary:
+	var out := {}
+	if not FileAccess.file_exists(path):
+		return out
+	for line in FileAccess.get_file_as_string(path).split("\n"):
+		var name := line.get_slice("#", 0).strip_edges()
+		if name:
+			out[name] = true
+	return out
+
+
 func check(condition: bool, message := "") -> bool:
 	if not condition:
 		failures.append("%s: %s" % [_current, message if message else "check failed"])

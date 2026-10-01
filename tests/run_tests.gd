@@ -10,6 +10,10 @@ extends SceneTree
 ## null and carries on, which would let a crashing test "pass". So the runner
 ## installs a Logger and fails any test during which an error is logged, and
 ## fails the run if a test file doesn't compile.
+##
+## Tests listed in tests/expected_red.txt (written ahead of their feature,
+## see TestCase.expected_red) print as "red" and don't fail the run while
+## they fail on a check; one that passes, or fails by a script error, does.
 
 
 class ErrorCounter:
@@ -30,6 +34,8 @@ func _init() -> void:
 		only = args[0]
 	var total := 0
 	var failed: Array[String] = []
+	var expected := TestCase.expected_red()
+	var red: Array[String] = []
 	var started := Time.get_ticks_msec()
 	for file in DirAccess.get_files_at("res://tests"):
 		if not (file.begins_with("test_") and file.ends_with(".gd")) or file == "test_case.gd":
@@ -52,14 +58,29 @@ func _init() -> void:
 			case.call(test_name)
 			total += 1
 			var logged := errors.count - before
-			if logged != case.expected_errors:
+			var broken := logged != case.expected_errors
+			if broken:
 				case.failures.append("%s: %d script error(s), expected %d, see log above" % [case._current, logged, case.expected_errors])
-			if case.failures:
+			if expected.has(test_name):
+				if case.failures.is_empty():
+					failed.append("%s: listed in tests/expected_red.txt but passes now: delete its line" % case._current)
+					print("FAIL ", case._current, " (expected red, but it passes)")
+				elif broken:
+					failed.append_array(case.failures)
+					print("FAIL ", case._current, " (expected red, but broken: script errors)")
+				else:
+					red.append(case.failures[0])
+					print("red  ", case._current)
+			elif case.failures:
 				failed.append_array(case.failures)
 				print("FAIL ", case._current)
 			else:
 				print("ok   ", case._current)
-	print("\n%d tests, %d failures, %.1fs" % [total, failed.size(), (Time.get_ticks_msec() - started) / 1000.0])
+	print("\n%d tests, %d failures, %d red (expected), %.1fs" % [total, failed.size(), red.size(), (Time.get_ticks_msec() - started) / 1000.0])
+	if red:
+		print("red (expected, tests/expected_red.txt), first failure each:")
+		for r in red:
+			print("  ", r)
 	for f in failed:
 		printerr("  ", f)
 	quit(1 if failed or total == 0 else 0)

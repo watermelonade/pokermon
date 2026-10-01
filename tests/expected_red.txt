@@ -1,0 +1,29 @@
+# Tests written before their feature (docs/DEMO_SPEC.md: demo 2 is built
+# test first). Both runners (tests/run_tests.gd, tests/scene_tests.tscn)
+# print these as "red" and don't fail the run while they fail on a check;
+# they fail the run if one passes or breaks (a script error, a timeout).
+# Whoever turns a test green deletes its line in the same commit.
+
+# S: state and rules (tests/test_demo_state.gd, tests/test_cash_match.gd)
+test_S_NEW_fresh_game_is_the_dog_alone_in_sootbridge
+test_S_DECK_collect_adds_once_and_completes_at_52
+test_S_PICK_each_pickup_gives_its_card_once
+test_S_SAVE_deck_pickups_and_progress_round_trip
+test_S_OLD_pre_demo_save_loads_past_the_opening
+test_S_JOIN_open_table_crew_joins_once
+test_S_PARTY_crews_never_spot_a_dog_alone
+test_S_CASH_seats_you_and_two_to_five_others_each_on_their_own
+test_S_CASH_busted_rival_leaves_the_table
+test_S_CASH_over_when_you_bust
+test_S_CASH_over_when_you_hold_every_chip
+test_S_CASH_leave_only_between_hands_with_your_stack
+test_S_CASH_every_hand_conserves_chips
+test_S_BUYIN_money_after_is_money_before_minus_buy_in_plus_stack
+
+# W: the world (tests/test_demo_world.gd)
+test_W_MAPS_new_maps_exist_and_are_well_formed
+test_W_LINK_mossbank_reachable_only_through_the_open_gate
+test_W_ACES_four_aces_found_four_ways_in_sootbridge
+test_W_GATE_sootbridge_exit_needs_a_full_deck
+test_W_NPCS_townsfolk_everywhere_none_in_the_way
+test_W_TABLE_mossbank_open_table_reachable_from_the_mill_road
