@@ -1,0 +1,7 @@
+# Godot's import cache and editor state: regenerated from the project.
+.godot/
+# Exported builds and Steam upload staging.
+/build/
+# Holds signing/keystore passwords if export presets ever use them.
+export_credentials.cfg
+*.tmp
