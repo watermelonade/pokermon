@@ -16,10 +16,20 @@ art exists.
 ## Running and testing
 
 ```
+tools/test.sh quick                               # unit + compile: before every commit (~20s)
+tools/test.sh full                                # + pad, scene tests, the type chart: "done" (~1 min)
+tools/test.sh unit scene -k S_DECK                # one outcome's tests (also: pad, journey, chart, soak)
 godot --headless --path . --import                # after adding or renaming a class_name script
-godot --headless --path . -s tests/run_tests.gd   # all tests, ~2s
+godot --headless --path . -s tests/run_tests.gd   # the unit tests alone
 godot --headless --path . -s tools/simulate.gd -- 40 7   # play-style balance
 ```
+
+`tools/test.sh` (GODOT=path, default `godot`) lists every tier at its top;
+README.md "Tests" has them all, the scene tests (the real game from the
+title, driven by pad events: `tests/scene/`, `tests/scene_test_case.gd`)
+and `tests/expected_red.txt`: tests written before their feature
+(docs/DEMO_SPEC.md) report "red" without failing the run, and fail it once
+they pass, so whoever makes one pass deletes its line.
 
 - New `class_name` scripts aren't visible to other scripts until the import
   above refreshes the class cache: "Identifier not declared" usually means

@@ -144,6 +144,96 @@ So the two build agents can work at the same time, these names are fixed
   the table honors `Game.dev_args.has("autoplay")` (a bot plays your seat),
   and `match-result` already goes through `Game.dev()`.
 
+## Test decisions
+
+Where the outcomes above left something open that a test had to pin
+down, the tests (written first) decided the smallest reasonable thing.
+Changing one means changing it here, then the test.
+
+Interfaces added or narrowed:
+
+- **S-PARTY** can't check "never asked" from a unit test, so `spotter`
+  takes the party's size: `WorldMap.spotter(cell, beaten, party_size :=
+  GameState.PARTY_SIZE)`, and returns `{}` for 0. The overworld passes
+  `state.party.size()`. (The default keeps every caller as it is today.)
+- **S-NEW**: `WorldMap.START_MAP` is `"sootbridge"` and `START_CELL` its
+  start cell.
+- **S-CASH**: `CashMatch.new(seed := 0)`, and like TeamMatch it exposes
+  `table: HoldemTable`, `bots` and `start_hand(stacked: Array[int] = [])`.
+  You are seat 0, the first player added (with a null bot); each seat is on
+  its own team. The first hand's button is HoldemTable's own (seat 0), so a
+  stacked deck deals from seat 1. The blinds are CashMatch's to pick (the
+  tests read them from the table), under 40 for the first hand. Rivals with
+  a ScriptedBot are played by play_bots() like any bot. `leave()` mid-hand
+  refuses: -1, nothing changes. After leaving, `is_over()` and
+  `seat_left(0)` are true and `can_leave()` false; leaving after a bust
+  returns 0.
+- **S-BUYIN**: the money arithmetic is headless, in CashMatch:
+  `static sit_down(state, buy_in) -> bool` (takes it, or refuses and takes
+  nothing) and `static cash_out(state, chips)`. OpenTable uses them.
+- **Pickups**: `pickups()` returns every pickup on the map, taken or not
+  (the run knows which are taken). Pickup ids are unique across all maps,
+  gifts' ids included; `take_pickup` works for both.
+- **Gates**: gate cells are walkable tiles; the overworld refuses the step
+  onto one while the deck is short and shows the gate's `text`, and lets you
+  walk over it with 52. `gate_at(cell)` returns the gate's own dictionary.
+- **Open table**: `open_tables()` returns the npc entries carrying an
+  `open_table`, one entry per player (each with the same `open_table`
+  dictionary), each standing beside a felt tile (`t`, 4-neighbour). Talking
+  to any of them offers the seat. Its `players` include Sage (`[&"owl",
+  0]`) and Bandit (`[&"raccoon", 0]`); `buy_in` is an int above 0, `dealer`
+  a `Dealer.Kind`.
+- **The table** honours `Game.dev_args["seed"]` as it does `--seed`, so a
+  scene test's deal and bots are the same every run (G-LEAVE, G-CREW and
+  J-LOOP use seed 7). J-LOOP needs the dog not to bust in its first three
+  hands with that seed; if it does, change the seed here and in the test.
+
+What the tests count as what:
+
+- **"In Sootbridge"** is every map you can walk to from the start with the
+  gate shut (its buildings included). **"New" townsfolk in Mossbank** are
+  npc entries on `town` other than Bertram and Juniper and not the open
+  table's players. W-NPCS removes one townsperson's cell at a time with
+  nobody else standing, and the gate open.
+- **W-ACES**, each of the three ground Aces a different one of: *in plain
+  sight*, within 10 steps of the start on the start map (walking, around
+  everyone standing); *somewhere you go into*, on an indoor map, or in a
+  fenced yard: one cell (its way in) cuts it off from the start, and the
+  part cut off is at least 4 cells with a fence (`F`) beside one of them;
+  *off the obvious path*, on the start map at a dead end (one open
+  neighbour) or where the walk is at least 6 steps longer than the
+  straight-line (Manhattan) distance.
+- **G-ROAD**: the Mill Road's warp to `town` is in its east half, and you
+  arrive in Mossbank's western quarter (x < width / 4).
+- **G-INTRO**: the player is the Critter with sprite id `"dog"`; a new game
+  holds 48 cards.
+- **G-ACE**: the line names the card as "<Rank> of <Suit>" ("Ace of
+  Spades", any case) and the number still missing as a digit ("3"). "Gone
+  from the map" is checked by behaviour: stepping off and back on says
+  nothing and gives nothing, before and after save and Continue.
+- **G-SIT**: the seat offer is the overworld's ChoiceMenu with two
+  options, yes first. The table is the overworld's `table`, its `setup`
+  holding the dog (seat 0, `animal.species == &"dog"`) and the table's
+  players by name.
+- **G-LEAVE**: once a hand is over, Start opens the offer to leave and A
+  takes it (leaving is its first option, under the cursor). `left(chips)`
+  fires once; your money is then money before - buy-in + chips; you stand
+  where you stood when you talked to the player.
+- **G-CREW**: you're told who joined (lines naming Sage and Bandit), the
+  two follow you as `owl` and `raccoon` Critters, and "Ridge Road's first
+  crew" is the Pond Hecklers.
+- **G-ROSIE**: her offer is a menu whose title or options say "lesson";
+  `tutorial_offered` stays false through the intro; entering the diner a
+  second time asks nothing.
+- **Starting a scene test part-way** (G-ROAD, G-SIT and on, J-OLD): the test
+  writes a save from `GameState.fresh()` plus the four Aces
+  (`collect_card`), `opening_done` and `seen_intro`, standing where it
+  starts, and continues it from the title. So a new-format save with an
+  empty roster must load with an empty roster (today's from_dict gives
+  back the starting pair when the roster is short: that's for old saves).
+- **J-OLD** recruits Honk from the Pond Hecklers; with Sage and Bandit
+  seated, Honk joins the roster and waits on the bench (party stays 2).
+
 ## Who builds what
 
 | Agent | Owns (only these files change on its branch) | Turns green |

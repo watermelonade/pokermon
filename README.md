@@ -168,15 +168,81 @@ once.
 
 ## Tests
 
+`tools/test.sh` runs every tier and ends with a pass/fail table (exit 1 if
+any failed; `GODOT=path/to/godot`, default `godot`):
+
 ```
-godot --headless --path . --import            # once, and after adding a class_name script
-godot --headless --path . -s tests/run_tests.gd
-godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
-godot --headless --path . res://tests/compile_check.tscn      # every script compiles, autoloads and all
-godot --headless --path . res://tests/pad_check.tscn          # a pretend Xbox pad signals at the real table
+tools/test.sh quick          # unit + compile: the pre-commit check, ~20s
+tools/test.sh full           # unit + compile + pad + scene + chart: a demo is done when this passes, ~1 min
+tools/test.sh soak           # the playtester: 20 fast runs, 1 real, 10 kills (JOBS=2, OUT=/tmp/playtest-soak)
+tools/test.sh unit           # or compile, pad, scene, journey, chart: one tier
+tools/test.sh unit scene -k S_DECK   # a name fragment for the unit and scene runners
 ```
 
-181 tests, about 20 seconds. They cover hand ranking, equity against known odds
+| Tier | What | Runs |
+| --- | --- | --- |
+| unit | rules, maps, the run's state: `tests/test_*.gd` (no autoloads) | `godot --headless --path . -s tests/run_tests.gd [-- fragment]` |
+| compile | every script under src/ compiles with the autoloads | `godot --headless --path . res://tests/compile_check.tscn` |
+| pad | a pretend Xbox pad signals at the real table | `godot --headless --path . res://tests/pad_check.tscn` |
+| scene | the real game from the title, driven by pad events: `tests/scene/test_*.gd` | `godot --headless --fixed-fps 60 --path . res://tests/scene_tests.tscn [-- fragment]` |
+| journey | the scene tests in `tests/scene/test_journey.gd` (J-LOOP: title to a crew in Mossbank and back) | `tools/test.sh journey` |
+| chart | R-CHART: bot 3v3 matches unchanged, `tools/simulate.gd -- 8 123 --cycle` against `tests/baselines/cycle_8_123.txt` | `tools/test.sh chart` |
+| soak | R-PLAY: `tools/playtest.sh runs 20`, `real 1`, `kill 10`, judged | `tools/test.sh soak` |
+
+`godot --headless --path . --import` refreshes the class cache after a new
+`class_name` script (tools/test.sh does it first). Tests are named after
+the outcome they check where there is one (`test_S_DECK_...` for S-DECK in
+docs/DEMO_SPEC.md), so `-k S_DECK` runs one outcome.
+
+**Expected red.** Demo 2 (docs/DEMO_SPEC.md) is built test first: its
+tests were written before the code and fail until it's built. They're
+listed in `tests/expected_red.txt`, one test name per line. Both runners
+print a listed test that fails on a check as `red` (with its first
+failure in the summary) and don't fail the run for it; a listed test that
+passes fails the run ("delete its line"), and so does one that breaks
+instead of failing (a script error, a timeout: that isn't red, it's
+broken). So whoever turns a test green deletes its line in the same
+commit, and CI's unit step stays strict. (CI runs the scene tier with
+`continue-on-error` until demo 2 lands.)
+
+**Scene tests** (`tests/scene_tests.tscn`, `tests/scene_runner.gd`) play
+the real title, overworld and table with the autoloads, which the unit
+runner can't have. Each test starts clean: its own save
+(`user://scene_test.json`, erased before and after, never `save.json`), no
+run loaded, no dev flags, no scene; tools/test.sh also gives it a throwaway
+XDG_DATA_HOME. A Logger fails a test on any script error, a per-test
+timeout (`timeout_s`, game seconds, default 120) fails a hung one. With
+`--fixed-fps 60` every frame is 1/60 s of game time however fast it runs,
+so the whole tier takes seconds. To add one, write `tests/scene/test_*.gd`
+extending `SceneTestCase` (`tests/scene_test_case.gd`, whose top lists the
+rules) with `test_*` methods that await its helpers:
+
+```gdscript
+extends SceneTestCase
+
+func test_G_EXAMPLE_bertram_talks() -> void:
+	if not check(await start_new_game() and await advance(60.0, "cancel"), "walking: " + last_stop):
+		return
+	check(await talk_to("bertram", "town"), "talk to Bertram: " + last_stop)  # walks there, faces him, A
+	await advance()
+	check(heard_line("Ridge Road"), "he mentions the road; heard %s" % [heard])
+```
+
+The helpers: `start_new_game`, `continue_game`, `continue_from(state)`,
+`save_quit_continue`; `press`/`hold`/`release` (pad events through
+Input.parse_input_event); `advance` (A through dialogs, stopping at or
+cancelling menus), `choose`/`choose_index`; `walk_to(cell, map)` (one step
+at a time along a BFS path around walls, anyone standing and a shut gate,
+through warps), `talk_to(npc_id, map)`, `face`, `step`; `frames`,
+`seconds`, `wait_until(condition, seconds, what)`; `table()`,
+`wait_for_hand_done(n)`, `leave_table()`; and `heard`/`menus`, every dialog
+line and menu shown. Set dev flags a test needs in `game.dev_args`
+(`"autoplay"`, `"seed"`, `"match-result"`). Only await through the helpers,
+and guard (`if not check(...): return`) before using something a feature
+may not have yet. `tests/scene/test_harness.gd` checks the helpers on
+today's game.
+
+The unit tests: 201, about 20 seconds (20 of them demo 2's, red). They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -751,7 +817,10 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `src/tutorial/scripted_bot.gd` | A seat that plays a short policy per street, so a lesson's moment happens every time |
 | `src/tutorial/coach_box.gd` | The coach's text box at the table |
 | `assets/fonts/` | Tiny5 and Departure Mono (SIL OFL 1.1, licenses alongside) |
-| `tests/` | Test runner and tests |
+| `tests/` | The unit runner (`run_tests.gd`) and tests, the compile and pad checks, `expected_red.txt` (tests written ahead of their feature), `world_paths.gd` (reachability over the maps, for tests) |
+| `tests/scene_tests.tscn`, `tests/scene_runner.gd`, `tests/scene_test_case.gd`, `tests/scene/` | Scene tests: the real game from the title, driven by pad events (README "Tests") |
+| `tools/test.sh` | Every test tier from one command, with a pass/fail table |
+| `src/match/cash_match.gd`, `src/world/open_table.gd` | Demo 2's cash game and Mossbank's open table: stubs until built (docs/DEMO_SPEC.md) |
 | `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
