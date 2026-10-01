@@ -70,13 +70,18 @@ project.godot is `~/.local/share/AFriendInNeed/` on Linux and the Deck,
 | Raise size: min, half pot, pot, 2x pot, all-in | Q / E | LB / RB |
 | In the raise picker: one big blind more / less | up / down | D-pad up / down |
 | Signal your teammates | 1 2 3 4 | back buttons L4 R4 L5 R5 |
+| Fake a signal (for rival eyes; your teammates ignore it) | Shift + 1-4 | hold LB + a back button |
 | Help card (controls, signals, Heat) | H or F1 | Select |
 | Next hand (it also moves on by itself) | Enter | A |
 
 You are seat "You". Your crew (teal) is the Owl (Rock) and the Raccoon
 (Bluffer); the rivals (rust) are the Goose (Maniac), Cat (Shark) and Squirrel
 (Calling Station). Your teammates' signals pop up over their heads. The rival
-crew signals too, but you can't see theirs yet.
+crew signals too, in its own code: when your crew catches one, it pops up
+over the rival with an eye ("ear ?"), and once a showdown has shown what
+that gesture meant, with its meaning ("ear: weak"). The panel top left is
+what you've cracked of their code, and which of your gestures they've
+cracked (a fake only fools a crew that knows the gesture).
 
 A watchful dealer runs the table. Both crews' Heat shows top right, and the
 bottom left says what your next signal would cost. At 40 Heat the dealer
@@ -93,13 +98,16 @@ godot --headless --path . -s tests/run_tests.gd
 godot --headless --path . -s tests/run_tests.gd -- side_pot   # only matching tests
 ```
 
-106 tests, about 15 seconds. They cover hand ranking, equity against known odds
+117 tests, about 20 seconds. They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
 between teammates, signals, and Heat: what signals cost, cooling, one
 warning per episode, fines, ejections, bought dealers, catching a boss, and
-careful animals going quiet. For the overworld: every
+careful animals going quiet; and interception: noticing odds against the
+formula, crew codes, learning at a showdown (not from a fold or a fake),
+fakes, bots reacting to what they read, the code book through JSON, and a
+golden action log showing bot matches unchanged with it off. For the overworld: every
 map is rectangular and closed, everyone stands somewhere they can stand,
 doors lead somewhere free, line of sight (straight ahead, stopped by walls
 and bodies), the walk-up path, that two crews can't be snuck past and two
@@ -133,7 +141,7 @@ CI runs the same thing on every push (`.github/workflows/tests.yml`).
 godot --headless --path . -s tools/verify_evaluator.gd        # all 2,598,960 five-card hands
 godot --headless --path . -s tools/soak_rules.gd -- 50000 1 --bots=60   # rules fuzzing soak, plus bot matches under a strict dealer
 godot --headless --path . -s tools/simulate.gd -- 40 7        # style-vs-style balance, 40 matches a pairing, seed 7
-godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=)
+godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five type-chart links (also --pairs=, --styles=, --iterations=, --interception)
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
 godot --headless --path . -s tools/heat_report.gd -- 30 1 STRICT     # how often a dealer warns, fines, ejects each style
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
@@ -391,6 +399,10 @@ the Deck's screen.
 | `src/crew/play_style.gd` | The five styles (Rock, Maniac, Shark, Calling Station, Bluffer) as numbers |
 | `src/crew/table_talk.gd` | Signals between teammates, and misreads when the bond is weak |
 | `src/crew/table_reads.gd` | What a watchful player learns: who re-raises when bet into |
+| `src/crew/interception.gd` | Reading the other crew's signals: noticing, learning codes at showdowns, fakes; off unless a match turns it on |
+| `src/crew/crew_code.gd` | Each crew's private code (gesture for each meaning), derived from its id |
+| `src/crew/code_book.gd` | What each crew has learned of other crews' codes; JSON-safe for the save |
+| `src/ui/intercept_overlay.gd` | Draws intercepted signals, the code panel and fakes over the table |
 | `src/ai/poker_bot.gd` | An AI seat: equity + style, soft play, reacts to signals |
 | `src/match/team_match.gd` | Crew vs crew: rising blinds, fines and ejections, who's out, who won |
 | `src/match/dealer.gd` | Who's watching: street (nobody), asleep, relaxed, watchful, strict, bought |

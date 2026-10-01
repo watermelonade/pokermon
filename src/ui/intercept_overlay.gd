@@ -27,6 +27,7 @@ const EYES_TIME := 1.4
 const FLASH_TIME := 2.5
 const SHORT_GESTURES := ["Nose", "Ear", "Chips", "Hat"]
 const SHORT_MEANINGS := ["strong", "weak", "raise behind", "my pot"]
+const DOING := ["touch their noses", "scratch an ear", "stack their chips", "tip their hats"]  ## "when the rivals ..."
 const RIVAL := Color("d0603f")
 const CREW := Color("3f9a8f")
 const GOLD := Color("e8c35a")
@@ -124,7 +125,7 @@ func _announce(reader_team: int, _signaller_team: int, gesture: int, meaning: in
 	var line := ""
 	if reader_team == _my_team():
 		_flash[gesture] = when
-		line = "Cracked it! When the rivals %s, it means \"%s\"." % [TableTalk.GESTURES[gesture].to_lower(), TableTalk.MEANINGS[meaning]]
+		line = "Cracked it! When the rivals %s, it means \"%s\"." % [DOING[gesture], TableTalk.MEANINGS[meaning]]
 	else:
 		line = "The rivals have figured out your \"%s\"." % TableTalk.GESTURES[gesture].to_lower()
 	if table.has_method("_say"):
@@ -143,14 +144,15 @@ func _draw() -> void:
 	_draw_code_panel(Rect2(4, 4, 196, 56), now)
 	if not table.has_method("_seat_geom"):
 		return
+	var bubble_ends := {}  ## seat -> right edge of its bubble, so eyes sit beside it
 	for seat: int in _bubbles:
 		var since: float = now - _bubbles[seat][2]
 		if since >= 0.0 and since < BUBBLE_TIME:
-			_draw_bubble(seat, _bubbles[seat][0], _bubbles[seat][1])
+			bubble_ends[seat] = _draw_bubble(seat, _bubbles[seat][0], _bubbles[seat][1])
 	for seat: int in _eyes:
 		var since: float = now - _eyes[seat][1]
 		if since >= 0.0 and since < EYES_TIME and fmod(since, 0.3) < 0.22:
-			_draw_watching(seat, _eyes[seat][0])
+			_draw_watching(seat, _eyes[seat][0], bubble_ends.get(seat, -1.0))
 	for seat: int in _fakes:
 		if now - _fakes[seat] < BUBBLE_TIME:
 			var geom: Dictionary = table.call("_seat_geom", seat)
@@ -159,8 +161,8 @@ func _draw() -> void:
 
 
 ## A rival's noticed signal: left-aligned over its name plate, clear of the
-## dealer's eyes at the plate's right end.
-func _draw_bubble(seat: int, text: String, understood: bool) -> void:
+## dealer's eyes at the plate's right end. Returns its right edge.
+func _draw_bubble(seat: int, text: String, understood: bool) -> float:
 	var geom: Dictionary = table.call("_seat_geom", seat)
 	var badge: Rect2 = geom["badge"]
 	var w := UiFont.small().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, S).x + 16
@@ -170,14 +172,17 @@ func _draw_bubble(seat: int, text: String, understood: bool) -> void:
 	draw_rect(Rect2(Vector2(r.position.x + 10, r.end.y + 1), Vector2(3, 2)), RIVAL)
 	_eye(r.position + Vector2(3, 4), RIVAL)
 	_label(r.position + Vector2(12, 8), text, PixelFrame.INK if understood else PixelFrame.INK_SOFT)
+	return r.end.x
 
 
 ## A rival who caught one of your crew's signals: its eyes, and "!" if it
-## knew what it meant.
-func _draw_watching(seat: int, understood: bool) -> void:
+## knew what it meant. Beside the seat's own bubble if it has one up
+## (`after`: that bubble's right edge).
+func _draw_watching(seat: int, understood: bool, after: float) -> void:
 	var geom: Dictionary = table.call("_seat_geom", seat)
 	var badge: Rect2 = geom["badge"]
-	var r := Rect2(Vector2(badge.position.x, badge.position.y - 14), Vector2(22, 11))
+	var x := after + 3 if after >= 0.0 else badge.position.x
+	var r := Rect2(Vector2(x, badge.position.y - 14), Vector2(22, 11))
 	draw_rect(r, PANEL)
 	draw_rect(r, RIVAL, false)
 	_eye(r.position + Vector2(3, 4), GOLD)
@@ -194,7 +199,7 @@ func _draw_code_panel(r: Rect2, now: float) -> void:
 	PixelFrame.panel(self, r, PixelFrame.CREAM, RIVAL)
 	var at := r.position + Vector2(6, 10)
 	var theirs := itc.book.learned(itc.crew_id(_my_team()), itc.crew_id(rival))
-	_label(at, "Their code  (%d/4 cracked)" % theirs.size(), PixelFrame.INK)
+	_label(at, "Their code: %d cracked" % theirs.size(), PixelFrame.INK)
 	for g in 4:
 		var cell := at + Vector2((g % 2) * 92, 10 + (g / 2) * 9)
 		var lit: bool = _flash.has(g) and now >= _flash[g] and now - _flash[g] < FLASH_TIME
@@ -206,7 +211,7 @@ func _draw_code_panel(r: Rect2, now: float) -> void:
 	var known: Array[String] = []
 	for g: int in yours:
 		known.append(SHORT_GESTURES[g])
-	_label(at + Vector2(0, 30), "They read your: %s" % (", ".join(known) if known else "nothing yet"), RIVAL.darkened(0.2))
+	_label(at + Vector2(0, 30), ("They know your " + ", ".join(known)) if known else "They know none of yours", RIVAL.darkened(0.2))
 	_label(at + Vector2(0, 39), "LB/Shift + signal: a fake", PixelFrame.INK_SOFT)
 
 

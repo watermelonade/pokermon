@@ -23,6 +23,17 @@ implementing.
   Heat cools each hand. Street games have no dealer; a bought dealer barely
   sees the boss crew; getting a boss crew's leader thrown out wins. Careful
   animals stay under their comfort line; careless ones get caught.
+- **Interception:** the crews watch each other's signals. Each gesture can
+  be noticed by the other crew (watchful species like owls and cats see
+  more; a crew's second and third signal in a hand are two and three times
+  as easy to catch, so chatty and bigger crews leak more). Every crew has
+  its own code, so a noticed gesture means nothing until a showdown shows
+  what it meant; learned codes are kept for good (saved). A fake signal
+  (held modifier) is ignored by your teammates and believed by rivals who
+  have cracked that gesture. Bots use what they read: they respect a bettor
+  who said "strong" a bit more and bluff into one who said "weak". It's a
+  match setting: on at the player's tables, off for the type chart's
+  bot-vs-bot balance.
 - **Play styles form a cycle:** Bluffer > Rock > Maniac > Shark > Calling
   Station > Bluffer. `tools/simulate.gd` measures how close the bots are.
 - **The Binder:** 25 species, 4+ recruitable individuals each, so a crew of
