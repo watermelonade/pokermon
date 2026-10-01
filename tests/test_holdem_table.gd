@@ -193,3 +193,29 @@ func test_a_seat_all_in_from_its_fine_can_win_only_the_dead_money() -> void:
 	check_eq([pots[0]["amount"], pots[0]["winners"]], [10, [0]], "seat 0 wins only the dead money")
 	check_eq([pots[1]["amount"], pots[1]["winners"]], [20, [1]], "kings win the rest")
 	check_eq([t.seats[0].stack, t.seats[1].stack, t.seats[2].stack], [10, 1010, 990])
+
+
+func test_folding_to_a_short_all_in_big_blind_gets_the_excess_back() -> void:
+	# Heads-up, the big blind has only 3 chips. The small blind (5 in) folds:
+	# the big blind can win only 3 from it, so 2 come back. It used to lose
+	# all 5.
+	var t := _table([1000, 3])
+	t.start_hand()
+	check(t.seats[1].all_in, "big blind all-in for 3")
+	t.act(A.FOLD)
+	check(t.hand_over, "hand over")
+	check_eq([t.seats[0].stack, t.seats[1].stack], [997, 6])
+	check_eq(t.last_result["returned"], {0: 2}, "the uncalled 2 go back")
+
+
+func test_an_uncalled_all_in_comes_back_before_the_pots() -> void:
+	var t := _table([100, 300, 1000])
+	t.start_hand()
+	t.act(A.RAISE, 100)  # seat 0 all-in
+	t.act(A.RAISE, 300)  # seat 1 all-in
+	t.act(A.RAISE, 1000)  # seat 2 all-in: 700 of it nobody can call
+	check(t.hand_over, "board runs out")
+	check_eq(t.last_result["returned"], {2: 700})
+	var pots: Array = t.last_result["pots"]
+	check_eq(pots.map(func(p: Dictionary) -> int: return p["amount"]), [300, 400], "no pot of seat 2's own chips")
+	check_eq(t.total_chips(), 1400, "no chips made or lost")

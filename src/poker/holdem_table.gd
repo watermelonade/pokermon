@@ -68,6 +68,9 @@ var current_bet := 0
 var min_raise := 0
 var hand_over := true
 var hand_number := 0
+## The finished hand: {uncontested, payouts: {seat: chips won}, returned:
+## {seat: uncalled chips given back}, pots: [{amount, eligible, winners}],
+## scores: {seat: HandEvaluator score}, board}.
 var last_result := {}
 var rng := RandomNumberGenerator.new()
 var _deck: Deck
@@ -297,6 +300,7 @@ func _next_owing(from: int) -> int:
 
 
 func _finish_uncontested(winner: Seat) -> void:
+	var returned := _return_uncalled()
 	var amount := pot()
 	_clear_bets()
 	winner.stack += amount
@@ -304,6 +308,7 @@ func _finish_uncontested(winner: Seat) -> void:
 	_end_hand({
 		"uncontested": true,
 		"payouts": {w: amount},
+		"returned": returned,
 		"pots": [{"amount": amount, "eligible": [w], "winners": [w]}],
 		"scores": {},
 		"board": board.duplicate(),
@@ -316,6 +321,7 @@ func _showdown() -> void:
 	for i in seats.size():
 		if seats[i].live():
 			scores[i] = HandEvaluator.evaluate(seats[i].hole + board)
+	var returned := _return_uncalled()
 	var pots := build_pots()
 	var payouts := {}
 	for p: Dictionary in pots:
@@ -341,10 +347,36 @@ func _showdown() -> void:
 	_end_hand({
 		"uncontested": false,
 		"payouts": payouts,
+		"returned": returned,
 		"pots": pots,
 		"scores": scores,
 		"board": board.duplicate(),
 	})
+
+
+## The uncalled bet: whatever the biggest bettor put in beyond what anyone
+## else bet goes straight back to it, before the pots are built. Mostly that
+## only tidies the result (it used to come back as a side pot the bettor
+## alone could win), but not when the biggest bettor folded: a short all-in
+## big blind still makes the others call the full big blind, and a small
+## blind that folded to one all-in for 3 lost all 5 of its chips, 2 more
+## than the big blind could ever have won from it. Returns {seat: chips}.
+func _return_uncalled() -> Dictionary:
+	var top := 0
+	for i in seats.size():
+		if _bet(seats[i]) > _bet(seats[top]):
+			top = i
+	var second := 0
+	for i in seats.size():
+		if i != top:
+			second = maxi(second, _bet(seats[i]))
+	var excess := _bet(seats[top]) - second
+	if excess <= 0:
+		return {}
+	seats[top].hand_bet -= excess
+	seats[top].street_bet = maxi(0, seats[top].street_bet - excess)
+	seats[top].stack += excess
+	return {top: excess}
 
 
 ## Main pot and side pots from what each seat put in. Each pot is
