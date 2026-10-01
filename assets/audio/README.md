@@ -110,7 +110,7 @@ each hook is one line:
 | `_on_action(seat, action, amount)` | `fold` for `Action.FOLD`, `check` for `Action.CHECK`, `chips` for `CALL`/`RAISE`; `all_in` instead when `s.all_in` |
 | `_on_action`, for a bot's seat | `Sfx.voice(setup[seat]["animal"].species)` on raises and all-ins (not every action: it gets chatty), maybe with a per-individual pitch (`0.94` to `1.06`) |
 | `_on_street(street, board)` | `card_flip` for each new board card (three for the flop, staggered ~0.12s) |
-| `_on_hand_finished(result)` | `card_flip` if `not result["uncontested"]` (the reveal), then `chips_pot`; then `win_pot` if any seat in `result["payouts"]` is on your crew |
+| `_on_hand_finished(result)` | `card_flip` if `not result["uncontested"]` (the reveal), ~0.3s later `chips_pot`, and with it `win_pot` if any seat in `result["payouts"]` is on your crew (staggered so they don't land as one blob) |
 | `_show_new_signals()`, for each bubble shown | `signal` (only your side's; the rival crew's stay silent like their bubbles) |
 | `_new_match()`: the `heat.warned` handler | `dealer_warning` |
 | `_new_match()`: the `heat.fined` handler | `fine` |
