@@ -16,6 +16,8 @@ extends SceneTree
 ##                        for exploring, but verify at the game's setting
 ##   --styles=file.json   try other numbers without editing play_style.gd:
 ##                        {"ROCK": {"tightness": 1.5}, "SHARK": {...}}
+##   --dealer=STRICT      who's watching (default STREET: nobody, which is
+##                        what the styles were tuned under); see Dealer
 
 const K := PlayStyle.Kind
 const CYCLE := [K.BLUFFER, K.ROCK, K.MANIAC, K.SHARK, K.CALLING_STATION]
@@ -23,6 +25,7 @@ const CYCLE := [K.BLUFFER, K.ROCK, K.MANIAC, K.SHARK, K.CALLING_STATION]
 
 var overrides := {}
 var iterations := 0
+var dealer := Dealer.Kind.STREET
 
 
 func _init() -> void:
@@ -38,6 +41,8 @@ func _init() -> void:
 				var b := CYCLE.find(PlayStyle.Kind.keys().find(pair.get_slice("-", 1)))
 				pairs[Vector2i(mini(a, b), maxi(a, b))] = true
 			cycle_only = true
+		elif arg.begins_with("--dealer="):
+			dealer = Dealer.Kind.keys().find(arg.get_slice("=", 1)) as Dealer.Kind
 		elif arg.begins_with("--iterations="):
 			iterations = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--styles="):
@@ -115,6 +120,7 @@ func _style(kind: int) -> PlayStyle:
 
 func _match(seed_value: int, team0: int, team1: int) -> TeamMatch:
 	var m := TeamMatch.new(seed_value)
+	m.heat.dealer = Dealer.preset(dealer)
 	for seat in 6:
 		var kind := team0 if seat % 2 == 0 else team1
 		var bot := PokerBot.new(_style(kind), seed_value + seat * 7919)
