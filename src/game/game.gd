@@ -21,7 +21,8 @@ extends Node
 ##                         A to press confirm, M for the menu, W to wait
 ##   --at=map,x,y          start there; --beaten=all or id,id; --money=N;
 ##                         --recruit=cat:0,goose:1 adds roster animals
-##   --show=start|party|options|demo_complete   open a screen once the world is up
+##   --show=start|party|binder|options|demo_complete   open a screen once the world is up
+##   --binder-at=N         the Binder opens on slot N (1-25)
 ##   --screenshot=/abs.png --shot-after=SECONDS   save the screen and quit
 ## The table's own flags (--autoplay, --dealer=) still reach an embedded
 ## table, so --autoplay lets a bot play your seat in a scripted run.
@@ -118,6 +119,7 @@ func apply_dev_state() -> void:
 			for c: Dictionary in WorldMap.get_map(map_id).crews:
 				if dev("beaten") == "all" or c["id"] in dev("beaten").split(","):
 					state.beaten[c["id"]] = true
+		state.backfill_binder()  # beaten crews were met: the Binder shows them as seen
 	if dev_args.has("recruit"):
 		for entry in dev("recruit").split(","):
 			var p := entry.split(":")

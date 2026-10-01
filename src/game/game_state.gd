@@ -17,11 +17,32 @@ extends RefCounted
 ## The party is stored as roster indices, not Animals: the roster only
 ## grows (nobody is released in the demo), so an index stays valid, and the
 ## save file needs no object references.
+##
+## The Binder (the collection screen) reads `seen` and `recruited`: which
+## individuals you've sat across a table from, and which have joined. They
+## are kept per individual, not per species, because each species has four
+## named animals and the card back lists the ones you've met. `recruited`
+## is stored rather than derived from the roster so that letting an animal
+## go (a later feature) won't erase the record that it once joined. Saves
+## from before these fields existed load with them empty and then refilled
+## from what the save does know (see backfill_binder): your roster joined
+## you, and every beaten crew was met.
+##
+## Bond grows with time together (docs/DESIGN.md: it matters more than
+## level): each match an animal sits through adds BOND_PER_MATCH, a win
+## BOND_PER_WIN instead, capped at 1.0. Bots read it as how reliably they
+## catch your signals (PokerBot.bond). The numbers are picked so growth is
+## visible inside the demo's five matches: half a heart (of five) per win,
+## so a recruit at 0.2 reaches 0.6 by the Open if it plays every road game,
+## while the starters at 0.5 can max out only over a longer run.
 
 const VERSION := 1
 const PARTY_SIZE := 2  ## animals who sit with you; you are the third seat
 const STARTING_MONEY := 200
 const RECRUIT_BOND := 0.2  ## a new recruit reads your signals worse than old friends
+const BOND_PER_MATCH := 0.05  ## sat with you through a lost match
+const BOND_PER_WIN := 0.1  ## sat with you through a won one
+const MAX_BOND := 1.0
 
 var roster: Array[Animal] = []
 var party: Array[int] = []  ## indices into roster, in seat order
@@ -36,6 +57,9 @@ var heal_cell := Vector2i.ZERO
 var tutorial_offered := false  ## Rosie has asked "want me to show you?" (asked once, at the start)
 var tutorial_done := false  ## you played the lessons to the end
 var seen_intro := false
+var seen := {}  ## species id (String) -> Array of individual names met, in order met
+var recruited := {}  ## species id (String) -> Array of names that joined you
+var found_at := {}  ## species id (String) -> where you first met one (for the Binder)
 
 
 ## A new run: the Owl and the Raccoon from the table demo, standing outside
@@ -49,6 +73,9 @@ static func fresh() -> GameState:
 	s.facing = Vector2i.DOWN
 	s.heal_map = WorldMap.HEAL_MAP
 	s.heal_cell = WorldMap.HEAL_CELL
+	for a in s.roster:
+		s.mark_seen(a, "Your crew from the start")
+		s.mark_recruited(a)
 	return s
 
 
@@ -93,18 +120,109 @@ func recruit(animal: Animal) -> bool:
 		return false
 	var a := Animal.make(animal.species, animal.name, RECRUIT_BOND)
 	roster.append(a)
+	mark_seen(a)
+	mark_recruited(a)
 	if party.size() < PARTY_SIZE:
 		party.append(roster.size() - 1)
 	return true
+
+
+# --- The Binder ---------------------------------------------------------------
+
+## Records meeting an individual (a crew dealt you in, so you watched it
+## play). `where` is kept for the species' first sighting only.
+func mark_seen(animal: Animal, where := "") -> void:
+	var key := String(animal.species)
+	if not seen.has(key):
+		seen[key] = []
+	if not (seen[key] as Array).has(animal.name):
+		seen[key].append(animal.name)
+	if where != "" and not found_at.has(key):
+		found_at[key] = where
+
+
+func mark_crew_seen(animals: Array[Animal], where := "") -> void:
+	for a in animals:
+		mark_seen(a, where)
+
+
+func mark_recruited(animal: Animal) -> void:
+	var key := String(animal.species)
+	if not recruited.has(key):
+		recruited[key] = []
+	if not (recruited[key] as Array).has(animal.name):
+		recruited[key].append(animal.name)
+
+
+func has_seen_species(species_id: StringName) -> bool:
+	return seen.has(String(species_id))
+
+
+func has_recruited_species(species_id: StringName) -> bool:
+	return recruited.has(String(species_id))
+
+
+func has_seen(species_id: StringName, animal_name: String) -> bool:
+	return (seen.get(String(species_id), []) as Array).has(animal_name)
+
+
+func has_recruited(species_id: StringName, animal_name: String) -> bool:
+	return (recruited.get(String(species_id), []) as Array).has(animal_name)
+
+
+## Your roster's animal of that species and name, or null.
+func roster_animal(species_id: StringName, animal_name: String) -> Animal:
+	for a in roster:
+		if a.species == species_id and a.name == animal_name:
+			return a
+	return null
+
+
+## After a match: everyone who sat with you grows closer, more for a win.
+## Returns the animals whose bond went up (not those already at the cap),
+## so the overworld can say so.
+func grow_bonds(won: bool) -> Array[Animal]:
+	var grew: Array[Animal] = []
+	for a in party_animals():
+		var before := a.bond
+		a.bond = minf(MAX_BOND, a.bond + (BOND_PER_WIN if won else BOND_PER_MATCH))
+		if a.bond > before:
+			grew.append(a)
+	return grew
+
+
+## The dialog after a match: "Sage's bond grew!", and a line for anyone who
+## just reached the cap.
+static func bond_news(grew: Array[Animal]) -> Array[String]:
+	var lines: Array[String] = []
+	if grew.is_empty():
+		return lines
+	var names: Array[String] = []
+	for a in grew:
+		names.append(a.name)
+	if names.size() == 1:
+		lines.append("%s's bond grew!" % names[0])
+	else:
+		lines.append("%s and %s's bonds grew!" % [", ".join(names.slice(0, -1)), names[-1]])
+	for a in grew:
+		if a.bond >= MAX_BOND:
+			lines.append("%s would follow you anywhere now. (Bond is full.)" % a.name)
+	return lines
 
 
 func is_beaten(crew_id: String) -> bool:
 	return beaten.has(crew_id)
 
 
-## A won match: the crew won't challenge again, and pays up.
+## A won match: the crew won't challenge again, and pays up. (Its animals
+## are marked seen too: you can't beat a crew you never met, and a save
+## should read back the same whichever way it was made.)
 func win_against(crew_id: String, reward: int) -> int:
 	beaten[crew_id] = true
+	for map_id: String in WorldMap.ids():
+		var crew := WorldMap.get_map(map_id).crew_by_id(crew_id)
+		if crew:
+			mark_crew_seen(WorldMap.crew_animals(crew))
 	money += reward
 	return reward
 
@@ -160,6 +278,9 @@ func to_dict() -> Dictionary:
 		"tutorial_offered": tutorial_offered,
 		"tutorial_done": tutorial_done,
 		"seen_intro": seen_intro,
+		"seen": seen.duplicate(true),
+		"recruited": recruited.duplicate(true),
+		"found_at": found_at.duplicate(),
 	}
 
 
@@ -201,7 +322,46 @@ static func from_dict(d: Dictionary) -> GameState:
 	s.tutorial_offered = bool(d.get("tutorial_offered", true))
 	s.tutorial_done = bool(d.get("tutorial_done", false))
 	s.seen_intro = bool(d.get("seen_intro", true))
+	s.seen = _name_lists(d.get("seen"))
+	s.recruited = _name_lists(d.get("recruited"))
+	var found: Variant = d.get("found_at")
+	if found is Dictionary:
+		for k: Variant in found:
+			if Species.CATALOG.has(StringName(str(k))):
+				s.found_at[str(k)] = str(found[k])
+	s.backfill_binder()
 	return s
+
+
+## Saves from before the Binder (and damaged ones) still know who joined
+## you and which crews you beat; both mean you've met those animals.
+## Unbeaten crews you lost to aren't recoverable, so they read as unseen
+## until you meet them again.
+func backfill_binder() -> void:
+	for a in roster:
+		mark_seen(a)
+		mark_recruited(a)
+	for map_id: String in WorldMap.ids():
+		for c: Dictionary in WorldMap.get_map(map_id).crews:
+			if beaten.has(c["id"]):
+				mark_crew_seen(WorldMap.crew_animals(c))
+
+
+## {species: [names]} from JSON, dropping unknown species and non-strings.
+static func _name_lists(v: Variant) -> Dictionary:
+	var out := {}
+	if not v is Dictionary:
+		return out
+	for k: Variant in v:
+		var key := str(k)
+		if not Species.CATALOG.has(StringName(key)) or not v[k] is Array:
+			continue
+		var names: Array = []
+		for n: Variant in v[k]:
+			if n is String and not names.has(n):
+				names.append(n)
+		out[key] = names
+	return out
 
 
 static func _vec(v: Variant, fallback: Vector2i) -> Vector2i:

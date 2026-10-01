@@ -86,6 +86,10 @@ func _ready() -> void:
 			_open_party()
 		"start":
 			_open_start_menu()
+		"binder":
+			mode = Mode.BUSY
+			await _open_binder()
+			mode = Mode.WALK
 		"options":
 			mode = Mode.BUSY
 			await options_screen.open(Game.settings)
@@ -436,19 +440,34 @@ func _open_start_menu() -> void:
 	mode = Mode.BUSY
 	var pick := 0
 	while true:
-		pick = await menu.choose("", ["Crew", "Save", "Options", "Close"], 3, true, pick)
+		pick = await menu.choose("", ["Crew", "Binder", "Save", "Options", "Close"], 4, true, pick)
 		if pick == 0:
 			await party_screen.open(state)
 			_make_followers(player.cell, player.facing)
 		elif pick == 1:
+			await _open_binder()
+		elif pick == 2:
 			Game.save()
 			await dialog.say(["Saved! (The game also saves itself at every door and after every match.)"])
-		elif pick == 2:
+		elif pick == 3:
 			await options_screen.open(Game.settings)
 		else:
 			break
 	Game.save()
 	mode = Mode.WALK
+
+
+## The Binder screen is made on first use, beside the other screens and
+## under the fade (made here rather than in _build to keep it in one place).
+func _open_binder() -> void:
+	var ui := party_screen.get_parent()
+	var binder := ui.get_node_or_null("BinderScreen") as BinderScreen
+	if binder == null:
+		binder = BinderScreen.new()
+		binder.name = "BinderScreen"
+		ui.add_child(binder)
+		ui.move_child(binder, fade.get_index())
+	await binder.open(state)
 
 
 func _open_party() -> void:
@@ -516,6 +535,7 @@ func _play_tutorial() -> void:
 func _encounter(crew: Dictionary, spotted: bool) -> void:
 	mode = Mode.BUSY
 	Game.dev_log("encounter: %s (%s)" % [crew["id"], "spotted you" if spotted else "you talked"])
+	state.mark_crew_seen(WorldMap.crew_animals(crew), "%s, with %s" % [_area_name(), crew["name"]])  # the Binder
 	var members: Array = crew_nodes[crew["id"]]
 	var leader: Critter = members[0]
 	if spotted:
@@ -578,6 +598,7 @@ func _play_match(crew: Dictionary) -> void:
 		won = await _table_done
 		mode = Mode.BUSY
 	Game.dev_log("match against %s: %s" % [crew["id"], "won" if won else "lost"])
+	_grew = state.grow_bonds(won)
 	if won:
 		await _after_win(crew)
 	else:
@@ -613,10 +634,22 @@ func _physics_process(_delta: float) -> void:
 		_press("ui_accept")
 
 
+var _grew: Array[Animal] = []  ## whose bond grew in the last match
+
+
+## "Sage's bond grew!" after a match, if anyone's did.
+func _say_bond_growth() -> void:
+	var lines := GameState.bond_news(_grew)
+	_grew = []
+	if lines:
+		await dialog.say(lines)
+
+
 func _after_win(crew: Dictionary) -> void:
 	var reward := state.win_against(crew["id"], crew["reward"])
 	var title := _crew_title(crew)
 	await dialog.say(["You beat %s! They grumble and pay up: $%d." % [crew["name"], reward], crew["after"]], title)
+	await _say_bond_growth()
 	if crew.has("bracelet"):
 		state.add_bracelet(crew["bracelet"])
 		Game.save()
@@ -650,6 +683,9 @@ func _offer_recruit(crew: Dictionary) -> void:
 	node.queue_free()
 	Sfx.play(&"win_pot")  # until there's a proper recruit jingle
 	Sfx.voice(a.species)
+	var hello := Bios.recruit_line(a.species, a.name)
+	if hello:
+		await dialog.say([hello], a.name)
 	await dialog.say(["%s joins your crew! Pick who sits with you under Crew (Start or Tab)." % a.name])
 
 
@@ -664,6 +700,7 @@ func _blackout(crew: Dictionary) -> void:
 	await dialog.say([
 		"Rough night, hon? You're at Rosie's. Your wallet's $%d lighter." % lost,
 		"Your crew's had pie and a little cry. They're ready when you are."], "Rosie")
+	await _say_bond_growth()
 
 
 func _road_crew_count() -> int:
