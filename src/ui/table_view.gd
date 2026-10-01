@@ -1635,9 +1635,11 @@ func _take_screenshots(path: String, after: float, count: int, every: float) -> 
 		get_viewport().get_texture().get_image().save_png(out)
 		var t := match_.table
 		var glancing: bool = not _glance.is_empty() and _now() - _glance["t"] < GLANCE_TIME
-		print("screenshot saved: %s  (hand %d, %s, board %d, busy %s%s%s%s)" % [out, t.hand_number,
+		var caught: bool = _intercept != null and _intercept.showing_bubble()
+		print("screenshot saved: %s  (hand %d, %s, board %d, busy %s%s%s%s%s%s)" % [out, t.hand_number,
 				"over" if t.hand_over else HoldemTable.STREET_NAMES[t.street], t.board.size(), _motion.busy(_now()),
-				", glance" if glancing else "", ", tell" if _tells else "", ", alert" if alert else ""])
+				", glance" if glancing else "", ", tell" if _tells else "", ", alert" if alert else "",
+				", bubble" if bubbles else "", ", intercepted" if caught else ""])
 		if k < count - 1:
 			await get_tree().create_timer(every).timeout
 	get_tree().quit()

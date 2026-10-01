@@ -134,6 +134,15 @@ func _announce(reader_team: int, _signaller_team: int, gesture: int, meaning: in
 		table.call("_say", line, (CREW if reader_team == _my_team() else RIVAL).darkened(0.3), when)
 
 
+## True while an intercepted rival signal is up (for screenshot logs).
+func showing_bubble() -> bool:
+	var now := _now()
+	for seat: int in _bubbles:
+		if now - _bubbles[seat][2] < BUBBLE_TIME:
+			return true
+	return false
+
+
 func _process(_delta: float) -> void:
 	if match_:
 		queue_redraw()
