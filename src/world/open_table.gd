@@ -30,7 +30,9 @@ const TABLE_SCENE := preload("res://scenes/table.tscn")
 const MIN_RIVALS := 2
 
 
-## Offers the seat, runs the table and settles up (async: await it).
+## Offers the seat, runs the table and settles up (async: await it). The
+## player you talked to has its say; the refusals are narration, since any
+## of them (an owl, a raccoon, a goose in capitals) may be the one asked.
 static func play(overworld: Node, npc: Dictionary) -> void:
 	var ow: Variant = overworld  # overworld.gd has no class_name to type it with
 	var state: GameState = ow.state
@@ -42,14 +44,14 @@ static func play(overworld: Node, npc: Dictionary) -> void:
 		await ow.dialog.say(lines, speaker)
 	var setup := seats(state, t)
 	if setup.size() < MIN_RIVALS + 1:
-		await ow.dialog.say(["Not enough of us left for a game. Another time."], speaker)
+		await ow.dialog.say(["Too few players left at the table for a game. Maybe another day."])
 		return
 	if state.money < buy_in:
-		await ow.dialog.say(["It's $%d to sit in, and you've got $%d. Come back flush, pup." % [buy_in, state.money]], speaker)
+		await ow.dialog.say(["The buy-in is $%d and you have $%d. Not today." % [buy_in, state.money]])
 		return
 	var pick: int = await ow.menu.choose("Sit in? The buy-in is $%d." % buy_in, ["Deal me in", "Not now"], 1)
 	if pick != 0 or not CashMatch.sit_down(state, buy_in):
-		await ow.dialog.say(["Suit yourself. The seat's here when you want it."], speaker)
+		await ow.dialog.say(["Maybe later. The seat isn't going anywhere."])
 		return
 	Game.save()  # the buy-in is gone: see the top
 	Game.dev_log("open table: sat down for $%d" % buy_in)
