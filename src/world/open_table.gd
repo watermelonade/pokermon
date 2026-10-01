@@ -150,8 +150,9 @@ static func _ask_line(a: Animal) -> String:
 
 
 ## Takes the animals who just joined you off the map, where they stood
-## round the table (they're following you now). An npc entry is theirs if
-## its sprite is their species and it names them.
+## round the table (they're following you now): the npc entries whose
+## "animal" ([species, index], the map's) is one of them. (The overworld
+## leaves them out when a map loads; this is for the map you're on.)
 static func _leave_the_table_crowd(ow: Variant, joined: Array[Animal]) -> void:
 	var nodes: Array = ow.npc_nodes
 	var data: Dictionary = ow.npc_data
@@ -167,9 +168,9 @@ static func _leave_the_table_crowd(ow: Variant, joined: Array[Animal]) -> void:
 				break
 
 
-## Is this npc entry that animal (by its name or id, and its sprite)?
+## Is this npc entry that animal?
 static func _is_animal(entry: Dictionary, a: Animal) -> bool:
-	if str(entry.get("sprite", "")) != String(a.species):
+	var which: Array = entry.get("animal", [])
+	if which.size() != 2 or StringName(which[0]) != a.species:
 		return false
-	var who := (str(entry.get("name", "")) + " " + str(entry.get("id", ""))).to_lower()
-	return a.name.to_lower() in who
+	return Species.individual(which[0], which[1]).name == a.name
