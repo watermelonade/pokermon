@@ -251,3 +251,37 @@ func test_misuse_between_and_during_hands_is_refused() -> void:
 	t.act(A.CALL)  # nobody is to act: refused
 	check_eq(t.total_chips(), 3000, "no chips made or lost")
 	check_eq(t.seats[2].stack, 990, "the last seat didn't call on a finished hand")
+
+
+func test_going_heads_up_nobody_posts_the_big_blind_twice() -> void:
+	# Seat 0 (button) busts in the first hand. The button used to move to
+	# seat 1, which heads-up posts the small blind, so seat 2 posted the big
+	# blind again. The big blind moves forward instead.
+	var t := _table([10, 1000, 1000])
+	# Deal order: seat 1, seat 2, seat 0, twice, then the board.
+	t.start_hand(Card.parse_many("Kh As 7c Kd Ad 2d 3s 8h 9c Jd 4s"))
+	check_eq([t.button, t.small_blind_seat, t.big_blind_seat], [0, 1, 2])
+	t.act(A.CALL)  # seat 0 all-in for 10
+	t.act(A.FOLD)  # seat 1
+	t.act(A.CHECK)  # seat 2
+	check(t.hand_over, "board runs out")
+	check_eq(t.seats[0].stack, 0, "seat 0 busted")
+	t.start_hand()
+	check_eq(t.big_blind_seat, 1, "the big blind moves on to seat 1")
+	check_eq([t.button, t.small_blind_seat], [2, 2], "seat 2 has the button and posts the small blind")
+	check_eq([t.seats[1].stack, t.seats[2].stack], [995 - 10, 1015 - 5])
+	check_eq(t.to_act, 2, "heads-up, the button acts first preflop")
+
+
+func test_the_big_blind_never_skips_a_seat_when_the_small_blind_busts() -> void:
+	# Four seats; the small blind (seat 1) busts in the first hand. The
+	# button used to jump to seat 2 and put the big blind on seat 0, so seat
+	# 3 skipped it. Now seat 3 posts it and seat 2 the small blind.
+	var t := _table([1000, 5, 1000, 1000])
+	t.start_hand(Card.parse_many("7c Ah Kd Qd 2d As Kc Qc 3s 8h 9c Jd 4s"))
+	check(t.seats[1].all_in, "small blind all-in on the blind")
+	while not t.hand_over:
+		t.act(A.CALL)
+	check_eq(t.seats[1].stack, 0, "seat 1 busted")
+	t.start_hand()
+	check_eq([t.button, t.small_blind_seat, t.big_blind_seat], [0, 2, 3])

@@ -9,7 +9,15 @@ extends RefCounted
 ## - No burn cards. A stacked test deck deals hole cards (one per seat at a
 ##   time, starting left of the button) and then the board, in order.
 ## - An all-in raise smaller than a full raise still reopens the betting.
-## - A short big blind still sets the bet to call at the full big blind.
+## - A short big blind still sets the bet to call at the full big blind
+##   (whatever nobody else matches comes back as an uncalled bet).
+## - The big blind moves to the next seat with chips every hand, and the
+##   small blind and button are the seats before it (heads-up, the button
+##   posts the small blind). No dead button or missed blinds: when a seat
+##   busts, someone may post the small blind twice or keep the button, but
+##   nobody posts the big blind twice in a row or skips it. (The button
+##   used to move instead: going heads-up after the button busted, the big
+##   blind posted it again.)
 ##
 ## Dead money (a fine from the floor) goes into the pot at the start of the
 ## next hand without counting as a bet, like a dead blind in a real card
@@ -61,6 +69,8 @@ var seats: Array[Seat] = []
 var small_blind := 5
 var big_blind := 10
 var button := -1
+var small_blind_seat := -1  ## who posted the blinds this hand
+var big_blind_seat := -1
 var board: Array[int] = []
 var street := Street.PREFLOP
 var to_act := -1
@@ -122,15 +132,19 @@ func start_hand(stacked: Array[int] = []) -> void:
 	hand_over = false
 	_deck = Deck.stacked(stacked) if stacked else Deck.shuffled(rng)
 
-	button = _next_dealt(button)
 	var sb: int
 	var bb: int
-	if _dealt_count() == 2:
-		sb = button  # heads-up: the button posts the small blind
-		bb = _next_dealt(button)
-	else:
-		sb = _next_dealt(button)
+	if big_blind_seat < 0:
+		button = _next_dealt(button)
+		sb = button if _dealt_count() == 2 else _next_dealt(button)
 		bb = _next_dealt(sb)
+	else:
+		# The big blind moves forward; the rest follow it (see the top).
+		bb = _next_dealt(big_blind_seat)
+		sb = _prev_dealt(bb)
+		button = sb if _dealt_count() == 2 else _prev_dealt(sb)
+	small_blind_seat = sb
+	big_blind_seat = bb
 	_put_in(seats[sb], small_blind)
 	_put_in(seats[bb], big_blind)
 	current_bet = big_blind
@@ -290,6 +304,15 @@ func _deal_street() -> void:
 func _next_dealt(from: int) -> int:
 	for k in range(1, seats.size() + 1):
 		var i := (from + k) % seats.size()
+		if seats[i].dealt:
+			return i
+	return -1
+
+
+## Previous seat before `from` that's in this hand.
+func _prev_dealt(from: int) -> int:
+	for k in range(1, seats.size() + 1):
+		var i := posmod(from - k, seats.size())
 		if seats[i].dealt:
 			return i
 	return -1
