@@ -63,6 +63,7 @@ func test_doors_lead_somewhere_you_can_stand() -> void:
 	check(heal.tile_walkable(WorldMap.HEAL_CELL) and not heal.occupied_cells().has(WorldMap.HEAL_CELL), "blackout cell")
 
 
+## Road crews are three; a boss crew (the Open's) brings four to six.
 func test_crews_are_three_distinct_animals_none_of_them_yours() -> void:
 	var seen := {}
 	for a in GameState.fresh().roster:
@@ -70,7 +71,10 @@ func test_crews_are_three_distinct_animals_none_of_them_yours() -> void:
 	for id: String in WorldMap.ids():
 		for c: Dictionary in WorldMap.get_map(id).crews:
 			var animals := WorldMap.crew_animals(c)
-			check_eq(animals.size(), 3, "%s size" % c["id"])
+			if c.get("boss", false):
+				check(animals.size() >= 4 and animals.size() <= 6, "%s: a boss crew of %d" % [c["id"], animals.size()])
+			else:
+				check_eq(animals.size(), 3, "%s size" % c["id"])
 			for a in animals:
 				check(not seen.has(a.name), "%s: %s is already in %s" % [c["id"], a.name, seen.get(a.name)])
 				seen[a.name] = c["id"]

@@ -92,7 +92,7 @@ const BIOS := {
 			"bio": "Leads the Night Shift. Plays dead after every lost pot. Every one.",
 			"recruit": "I'll join. If I lose, I die. Then I get up. It's a whole process."},
 		"Dusty": {
-			"bio": "Fainted at three tournaments. Won one of them while fainted.",
+			"bio": "The Regulars' fourth chair. Fainted at three Opens. Won one while fainted.",
 			"recruit": "Okay. Wake me if I win."},
 		"Pudding": {
 			"bio": "The sweetest possum in Mossbank. Will still bury you. Politely.",

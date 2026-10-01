@@ -12,7 +12,7 @@ extends RefCounted
 ## width and that everything stands where it can stand.
 ##
 ## Rival crews stand side by side: the leader on `cell`, facing `facing`,
-## the other two at its shoulders. Only the leader looks: anything on the
+## the others at its shoulders (a boss crew's extras further out). Only the leader looks: anything on the
 ## `sight` cells in front of it, up to the first wall or body, gets
 ## challenged, like trainers in Pokemon. A crew with sight 0 (the
 ## tournament's) waits to be talked to. Crews are placed so that the first
@@ -226,9 +226,11 @@ const MAPS := {
 		],
 		"crews": [
 			{"id": "mossbank_regulars", "name": "the Mossbank Regulars", "cell": Vector2i(9, 6), "facing": Vector2i.DOWN, "sight": 0,
-				"members": [[&"possum", 3], [&"cat", 2], [&"owl", 2]],
-				"before": ["So. You're the one cleaning out Ridge Road.",
-					"We're the Mossbank Regulars. Same table, same seats, every Thursday since 1971.",
+				# A boss crew (BossTable): four against your three, Graves leading
+				# on a big stack, the seat draw rigged around you.
+				"members": [[&"possum", 3], [&"cat", 2], [&"owl", 2], [&"possum", 1]], "boss": true,
+				"before": ["So. You're the one cleaning out Ridge Road. I'm Graves. I captain the Regulars.",
+					"Four of us, same seats every Thursday since 1971. Tonight: either side of you.",
 					"Lou's asleep, so signal all you like. We will. Our signals are older than you.",
 					"Win the Open and the Mossbank bracelet is yours. You won't."],
 				"after": "*keels over* ...I'm fine. Wear it well. The next town won't be so polite.",
@@ -319,17 +321,26 @@ func crew_by_id(crew_id: String) -> Dictionary:
 
 
 ## Where a crew stands at home: the leader, then its two shoulders.
+## Where each member stands at home: the leader on `cell`, then at its
+## shoulders, then further out on alternate sides (a boss crew of four puts
+## its fourth at the left shoulder's shoulder).
 static func crew_cells(crew: Dictionary) -> Array[Vector2i]:
 	var c: Vector2i = crew["cell"]
 	var f: Vector2i = crew["facing"]
 	var side := Vector2i(absi(f.y), absi(f.x))
-	return [c, c - side, c + side]
+	var out: Array[Vector2i] = [c]
+	for k in range(1, (crew["members"] as Array).size()):
+		out.append(c - side * ((k + 1) / 2) if k % 2 == 1 else c + side * (k / 2))
+	return out
 
 
+## The crew's animals, leader first. Their bond (how well they read each
+## other's signals at the table) is the crew's `bond`, if it has one, else
+## a stranger's 0.3.
 static func crew_animals(crew: Dictionary) -> Array[Animal]:
 	var out: Array[Animal] = []
 	for m: Array in crew["members"]:
-		out.append(Species.individual(m[0], m[1]))
+		out.append(Species.individual(m[0], m[1], crew.get("bond", 0.3)))
 	return out
 
 

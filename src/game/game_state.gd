@@ -269,6 +269,20 @@ func table_setup(rivals: Array[Animal], crew_id := "") -> Array[Dictionary]:
 	return out
 
 
+## A boss table (a crew with "boss": the Open's final): you and your party
+## against a bigger crew, seated the way the boss rigs the draw and with
+## the boss's chips split leader-heavy (BossTable). `chips` is each of your
+## seats' stack.
+func boss_table_setup(rivals: Array[Animal], crew_id: String, chips: int) -> Array[Dictionary]:
+	var mine: Array[Dictionary] = [{"name": "You", "animal": null}]
+	for a in party_animals():
+		mine.append({"name": a.name, "animal": a})
+	var boss: Array[Dictionary] = []
+	for a in rivals:
+		boss.append({"name": a.name, "animal": a})
+	return BossTable.setup(mine, boss, chips, true, crew_id)
+
+
 func to_dict() -> Dictionary:
 	var animals: Array = []
 	for a in roster:

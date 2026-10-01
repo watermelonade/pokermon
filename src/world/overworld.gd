@@ -604,10 +604,13 @@ func _play_match(crew: Dictionary) -> void:
 	else:
 		await _fade_out(0.2)
 		table = TABLE_SCENE.instantiate()
-		table.setup = state.table_setup(rivals, crew["id"])
+		table.starting_chips = int(Game.dev("chips", str(crew["chips"])))
+		if crew.get("boss", false):  # a bigger crew, a rigged seat draw, a leader (BossTable)
+			table.setup = state.boss_table_setup(rivals, crew["id"], table.starting_chips)
+		else:
+			table.setup = state.table_setup(rivals, crew["id"])
 		table.codebook = state.codebook  # interception: cracked codes carry over to rematches
 		table.dealer_kind = crew["dealer"]
-		table.starting_chips = int(Game.dev("chips", str(crew["chips"])))
 		table.embedded = true
 		# Road games are capped (the bigger stack wins at the cap): with the
 		# table's real-time animations a full bust-out ran past three minutes
