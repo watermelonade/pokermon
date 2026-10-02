@@ -33,13 +33,18 @@ extends Node2D
 ## end of the intro, which is now the night in Sootbridge, far from her.) They play at the embedded table like a
 ## match, but nothing is won or lost: only finishing them is remembered.
 ##
+## Words: what the townsfolk, crews and signs say comes with the map
+## (WorldMap, from content/); the lines this file says itself (the intro,
+## Rosie's, the narration) are read by speaker from content/dialogue/ and
+## content/script/ (Content.say; Content.CODE_LINES lists them). What stays
+## here is system text: what the game just did ("You found the Ace of
+## Spades!", money, who joined, "Saved!") and the menus.
+##
 ## Dev flags are parsed by the Game autoload (see src/game/game.gd).
 
 enum Mode { WALK, BUSY, TABLE }
 
 const TABLE_SCENE := preload("res://scenes/table.tscn")
-const AREA_NAMES := {"diner": "Rosie's Diner", "home": "Home", "hall": "Mossbank Tournament Hall",
-	"sootbridge": "Sootbridge", "washhouse": "Sootbridge Washhouse", "mill_road": "The Mill Road"}
 const PLAYER_SPRITE := "dog"  ## you are the dog (assets/sprites/dog.png)
 const OWNER_SPRITE := "npc"  ## his last walk home, in the intro
 ## Where his cards land round the manhole as he falls (pixels from it).
@@ -276,10 +281,9 @@ func _card_on_ground(cell: Vector2i) -> Node2D:
 	return n
 
 
+## The area you're in (content/atlas.json: Mossbank's map holds three).
 func _area_name() -> String:
-	if map.id == "town":
-		return "Mossbank" if state.cell.x < 34 else ("Ridge Road" if state.cell.x < 86 else "Mossbank Hall Plaza")
-	return AREA_NAMES.get(map.id, map.id)
+	return Content.area_name(map.id, state.cell)
 
 
 func _show_area() -> void:
@@ -427,9 +431,13 @@ func _found_lines(first: String) -> Array[String]:
 	var left := state.missing_cards().size()
 	map_view.gates_open = state.has_full_deck()
 	map_view.queue_redraw()
+	var out: Array[String] = []
 	if left > 0:
-		return ["%s %d still missing." % [first, left]]
-	return [first, "That's all four Aces. His deck is whole again. The gate east will let you by."]
+		out.append("%s %d still missing." % [first, left])
+		return out
+	out.append(first)
+	out.append_array(Content.say("overworld", "aces_complete"))
+	return out
 
 
 func _warp(w: Dictionary) -> void:
@@ -502,7 +510,7 @@ func _interact() -> void:
 				return
 			var lines: Array = data["lines"]
 			if data["id"] == "rosie" and state.bracelets.size() > 0:
-				lines = ["The Mossbank bracelet! Pie for the champ. On the house. (Not that House, hon.)"]
+				lines = Content.say("diner", "rosie", "champ")
 			await dialog.say(lines, str(data.get("name", str(data["id"]).capitalize())))
 			if data["id"] == "rosie":
 				await _rest_at_diner()
@@ -547,13 +555,16 @@ func _rest_at_diner() -> void:
 	await get_tree().create_timer(0.6).timeout
 	Game.save()
 	await _fade_in(0.4)
-	await dialog.say(["There. Pie all round. Your crew is fed, rested and itching to play."], "Rosie")
+	await dialog.say(Content.say("diner", "rosie", "rest"), "Rosie")
 
 
 ## The night it happened, then the morning after (docs/DEMO_SPEC.md, the
 ## loop's first step). Heavy, not graphic: lines over black, his last walk
 ## home along a dark street with you behind him, the open manhole, his cards
-## in the air, then nothing. Placeholder writing until the writers' pass.
+## in the air, then nothing. Placeholder writing until the writers' pass;
+## the words are content/script/intro.json, one speaker per beat (night,
+## manhole, fall, morning, dawn), so a writer can change them without
+## touching this.
 ## The street is tinted night-blue with a CanvasModulate over the world
 ## layer only, so the dialog box stays readable.
 func _intro() -> void:
@@ -562,10 +573,7 @@ func _intro() -> void:
 	# fade for the intro (it sits under it otherwise), and back after.
 	var ui := fade.get_parent()
 	ui.move_child(dialog, -1)
-	await dialog.say([
-		"Sootbridge, late. Coal smoke, rain on the cobbles. And him, coming home.",
-		"He lost at the Lamp again tonight. He always loses. Then it's your fault.",
-	])
+	await dialog.say(Content.say("intro", "night"))
 	if map.id != WorldMap.START_MAP:  # a dev run starting elsewhere (--at): the words alone
 		ui.move_child(fade, -1)
 		await _fade_in()
@@ -591,7 +599,7 @@ func _intro() -> void:
 		player.step_to(trail[i], 0.3)
 		trail.append(walk[i])
 		await owner.step_to(walk[i], 0.3 + 0.15 * (i % 3))
-	await dialog.say(["He's singing. He doesn't see the cover's off the manhole."])
+	await dialog.say(Content.say("intro", "manhole"))
 	await owner.step_to(map_manhole(), 0.25)
 	Sfx.play(&"card_deal")
 	var cards: Array[Node2D] = []
@@ -607,10 +615,7 @@ func _intro() -> void:
 	await fall.finished
 	owner.visible = false
 	await get_tree().create_timer(0.6).timeout
-	await dialog.say([
-		"A stumble, a clatter of cards, and he's gone. Down into the dark.",
-		"You wait at the edge all night. He doesn't call for you. Nothing comes up.",
-	])
+	await dialog.say(Content.say("intro", "fall"))
 	await _fade_out(0.8)
 	owner.queue_free()
 	for c in cards:
@@ -622,16 +627,9 @@ func _intro() -> void:
 	player.place(state.cell, Vector2i.DOWN)
 	state.facing = Vector2i.DOWN
 	_update_camera()
-	await dialog.say([
-		"Morning. You slept by the manhole. His cards lay where they fell.",
-		"You gathered them, the way he never did. Four are missing: all four Aces.",
-	])
+	await dialog.say(Content.say("intro", "morning"))
 	await _fade_in(0.8)
-	await dialog.say([
-		"They went down with him. But the drains run all over town.",
-		"His deck and his wallet. Yours now. You won't leave without those Aces.",
-		"Walk: arrows, WASD, D-pad or stick. Talk: A, Enter or Space. Menu: Start or Tab.",
-	])
+	await dialog.say(Content.say("intro", "dawn"))
 	ui.move_child(fade, -1)
 
 
@@ -707,14 +705,12 @@ func _offer_tutorial() -> void:
 	if state.tutorial_offered or (Game.dev_auto and not Game.dev_args.has("tutorial")):
 		return
 	state.tutorial_offered = true
-	await dialog.say([
-		"Well, look who wandered in. A dog, on his own, in my diner. Rough night, hon?",
-		"I'm Rosie. New to the tables? I'll show you how they work. Pie after."], "Rosie")
+	await dialog.say(Content.say("diner", "rosie", "offer"), "Rosie")
 	var pick := await menu.choose("Take Rosie's table lesson?", ["Yes, show me", "No thanks"], 1)
 	if pick == 0:
 		await _play_tutorial()
 	else:
-		await dialog.say(["Suit yourself, hon. I'm at the diner whenever you want a lesson."], "Rosie")
+		await dialog.say(Content.say("diner", "rosie", "declined"), "Rosie")
 
 
 ## The lessons at the embedded table, with your seated crew. Like
@@ -745,9 +741,9 @@ func _play_tutorial() -> void:
 	Game.save()
 	Game.dev_log("tutorial: %s" % ("finished" if lessons.completed else "skipped"))
 	if lessons.completed:
-		await dialog.say(["Look at you, hon! A natural. Mostly.", "Come by for pie, win or lose. Or another lesson."], "Rosie")
+		await dialog.say(Content.say("diner", "rosie", "lesson_done"), "Rosie")
 	else:
-		await dialog.say(["Fair enough, hon. I'm at the diner if you want another go."], "Rosie")
+		await dialog.say(Content.say("diner", "rosie", "lesson_skipped"), "Rosie")
 
 
 # --- Encounters -------------------------------------------------------------
@@ -759,7 +755,7 @@ func _encounter(crew: Dictionary, spotted: bool) -> void:
 		# never happens (spotter's party size); this is for talking to one.
 		var who := str(crew["name"])
 		who = who.substr(0, 1).to_upper() + who.substr(1)
-		await dialog.say(["(%s look you over: one dog, no crew.)" % who, "Come back with a crew."], _crew_title(crew))
+		await dialog.say(Content.say("overworld", "no_crew", "lines", {"crew": who}), _crew_title(crew))
 		mode = Mode.WALK
 		return
 	Game.dev_log("encounter: %s (%s)" % [crew["id"], "spotted you" if spotted else "you talked"])
@@ -917,7 +913,7 @@ func _after_win(crew: Dictionary, reward: int) -> void:
 	await dialog.say(["You beat %s! They grumble and pay up: $%d." % [crew["name"], reward], crew["after"]], title)
 	await _say_bond_growth()
 	if crew.has("bracelet"):
-		await dialog.say(["You won the Mossbank Open! The Regulars hand over the bracelet. Slowly."])
+		await dialog.say(Content.say(map.id, Content.speaker_of(map.id, crew["id"]), "won"))
 		await _show_demo_complete()
 		return
 	await _offer_recruit(crew)
@@ -963,14 +959,12 @@ func _offer_recruit(crew: Dictionary) -> void:
 ## Shows a blackout that _settle has already applied and saved (closing the
 ## window during this dialogue used to skip it: 64 of 200 playtest runs).
 func _blackout(crew: Dictionary, lost: int) -> void:
-	await dialog.say(["%s cleaned you out." % _crew_title(crew), "You wander back toward town, pockets flapping, and everything goes dark..."])
+	await dialog.say(["%s cleaned you out." % _crew_title(crew)] + Content.say("overworld", "blackout"))
 	await _fade_out(0.6)
 	_load_map(state.map_id, state.cell, state.facing)
 	await get_tree().create_timer(0.4).timeout
 	await _fade_in(0.6)
-	await dialog.say([
-		"Rough night, hon? You're at Rosie's. Your wallet's $%d lighter." % lost,
-		"Your crew's had pie and a little cry. They're ready when you are."], "Rosie")
+	await dialog.say(Content.say("diner", "rosie", "blackout", {"lost": lost}), "Rosie")
 	await _say_bond_growth()
 
 

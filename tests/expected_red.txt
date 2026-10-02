@@ -17,8 +17,6 @@
 
 # C: the editor's phase 1, content out of code (tests/test_content.gd,
 # docs/EDITOR_SPEC.md)
-test_C_SAME_the_world_is_the_snapshot
-test_C_NOCODE_no_overworld_text_left_in_the_code
 test_C_CHECKS_the_world_passes_the_editor_checks
 test_C_CHECKS_find_each_kind_of_problem
 test_C_EXPORT_presets_pack_content_and_leave_out_the_editor

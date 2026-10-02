@@ -8,7 +8,8 @@ extends TestCase
 ## pixel font (Departure Mono, 11px), so the text still fits if the box moves
 ## to it. And no speech runs longer than four boxes. docs/WRITING.md has the
 ## rules; the format strings in overworld.gd are measured with worst-case
-## names filled in instead of capped.
+## names filled in instead of capped, and so are the {placeholders} in
+## content/'s lines (capped too: a writer's line should fit with any name).
 
 const BASE_WIDTH := 640.0
 const MAX_WRAPPED := 2
@@ -85,9 +86,29 @@ func test_every_animal_has_a_bio_and_a_recruit_line() -> void:
 	check_eq(Bios.bio(&"dog", "Rex"), "", "unknown animals have no bio (dogs come later)")
 
 
-## The overworld's own lines (the intro, blackout, recruiting, the diner)
-## are string literals in src/world/overworld.gd, some with %s and %d: read
-## the source and check each with worst-case names and sums filled in.
+## The lines the overworld's code asks for by name, now in content/ (the
+## intro, Rosie's, the narration; editor phase 1 moved them out of
+## overworld.gd): every set of them, with worst-case names and sums in its
+## {placeholders}. The townsfolk's, crews' and signs' lines are checked
+## above, through the maps.
+func test_content_lines_fit_the_text_box() -> void:
+	var sets := {}  ## "file.speaker.set" -> [texts]
+	for line: Dictionary in Content.all_lines():
+		var key := "%s.%s.%s" % [line["file"], line["speaker"], line["set"]]
+		if not sets.has(key):
+			sets[key] = []
+		sets[key].append(str(line["text"]).format({"crew": LONG_NAME, "lost": BIG_NUMBER}))
+	for want: Array in Content.CODE_LINES:
+		check(sets.has("%s.%s.%s" % want), "content has the lines the code says: %s" % [want])
+	for key: String in sets:
+		_check_speech(sets[key], key)
+
+
+## What's still a string literal in src/world/overworld.gd (system text:
+## what the game just did, the menus), some with %s and %d: read the source
+## and check each with worst-case names and sums filled in. Before editor
+## phase 1 the intro, Rosie's and the narration were here too (at least
+## 10 of them); they're test_content_lines_fit_the_text_box's now.
 func test_overworld_lines_fit_the_text_box() -> void:
 	var source := FileAccess.get_file_as_string("res://src/world/overworld.gd")
 	check(source != "", "read overworld.gd")
@@ -104,4 +125,4 @@ func test_overworld_lines_fit_the_text_box() -> void:
 			text = text.replace("%s", LONG_NAME).replace("%d", BIG_NUMBER)
 			_check_line(text, "overworld.gd", false)
 			checked += 1
-	check(checked >= 10, "found the overworld's lines (%d)" % checked)
+	check(checked >= 3, "found the overworld's system lines (%d)" % checked)

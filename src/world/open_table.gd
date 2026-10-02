@@ -199,9 +199,9 @@ static func _crew_joins(ow: Variant, joined: Array[Animal]) -> void:
 	for a in joined:
 		names.append(a.name)
 		Sfx.voice(a.species)
-		var hello := _ask_line(a)
+		var hello := _ask_lines(a)
 		if hello:
-			await ow.dialog.say([hello], a.name)
+			await ow.dialog.say(hello, a.name)
 	_leave_the_table_crowd(ow, joined)
 	ow._make_followers(ow.player.cell, ow.player.facing)
 	Sfx.play(&"win_pot")  # until there's a proper recruit jingle
@@ -209,13 +209,18 @@ static func _crew_joins(ow: Variant, joined: Array[Animal]) -> void:
 
 
 ## What each of the two says when it asks to come along, in its voice
-## (docs/WRITING.md); its recruit line (Bios) for anyone else.
-static func _ask_line(a: Animal) -> String:
+## (docs/WRITING.md): their "joins" lines in content/dialogue/town.json;
+## its recruit line (Bios) for anyone else.
+static func _ask_lines(a: Animal) -> Array[String]:
 	if a.species == &"owl" and a.name == "Sage":
-		return "You fold with conviction. I could make something of that. I'm coming along."
+		return Content.say("town", "table_sage", "joins")
 	if a.species == &"raccoon" and a.name == "Bandit":
-		return "*psst* me too. a dog with no crew is a plan with no raccoon."
-	return Bios.recruit_line(a.species, a.name)
+		return Content.say("town", "table_bandit", "joins")
+	var out: Array[String] = []
+	var line := Bios.recruit_line(a.species, a.name)
+	if line:
+		out.append(line)
+	return out
 
 
 ## Takes the animals who just joined you off the map, where they stood

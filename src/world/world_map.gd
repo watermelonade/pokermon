@@ -7,7 +7,8 @@ extends RefCounted
 ## Mossbank and Ridge Road (one long outdoor map, so walking out of town is
 ## seamless) on its west side; Mossbank has three interiors.
 ##
-## Tiles are 16x16, one character each (legend in TILES). Pure data and
+## Tiles are 16x16, one character each (legend in TILES; the maps
+## themselves are in content/maps/, see below). Pure data and
 ## queries, no nodes: line of sight, where a crew walks to meet you and
 ## whether the road can be walked are all tested headless
 ## (tests/test_world_map.gd), and the map test checks every row is the same
@@ -57,17 +58,30 @@ const TILES := {
 	"u": ["washtub", false],
 }
 
+## The maps themselves (their tiles, the townsfolk, crews, signs, doors,
+## cards lying about, gates and open tables, and every line said there)
+## live in content/ since the editor's phase 1 (docs/EDITOR_SPEC.md); until
+## then they were a const dictionary here, MAPS. Content builds each map in
+## exactly the shape that const had (README "Content"), so everything
+## below, and everyone reading WorldMap, works on the same data as before;
+## tests/test_content.gd (C-SAME) checks it against a snapshot of the const.
+##
+## MAPS, OPEN_TABLE and STREET_GAME stay as read-only accessors over the
+## loader so their callers (GameState, the tests, the playtester) didn't
+## change with the move.
+static var MAPS: Dictionary:
+	get:
+		return Content.runtime_maps()
+
 ## Mossbank's open table (docs/DEMO_SPEC.md W-TABLE): a street game anyone
 ## can sit at, one npc entry per player standing round the felt, each
 ## carrying this same dictionary (OpenTable.play reads it). Sage and Bandit
 ## play here until your first sit, then join you (GameState.OPEN_TABLE_CREW);
 ## five players so the three left after that still make a game (CashMatch
-## wants two rivals at least).
-const OPEN_TABLE := {
-	"id": "mossbank_open_table", "buy_in": OPEN_TABLE_BUY_IN, "dealer": Dealer.Kind.STREET,
-	"players": [[&"owl", 0], [&"raccoon", 0], [&"goose", 3], [&"possum", 2], [&"cat", 3]],
-}
-const OPEN_TABLE_BUY_IN := 100
+## wants two rivals at least). In content/maps/town.json's open_tables.
+static var OPEN_TABLE: Dictionary:
+	get:
+		return Content.open_table("mossbank_open_table")
 
 ## Sootbridge's street game (demo 2.1, docs/DEMO_SPEC.md W-STREET): three
 ## townsfolk playing for pennies on an upturned crate outside the Lamp.
@@ -78,6 +92,7 @@ const OPEN_TABLE_BUY_IN := 100
 ## second income. The players are the three individuals no crew or table
 ## had yet (Pip the owl, Scraps the raccoon, Gander the goose: a Rock, a
 ## Bluffer and a Maniac), so none of them can ever be in your crew.
+## In content/maps/sootbridge.json's open_tables.
 ##
 ## The stake and the blinds are tuned on the pace (tools/cash_sim.gd
 ## --street, README "Measured so far"): from $0 back to the buy-in in
@@ -90,376 +105,10 @@ const OPEN_TABLE_BUY_IN := 100
 ## at 10 big blinds the pennies come in often and small. 60 at 3/6: median
 ## 39 hands (13 minutes; 4-26 for the middle 80%) on 400 runs of seeds the
 ## tuning never saw.
-const STREET_GAME := {
-	"id": "sootbridge_street_game", "stake": 60, "blinds": [3, 6], "max_money": OPEN_TABLE_BUY_IN, "dealer": Dealer.Kind.STREET,
-	"players": [[&"owl", 3], [&"raccoon", 3], [&"goose", 2]],
-}
+static var STREET_GAME: Dictionary:
+	get:
+		return Content.open_table("sootbridge_street_game")
 
-
-const MAPS := {
-	# Demo 2's first town (docs/DEMO_SPEC.md): soot-stained terraces on a
-	# canal, the street where the dog wakes by the open manhole, and the
-	# gate east to the Mill Road. The four Aces are found four ways: one in
-	# the gutter in plain sight, one inside the washhouse, one at the dead
-	# end of the coal yard's alley (behind the crates), one given by Mags.
-	# Outside the Lamp, three townsfolk play for pennies on a crate: the
-	# street game (STREET_GAME, demo 2.1), for a dog with empty pockets.
-	"sootbridge": {
-		"outdoor": true,
-		"rows": [
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
-			"TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
-			"TTBwBDBBwBBBwBBdBBwBBwBdBwwBdBwBBBBTTTTT",
-			"T:::::::::::::::::::::::::::::::::g::::T",
-			"T:::::::::::::::::::::::::::::::::g::::T",
-			"T:::::::::::o:::::::x:::::::::::::BTTTTT",
-			"T:::::::S:::::::::::::::::::::::::BTTTTT",
-			"TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
-			"T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
-			"T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
-			"TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
-			"T::::::::::::::::::;x.............BTTTTT",
-			"T...........:.........xxxxxxxxxxxxBTTTTT",
-			"T..RRRRRR...:..........xx....xx...BTTTTT",
-			"T..RRRRRR...:....,.....xx....xx...BTTTTT",
-			"T..BwBdBB...:.....................BTTTTT",
-			"T...........::::::::::::::::::::..BTTTTT",
-			"T..,,.......:..........xx....xx...BTTTTT",
-			"T..,,...TT..:..........xx....xx...BTTTTT",
-			"T.......TT........................BTTTTT",
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-		],
-		"labels": [
-			{"rect": Rect2i(2, 1, 8, 2), "text": "WASHHOUSE"},
-			{"rect": Rect2i(11, 1, 9, 2), "text": "THE LAMP"},
-		],
-		"warps": [
-			{"cell": Vector2i(5, 3), "to": "washhouse", "to_cell": Vector2i(5, 6), "facing": Vector2i.UP},
-			{"cell": Vector2i(38, 4), "to": "mill_road", "to_cell": Vector2i(2, 5), "facing": Vector2i.RIGHT},
-			{"cell": Vector2i(38, 5), "to": "mill_road", "to_cell": Vector2i(2, 6), "facing": Vector2i.RIGHT},
-		],
-		"gates": [
-			{"cells": [Vector2i(34, 4), Vector2i(34, 5)], "requires": "full_deck",
-				"text": "The gate out of town. You can't leave. Not without the Aces."},
-		],
-		"pickups": [
-			{"id": "ace_gutter", "cell": Vector2i(18, 7), "card": 51},  # As: in plain sight
-			{"id": "ace_coal_yard", "cell": Vector2i(33, 12), "card": 48},  # Ac: the alley's dead end
-		],
-		"signs": [
-			{"cell": Vector2i(8, 7), "text": "SOOTBRIDGE. Mind the drains. The council will fix that manhole cover. Soon."},
-		],
-		"npcs": [
-			{"id": "mags", "name": "Mags", "sprite": "possum", "cell": Vector2i(5, 12), "facing": Vector2i.DOWN, "lines": [
-				"Mags. I keep the drains. Don't look at me like that, it's honest work.",
-				"Found this in my grate at dawn. A card. Smells of him. Of the Lamp's beer.",
-				"Here. It's more yours than his, I reckon. Go careful, dog."],
-				"gives_card": {"id": "ace_mags", "card": 50},  # Ah
-				"after": ["The drains run all over town, dog. What goes down comes up somewhere."]},
-			{"id": "ash", "name": "Ash", "sprite": "cat", "cell": Vector2i(17, 4), "facing": Vector2i.DOWN, "lines": [
-				"You're his dog. The one he shouted at. ...He's not shouting now, is he?",
-				"I won't say sorry. I'll say: the coal yard. Something shines behind the crates."]},
-			{"id": "cinder", "name": "Cinder, the sweep", "sprite": "npc_kid", "cell": Vector2i(26, 7), "facing": Vector2i.UP, "lines": [
-				"They're not opening the manhole. Too deep, the constable says. Too late.",
-				"Mum says the drains run under half the town. Even under the washhouse."]},
-			# The street game round its crate outside the Lamp: one entry per
-			# player, all carrying STREET_GAME (OpenTable.play reads it).
-			{"id": "street_pip", "name": "Pip", "sprite": "owl", "cell": Vector2i(20, 5), "facing": Vector2i.DOWN,
-				"open_table": STREET_GAME, "animal": [&"owl", 3], "lines": [
-				"We heard about last night. Sit, if your pockets are empty. We stake you."]},
-			{"id": "street_scraps", "name": "Scraps", "sprite": "raccoon", "cell": Vector2i(21, 6), "facing": Vector2i.LEFT,
-				"open_table": STREET_GAME, "animal": [&"raccoon", 3], "lines": [
-				"*psst* our chips, your paws. win and you keep the extra. lose and, eh."]},
-			{"id": "street_gander", "name": "Gander", "sprite": "goose", "cell": Vector2i(19, 6), "facing": Vector2i.RIGHT,
-				"open_table": STREET_GAME, "animal": [&"goose", 2], "lines": [
-				"HONK. PENNIES ON THE CRATE. THE CRATE IS MINE. THE PENNIES ARE ANYONE'S."]},
-		],
-		"crews": [],
-	},
-	"washhouse": {
-		"outdoor": false,
-		"rows": [
-			"WWWWWWWWWWWW",
-			"W_uu_uu_uu_W",
-			"W__________W",
-			"W__________W",
-			"WCCCC______W",
-			"W__________W",
-			"W_______p__W",
-			"W____XX____W",
-			"WWWWWWWWWWWW",
-		],
-		"labels": [],
-		"warps": [
-			{"cell": Vector2i(5, 7), "to": "sootbridge", "to_cell": Vector2i(5, 4), "facing": Vector2i.DOWN},
-			{"cell": Vector2i(6, 7), "to": "sootbridge", "to_cell": Vector2i(5, 4), "facing": Vector2i.DOWN},
-		],
-		"pickups": [
-			{"id": "ace_washhouse", "cell": Vector2i(10, 2), "card": 49},  # Ad: up the floor drain
-		],
-		"signs": [],
-		"npcs": [
-			{"id": "nell", "name": "Nell", "sprite": "npc_cook", "cell": Vector2i(7, 3), "facing": Vector2i.DOWN, "lines": [
-				"Out, dog, I've just mopped. ...Oh. You're his. I heard.",
-				"Something came up my floor drain this morning. A card. It's by the tubs."]},
-		],
-		"crews": [],
-	},
-	# The road between the towns: short, a couple of folk on it, no crews
-	# (the dog has none to play them with yet).
-	"mill_road": {
-		"outdoor": true,
-		"rows": [
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TTTTT......TTTTT.....RRRRRR.....TTTTTTTT",
-			"TTT.........,,.......RRRRRR.........TTTT",
-			"TT...;;;.............#w#d#w....S......TT",
-			"TT...;;;..........................,,..TT",
-			"T======================================T",
-			"T======================================T",
-			"TT.........,,,...............;;;.....TTT",
-			"TT....TTT...............,,,.........TTTT",
-			"TTTT....TTTT......TTTTT......TTTT...TTTT",
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-		],
-		"labels": [
-			{"rect": Rect2i(21, 1, 6, 2), "text": "OLD MILL"},
-		],
-		"warps": [
-			{"cell": Vector2i(1, 5), "to": "sootbridge", "to_cell": Vector2i(37, 4), "facing": Vector2i.LEFT},
-			{"cell": Vector2i(1, 6), "to": "sootbridge", "to_cell": Vector2i(37, 5), "facing": Vector2i.LEFT},
-			{"cell": Vector2i(38, 5), "to": "town", "to_cell": Vector2i(2, 11), "facing": Vector2i.RIGHT},
-			{"cell": Vector2i(38, 6), "to": "town", "to_cell": Vector2i(2, 12), "facing": Vector2i.RIGHT},
-		],
-		"signs": [
-			{"cell": Vector2i(31, 3), "text": "THE MILL ROAD. West: Sootbridge. East: Mossbank. Mind the geese."},
-		],
-		"npcs": [
-			{"id": "flint", "name": "Flint, a carter", "sprite": "npc", "cell": Vector2i(10, 7), "facing": Vector2i.UP, "lines": [
-				"Sootbridge behind you, Mossbank ahead. Nothing between but the mill and me.",
-				"There's a card table in Mossbank, out on the street. Anyone can sit. Even you."]},
-			{"id": "hedda", "name": "Hedda", "sprite": "npc_badger", "cell": Vector2i(30, 4), "facing": Vector2i.DOWN, "lines": [
-				"The mill's been shut for years. The wheel still turns. Nobody knows why.",
-				"You look like you've had a night. Mossbank's kind to strays. Mostly."]},
-		],
-		"crews": [],
-	},
-	"town": {
-		"outdoor": true,
-		"rows": [
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TT................................TTTTTTTTTTTTTT...............,,,.........TTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...............,,,.........TTTTTTTTTTT............TT",
-			"TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...........................TTTTTTTTTTT............TT",
-			"TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...====================....TTTTTTTTTTT..RRRRRRRRR.TT",
-			"TT..#w#D##w#...#wDw#w#...#wd#w#...TTTTTTTTTTTTTT...====================....TTTTTTTTTTT..RRRRRRRRR.TT",
-			"TT.....=.S.......=.........=......TTTTTTTTTTTTTT...==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
-			"TT.....=,,...,...=....,....=......TT...............==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
-			"TT.....=.........=.....,...=.......................==;;;TTTTTTTTTTT..==..T.TTTTTTTTTTT..#w#wDw#w#.TT",
-			"TT.....=.........=.........=...S...................==;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
-			"T====================================================;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
-			"T====================================================...TTTTTTTTTT...==....TTTTTTTTTTT....,.=.,...TT",
-			"TT........................S...........;;;;;..;;;........TTTTTTTTTT;;.==....TTTTTTTTTTT......=.....TT",
-			"TT....................................;;;;;..;;;........TTTTTTTTTT;;.==..................,..=..,..TT",
-			"TT...~~~~...,,,,,,,...FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.....................=.....TT",
-			"TT..~~~~~~..,,,,,,,...F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.................S...=.....TT",
-			"TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
-			"TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
-			"TT...~~~~...S,,,,,....F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT................................TT",
-			"TT...........,,,,,....FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT......,,,,....;;;;;.............TT",
-			"TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...,,,,....;;;;;.............TT",
-			"TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-			"TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-		],
-		"labels": [
-			{"rect": Rect2i(4, 3, 8, 3), "text": "DINER"},
-			{"rect": Rect2i(15, 3, 7, 3), "text": "HOME"},
-			{"rect": Rect2i(25, 3, 6, 3), "text": "SHOP"},
-			{"rect": Rect2i(88, 5, 9, 4), "text": "TOURNAMENT HALL"},
-		],
-		"warps": [
-			{"cell": Vector2i(7, 6), "to": "diner", "to_cell": Vector2i(6, 7), "facing": Vector2i.UP},
-			{"cell": Vector2i(17, 6), "to": "home", "to_cell": Vector2i(4, 6), "facing": Vector2i.UP},
-			{"cell": Vector2i(92, 9), "to": "hall", "to_cell": Vector2i(9, 10), "facing": Vector2i.UP},
-			{"cell": Vector2i(1, 11), "to": "mill_road", "to_cell": Vector2i(37, 5), "facing": Vector2i.LEFT},
-			{"cell": Vector2i(1, 12), "to": "mill_road", "to_cell": Vector2i(37, 6), "facing": Vector2i.LEFT},
-		],
-		"signs": [
-			{"cell": Vector2i(9, 7), "text": "ROSIE'S DINER. Pie, coffee, booths. Lose on the road? You'll wake up here."},
-			{"cell": Vector2i(31, 10), "text": "EAST: Ridge Road, then the Tournament Hall. Mostly Ridge Road. Lots of it."},
-			{"cell": Vector2i(26, 13), "text": "MOSSBANK. Population 212. Squirrels, please stop counting yourselves twice."},
-			{"cell": Vector2i(27, 6), "text": "SHOP. Closed for the Mossbank Open. The shopkeeper entered. Wish her luck."},
-			{"cell": Vector2i(88, 16), "text": "MOSSBANK TOURNAMENT HALL. Tonight: the Mossbank Open. Dealer: Lou. Lou: asleep."},
-			{"cell": Vector2i(12, 19), "text": "OPEN TABLE. Anyone may sit. $100 buy-in. Leave whenever you like."},
-		],
-		"npcs": [
-			{"id": "bertram", "name": "Old Bertram", "sprite": "npc_badger", "cell": Vector2i(30, 9), "facing": Vector2i.DOWN, "lines": [
-				"Ridge Road, eh? Crews line it like crows on a fence. Nobody gets by for free.",
-				"Step into a crew's sight and they'll deal you in. Win, and one might join you.",
-				"Press Start (or Tab) and pick Crew to choose which two animals sit with you.",
-				"I played that road forty years. Lost my shirt twice. Won it back once."]},
-			{"id": "kid", "name": "Juniper, age 9", "sprite": "npc_kid", "cell": Vector2i(12, 13), "facing": Vector2i.UP, "lines": [
-				"Lou the dealer has been asleep since before I was born. Mom says so.",
-				"So in the hall you can signal your crew all you like! Nose! Ear! Hat!",
-				"When I grow up I'm gonna have a crew of nine geese. Nine!"]},
-			{"id": "tally", "name": "Tally, the census", "sprite": "squirrel", "cell": Vector2i(5, 9), "facing": Vector2i.DOWN, "lines": [
-				"Two hundred and twelve! Two hundred and thirteen! Wait. Did I count me?",
-				"A dog! Do dogs count? I'll count you. Two hundred and fourteen!"]},
-			{"id": "dot", "name": "Dot", "sprite": "goose", "cell": Vector2i(20, 14), "facing": Vector2i.LEFT, "lines": [
-				"HONK. THE TABLE BY THE POND IS OPEN TO ALL. EVEN DOGS. ESPECIALLY DOGS.",
-				"THEY NEED A FOURTH. THEY ALWAYS NEED A FOURTH. GO ON. SIT."]},
-			# The open table's players: one entry each, all carrying OPEN_TABLE;
-			# "animal" says which player each one is, so whoever has joined you
-			# stops standing here (the overworld hides them).
-			{"id": "table_sage", "name": "Sage", "sprite": "owl", "cell": Vector2i(13, 17), "facing": Vector2i.RIGHT,
-				"open_table": OPEN_TABLE, "animal": [&"owl", 0], "lines": [
-				"Ah. A dog. Do sit, if you have the buy-in. We play for money, not pats."]},
-			{"id": "table_bandit", "name": "Bandit", "sprite": "raccoon", "cell": Vector2i(16, 18), "facing": Vector2i.LEFT,
-				"open_table": OPEN_TABLE, "animal": [&"raccoon", 0], "lines": [
-				"*psst* fresh chips. i mean, hi. sit down, sit down."]},
-			{"id": "table_waddles", "name": "Waddles", "sprite": "goose", "cell": Vector2i(15, 16), "facing": Vector2i.DOWN,
-				"open_table": OPEN_TABLE, "animal": [&"goose", 3], "lines": [
-				"DEAL THE DOG IN. DEAL EVERYONE IN. THIS IS MY TABLE NOW."]},
-			{"id": "table_pudding", "name": "Pudding", "sprite": "possum", "cell": Vector2i(13, 18), "facing": Vector2i.RIGHT,
-				"open_table": OPEN_TABLE, "animal": [&"possum", 2], "lines": [
-				"Sit, if you like. I play slow. If I lose, I lie down for a bit. It's fine."]},
-			{"id": "table_mittens", "name": "Mittens", "sprite": "cat", "cell": Vector2i(14, 19), "facing": Vector2i.UP,
-				"open_table": OPEN_TABLE, "animal": [&"cat", 3], "lines": [
-				"A dog at the table. How novel. Do try not to drool on the felt."]},
-		],
-		"crews": [
-			{"id": "pond_hecklers", "name": "the Pond Hecklers", "cell": Vector2i(44, 8), "facing": Vector2i.DOWN, "sight": 6,
-				"members": [[&"goose", 0], [&"squirrel", 0], [&"goose", 1]],
-				"before": ["HONK! HALT! THIS IS OUR ROAD NOW. WE DECIDED THAT JUST NOW.",
-					"NOBODY PASSES THE POND HECKLERS WITHOUT A HAND. SIT. DEAL. FEAR.",
-					"(Nutmeg, the squirrel, holds their chips. In his cheeks. Mostly.)"],
-				"after": "FINE. YOU WIN. WE'LL BE AT THE POND, HONKING ABOUT IT FOR WEEKS.",
-				"reward": 120, "chips": 500, "dealer": Dealer.Kind.STREET},
-			{"id": "alley_cats", "name": "the Alley Cats", "cell": Vector2i(48, 7), "facing": Vector2i.RIGHT, "sight": 4,
-				"members": [[&"cat", 0], [&"cat", 1], [&"raccoon", 1]],
-				"before": ["Oh. A human. With pets. How quaint.",
-					"We weren't going to play today. It's warm. But fine. Don't be boring.",
-					"(Behind her, the raccoon whispers \"psst, I have a plan.\" Nobody listens.)"],
-				"after": "We let you win, obviously. Now move. You're standing in our sunbeam.",
-				"reward": 150, "chips": 500, "dealer": Dealer.Kind.STREET},
-			{"id": "nut_club", "name": "the Nut Club", "cell": Vector2i(60, 2), "facing": Vector2i.DOWN, "sight": 6,
-				"members": [[&"squirrel", 1], [&"squirrel", 2], [&"squirrel", 3]],
-				"before": ["HALT! Halt. Hi. Halt! This stretch of road belongs to the Nut Club!",
-					"Toll's one game. Or one nut. No nut? Game it is! Sit sit sit!",
-					"Club rule one: we call. Rule two: we always call. Rule three: snacks."],
-				"after": "We called everything. EVERYTHING. Why didn't that work?!",
-				"reward": 180, "chips": 500, "dealer": Dealer.Kind.STREET},
-			{"id": "night_shift", "name": "the Night Shift", "cell": Vector2i(78, 15), "facing": Vector2i.DOWN, "sight": 5,
-				"members": [[&"possum", 0], [&"owl", 1], [&"raccoon", 2]],
-				"before": ["...", "Oh. You can see us. Most folks walk right past.",
-					"We're the Night Shift. We play at night. It is not night. Deal quietly."],
-				"after": "*flops over* I have died. Tell my mother I bluffed bravely. ...Shh.",
-				"reward": 220, "chips": 500, "dealer": Dealer.Kind.STREET},
-		],
-	},
-	"diner": {
-		"outdoor": false,
-		"rows": [
-			"WWWWWWWWWWWWWW",
-			"W____________W",
-			"WCCCCCCCCC___W",
-			"W____________W",
-			"W____________W",
-			"W_tt____tt___W",
-			"W_tt____tt__pW",
-			"Wp___________W",
-			"W_____XX_____W",
-			"WWWWWWWWWWWWWW",
-		],
-		"labels": [],
-		"warps": [
-			{"cell": Vector2i(6, 8), "to": "town", "to_cell": Vector2i(7, 7), "facing": Vector2i.DOWN},
-			{"cell": Vector2i(7, 8), "to": "town", "to_cell": Vector2i(7, 7), "facing": Vector2i.DOWN},
-		],
-		"signs": [
-			{"cell": Vector2i(13, 4), "text": "A painting: dogs playing cards. One slips an ace under the table. Did it just wink?"},
-		],
-		"npcs": [
-			{"id": "rosie", "name": "Rosie", "sprite": "npc_cook", "cell": Vector2i(5, 1), "facing": Vector2i.DOWN, "lines": [
-				"Sit a while, hon. Nobody leaves Rosie's hungry. Or broke. Well. Hungry.",
-				"If a crew cleans you out, you'll wake up in that booth. Happens to everybody.",
-				"And don't mind the painting. It came with the place."]},
-		],
-		"crews": [],
-	},
-	"home": {
-		"outdoor": false,
-		"rows": [
-			"WWWWWWWWWW",
-			"W_bb___p_W",
-			"W_bb_____W",
-			"W________W",
-			"W___tt___W",
-			"W___tt___W",
-			"W________W",
-			"W___XX___W",
-			"WWWWWWWWWW",
-		],
-		"labels": [],
-		"warps": [
-			{"cell": Vector2i(4, 7), "to": "town", "to_cell": Vector2i(17, 7), "facing": Vector2i.DOWN},
-			{"cell": Vector2i(5, 7), "to": "town", "to_cell": Vector2i(17, 7), "facing": Vector2i.DOWN},
-		],
-		"signs": [
-			{"cell": Vector2i(4, 4), "text": "Your practice table. The felt has seen better days. So has the deck."},
-			{"cell": Vector2i(5, 4), "text": "Your practice table. The felt has seen better days. So has the deck."},
-		],
-		"npcs": [],
-		"crews": [],
-	},
-	"hall": {
-		"outdoor": false,
-		"rows": [
-			"WWWWWWWWWWWWWWWWWWWW",
-			"W__________________W",
-			"W_p______________p_W",
-			"W______tttttt______W",
-			"W______tttttt______W",
-			"W______tttttt______W",
-			"W__________________W",
-			"W__________________W",
-			"W__________________W",
-			"W__________________W",
-			"W__________________W",
-			"W________XX________W",
-			"WWWWWWWWWWWWWWWWWWWW",
-		],
-		"labels": [],
-		"warps": [
-			{"cell": Vector2i(9, 11), "to": "town", "to_cell": Vector2i(92, 10), "facing": Vector2i.DOWN},
-			{"cell": Vector2i(10, 11), "to": "town", "to_cell": Vector2i(92, 10), "facing": Vector2i.DOWN},
-		],
-		"signs": [
-			{"cell": Vector2i(5, 0), "text": "HALL RULES: 1. No biting. 2. No cards in cheek pouches. 3. Do not wake Lou."},
-		],
-		"npcs": [
-			{"id": "lou", "name": "Lou, the dealer", "sprite": "npc_dealer", "cell": Vector2i(9, 2), "facing": Vector2i.DOWN, "asleep": true, "lines": [
-				"Zzz... ante up... zzz...",
-				"Zzz... the House... always... zzz..."]},
-		],
-		"crews": [
-			{"id": "mossbank_regulars", "name": "the Mossbank Regulars", "cell": Vector2i(9, 6), "facing": Vector2i.DOWN, "sight": 0,
-				# A boss crew (BossTable): four against your three, Graves leading
-				# on a big stack, the seat draw rigged around you.
-				"members": [[&"possum", 3], [&"cat", 2], [&"owl", 2], [&"possum", 1]], "boss": true,
-				"before": ["So. You're the one cleaning out Ridge Road. I'm Graves. I captain the Regulars.",
-					"Four of us, same seats every Thursday since 1971. Tonight: either side of you.",
-					"Lou's asleep, so signal all you like. We will. Our signals are older than you.",
-					"Win the Open and the Mossbank bracelet is yours. You won't."],
-				"after": "*keels over* ...I'm fine. Wear it well. The next town won't be so polite.",
-				"reward": 500, "chips": 1000, "dealer": Dealer.Kind.ASLEEP, "bracelet": "mossbank", "tournament": true},
-		],
-	},
-}
 
 static var _cache := {}
 
@@ -478,28 +127,44 @@ var _pickups: Array = []
 
 
 static func ids() -> Array:
-	return MAPS.keys()
+	return Content.map_ids()
+
+
+static func has_map(map_id: String) -> bool:
+	return Content.map_ids().has(map_id)
 
 
 static func get_map(map_id: String) -> WorldMap:
 	if not _cache.has(map_id):
-		assert(MAPS.has(map_id), "unknown map: %s" % map_id)
-		var data: Dictionary = MAPS[map_id]
-		var m := WorldMap.new()
-		m.id = map_id
-		m.outdoor = data["outdoor"]
-		m.rows = PackedStringArray(data["rows"])
-		m.height = m.rows.size()
-		m.width = m.rows[0].length()
-		m.warps = data["warps"]
-		m.signs = data["signs"]
-		m.npcs = data["npcs"]
-		m.crews = data["crews"]
-		m.labels = data["labels"]
-		m.gates = data.get("gates", [])
-		m._pickups = data.get("pickups", [])
-		_cache[map_id] = m
+		assert(has_map(map_id), "unknown map: %s" % map_id)
+		_cache[map_id] = from_data(map_id, Content.runtime_map(map_id))
 	return _cache[map_id]
+
+
+## A map from its runtime dictionary (Content.build_runtime_map's shape),
+## not cached: for the editor's unsaved maps and the tests' made-up ones.
+static func from_data(map_id: String, data: Dictionary) -> WorldMap:
+	var m := WorldMap.new()
+	m.id = map_id
+	m.outdoor = data["outdoor"]
+	m.rows = PackedStringArray(data["rows"])
+	m.height = m.rows.size()
+	m.width = m.rows[0].length()
+	m.warps = data["warps"]
+	m.signs = data["signs"]
+	m.npcs = data["npcs"]
+	m.crews = data["crews"]
+	m.labels = data["labels"]
+	m.gates = data.get("gates", [])
+	m._pickups = data.get("pickups", [])
+	return m
+
+
+## Forgets the maps, so the next get_map reads content/ again (the editor,
+## after saving).
+static func reload() -> void:
+	Content.reload()
+	_cache.clear()
 
 
 func in_bounds(cell: Vector2i) -> bool:
