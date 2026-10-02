@@ -77,6 +77,8 @@ extends Control
 ## when you sat down, so there's nothing to dodge by quitting, and a test or
 ## the overworld that starts listening after a bust still hears it.
 ## Standalone, --cash seats you and four animals at a $100 open table.
+## `staked` (Sootbridge's street game, demo 2.1) is the same table with the
+## HUD saying the chips you sat with are a stake, not a buy-in.
 ##
 ## Dev flags are also read from the Game autoload's `dev_args` (filled from
 ## the command line, and set by the scene tests, which can't pass flags per
@@ -154,6 +156,9 @@ var cash_game := false
 ## What a cash seat cost (the HUD shows your stack against it, and the
 ## blinds come from it); 0 means starting_chips. Set before adding.
 var buy_in := 0
+## Sootbridge's street game (demo 2.1): `buy_in` is a stake the players
+## fronted you, not your money, and the HUD says so. Set before adding.
+var staked := false
 var cash: CashMatch  ## the cash game, when cash_game; match_ is its crew_match
 var _leave_open := false  ## the "Leave the table?" prompt is up
 var _leave_cursor := 0  ## 0 leave, 1 stay
@@ -1568,9 +1573,9 @@ func _draw_cash_hud(r: Rect2, legend: Vector2) -> void:
 	_text(at + Vector2(0, 9), "Your chips %d" % stack, L, INK)
 	if up != 0:
 		_text(Vector2(r.end.x - 7, at.y + 9), "%+d" % up, L, Color("3f8a4a") if up > 0 else HOT, false, true)
-	_text(at + Vector2(0, 22), "Bought in for %d" % _buy_in(), S, INK_SOFT)
+	_text(at + Vector2(0, 22), ("Staked %d (theirs; you keep the rest)" if staked else "Bought in for %d") % _buy_in(), S, INK_SOFT)
 	_text(at + Vector2(0, 31), "Blinds %d/%d, every seat for itself" % [cash.small_blind, cash.big_blind], S, INK_SOFT)
-	_text(legend, "Open table", S, QUIET)
+	_text(legend, "Street game" if staked else "Open table", S, QUIET)
 	_text(legend + Vector2(0, 9), "Leave after any hand:", S, TEXT if t.hand_over else QUIET)
 	_text(legend + Vector2(0, 18), "Start or B, then A.", S, TEXT if t.hand_over else QUIET)
 	if _leave_queued:
