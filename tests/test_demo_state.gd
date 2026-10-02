@@ -113,11 +113,16 @@ func test_S_PICK_each_pickup_gives_its_card_once() -> void:
 ## come back from a save exactly.
 func test_S_SAVE_deck_pickups_and_progress_round_trip() -> void:
 	var s := GameState.fresh()
+	# The whole deck in an odd order (it must come back as it went), the
+	# four Aces' pickups taken. (Until demo 2.1 this was six made-up cards
+	# and two made-up pickups; since B-DECKFIX a load repairs the deck to
+	# the rules, so the round trip is of a deck the rules allow.)
 	var deck: Array[int] = []
-	for c in [51, 3, 17, 50, 0, 33]:  # an odd order: it must come back as it went
-		deck.append(c)
+	for k in GameState.DECK_SIZE:
+		deck.append((k * 19 + 7) % GameState.DECK_SIZE)
 	s.deck = deck
-	s.taken_pickups = {"ace_sootbridge_test": true, "ace_gift_test": true}
+	for id: String in GameState.opening_pickups():
+		s.taken_pickups[id] = true
 	s.opening_done = true
 	s.met_open_table = true
 	check_eq(SaveFile.write(s, SAVE), OK, "S-SAVE: the save writes")

@@ -77,7 +77,9 @@ var codebook := CodeBook.new()
 # that lies in two places (a later map) can't be taken twice from one.
 #
 # Saves from before demo 2 have no "deck": they're runs past the opening
-# (a full deck, opening_done) with their roster as it was.
+# (a full deck, opening_done) with their roster as it was. Since demo 2.1
+# every load repairs the deck (repair_deck: B-DECKFIX), so a damaged file
+# can't leave a run short of a card it can never find again.
 
 ## The cards the dog wakes up without: the four Aces went down the manhole
 ## with its owner (Card.parse format).
@@ -526,9 +528,58 @@ static func from_dict(d: Dictionary) -> GameState:
 	for id: Variant in taken if taken is Array else []:
 		s.taken_pickups[str(id)] = true
 	s.opening_done = bool(d.get("opening_done", old_save))
+	s.repair_deck()
 	# Older saves: a won Open means the end screen was already seen.
 	s.demo_complete_seen = bool(d.get("demo_complete_seen", not s.bracelets.is_empty()))
 	return s
+
+
+## The deck as the rules say it must be (docs/DEMO_SPEC.md B-DECKFIX), from
+## whatever a save held: every card but the opening's Aces, once each, and
+## each Ace exactly when its pickup (or Mags's gift) is recorded as taken.
+## A run past the opening holds all four (the gate only lets a full deck
+## by, and a pre-demo save loads past it), so its four pickups are recorded
+## as taken. Run on every load; a good save comes out as it went in, its
+## order kept, with any card put back added at the end.
+##
+## Before this, a load kept whatever deck it found: the playtester's
+## damaged saves loaded `[51, 51, 51, 0, 0]` as a 2-card deck, and a run in
+## Sootbridge that had lost a card that isn't an Ace could never pass the
+## gate. Trusting the taken pickups over the deck is what a damaged file
+## can't get wrong in a way that strands you: a card you held but whose
+## pickup isn't recorded is still lying where it was, to be taken again.
+func repair_deck() -> void:
+	var aces := opening_pickups()
+	if opening_done:
+		for id: String in aces:
+			taken_pickups[id] = true
+	var held := {}
+	for id: String in aces:
+		held[aces[id]] = taken_pickups.has(id)
+	var out: Array[int] = []
+	for c in deck:
+		if c >= 0 and c < DECK_SIZE and not out.has(c) and held.get(c, true):
+			out.append(c)
+	for c in DECK_SIZE:
+		if not out.has(c) and held.get(c, true):
+			out.append(c)
+	deck = out
+
+
+## The opening's Aces as pickups: id -> card, for every pickup and gift on
+## the maps whose card is one of OPENING_MISSING.
+static func opening_pickups() -> Dictionary:
+	var out := {}
+	var aces := opening_missing_cards()
+	for map_id: String in WorldMap.MAPS:
+		var data: Dictionary = WorldMap.MAPS[map_id]
+		for p: Dictionary in data.get("pickups", []):
+			if aces.has(int(p["card"])):
+				out[p["id"]] = int(p["card"])
+		for n: Dictionary in data["npcs"]:
+			if n.has("gives_card") and aces.has(int(n["gives_card"]["card"])):
+				out[n["gives_card"]["id"]] = int(n["gives_card"]["card"])
+	return out
 
 
 ## Saves from before the Binder (and damaged ones) still know who joined
