@@ -14,7 +14,9 @@ extends SceneTree
 ## one, at the gate with and without the full deck, along the Mill Road, to
 ## doors, crews, townsfolk, signs and the hall, plus random wandering and
 ## wall bumps), talks to everyone, sits at Mossbank's open table (a bot in
-## your seat for a few hands, or random presses that leave with Start or B),
+## your seat for a few hands, or random presses that leave with Start or B)
+## and, broke and alone, at Sootbridge's street game (demo 2.1; with money
+## it's turned away; seeds ending in 5 of a `mix` batch start that way),
 ## opens the start menu and its screens and backs out, saves, picks random
 ## menu options, recruits or declines, quits and continues through the title
 ## (with or without saving first), and either skips crew matches (deciding
@@ -41,7 +43,14 @@ extends SceneTree
 ## - no crew ever deals in a dog with no crew;
 ## - after each match: a win pays the reward and marks the crew beaten, a
 ##   loss wakes you at the diner with half your money; after each open-table
-##   session: money = before - buy-in + the stack you left with;
+##   session: money = before - buy-in + the stack you left with; after each
+##   street-game session: money = before + max(0, stack - stake), never
+##   less; the street game seats only a dog under the open table's buy-in,
+##   and always seats one;
+## - a stranded dog (alone, under the buy-in: until demo 2.1 the demo
+##   couldn't be finished) can always walk to the street game, and sits
+##   there within 10 game minutes of walking, again and again, until it can
+##   afford the open table;
 ## - the bracelet only with the tournament beaten, and the reverse.
 ##
 ## Why a SceneTree script and not a mode in the game: it drives the real
