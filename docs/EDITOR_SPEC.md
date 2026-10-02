@@ -101,7 +101,7 @@ has the layout and how to add a line or a map by hand.
 | C-NOCODE | `test_C_NOCODE_no_overworld_text_left_in_the_code` | No string literal in world_map.gd, overworld.gd or open_table.gd is a content line or a line the snapshot had on the maps |
 | C-CHECKS | `test_C_CHECKS_the_world_passes_the_editor_checks`, `..._find_each_kind_of_problem` | `src/content/content_checks.gd` finds nothing wrong with the world, and each kind of problem on a made-up yard; tests/world_paths.gd (the W-* and scene tests' walking) and test_writing's measure call it |
 | C-EXPORT | `test_C_EXPORT_presets_pack_content_and_leave_out_the_editor` | Both presets: `include_filter="content/*"`, `src/editor/*` excluded. Also exported for real (`--export-pack`): all content in the PCK, a stand-in src/editor/ file not, and the game run from the PCK draws Sootbridge and Mossbank pixel-identical to main |
-| R-ALL | `tools/test.sh full`, `soak`, `tools/playtest.sh damaged` | See the commit that marked this done |
+| R-ALL | `tools/test.sh full`, `soak`, `tools/playtest.sh damaged` | full: unit 217 (0 red), compile, pad, scene 18, R-CHART unchanged. soak: 21 runs (20 fast, 1 real), 0 failed, kill torture 0 failed checks (2 runs from pre-demo saves). damaged: 51 saves, all ok. A save made by main's code continues pixel-identical; README "Content" lists the screenshots compared |
 
 ### Phase 1 decisions
 

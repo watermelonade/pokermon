@@ -248,6 +248,82 @@ the way she suggests). In a scripted overworld run, `--tutorial` takes the
 offer (`--auto` runs skip it otherwise) and `--show=tutorial` opens it at
 once.
 
+## Content
+
+The overworld's content is data, in `content/` (since the editor's phase
+1, docs/EDITOR_SPEC.md): the maps, who stands on them, what everyone and
+every sign says, and the narration. The game loads it
+(`src/content/content.gd`), the editor (phase 2 on) will save it, and
+writers can work on the words without touching a map. Every file is JSON
+written by one formatter (`src/content/content_format.gd`): keys in a fixed
+order, 2-space indent, a map's rows one per line, small records (a line, a
+door, a cell) on one line each, so a change reads as a small diff.
+
+```
+content/
+  atlas.json              every area: id, map, name (the banner on arriving), region, kind
+                          (town/route/interior), status (blockout/draft/final), notes, and a
+                          rect for an area that's part of a map (Mossbank's map holds the town,
+                          Ridge Road and the hall's plaza)
+  maps/<id>.json          one map: outdoor, rows (the tile legend is WorldMap.TILES), labels,
+                          warps (doors), gates, pickups (cards lying about), signs, open_tables,
+                          npcs, crews; cells [x, y], facings/dealers/species/cards by name;
+                          everything that talks names its speaker ("dialogue")
+  dialogue/<id>.json      that map's words: speakers, each with sets of lines ("lines", a
+                          crew's "before"/"after", Rosie's "offer", ...), each line
+                          {"id", "text", "status"}
+  script/intro.json       narration that belongs to no map: the intro night, one speaker
+  script/overworld.json   per beat; the narration the overworld says itself
+```
+
+How the areas connect isn't stored: it's the maps' warps
+(`Content.connections()`). A line's id is `<file>.<speaker>.<n>`, unique
+in the game and never renumbered (a renamed speaker keeps its old ids);
+its status is `placeholder` (every line that moved), `draft` or `final`.
+`{name}` in a line is filled in by the game (`{lost}`, `{crew}`). What the
+code says itself without a speaker (what just happened: "You found the Ace
+of Spades!", money, who joined, "Saved!"; the menus) stays in code.
+
+**Adding a line by hand:** in `content/dialogue/<map>.json`, find the
+speaker (a map's npc, crew, sign or gate names it in `"dialogue"`) and add
+`{"id": "<map>.<speaker>.<next unused n>", "text": "...", "status":
+"draft"}` to the set, where it should be said. Townsfolk say all their
+`lines` every time; a crew's `before` is said when it deals you in, its one
+`after` line after you win and whenever you talk to it later; a sign or a
+gate is one line (one box). Then
+`godot --headless --path . -s tools/format_content.gd`: it puts every file
+back in canonical form and lists anything wrong (missing lines, a line too
+long for the box, an id used twice); `tools/test.sh quick` checks the same
+and more. docs/WRITING.md has the voice.
+
+**Adding a map by hand:** copy a small one (`content/maps/home.json` and
+`content/dialogue/home.json`) to the new id, draw its rows (every row the
+same width, walls round the edge), add an area for it to
+`content/atlas.json`, and a warp each way: one on an existing map whose
+`to` is the new map, and one back. Signs and npcs need their speakers in
+the new dialogue file. The formatter tool and the tests say what's missing
+(C-SCHEMA: names, cells, doors landing on walkable cells; C-CHECKS: every
+door and card reachable, nobody standing in the only way through).
+
+| Code | What |
+| --- | --- |
+| `src/content/content.gd` | The loader: reads the files (FileAccess, so exported builds too), builds each map in the shape `WorldMap` always had (so nothing else changed), lines by speaker and set (`Content.say`), area names, connections |
+| `src/content/content_format.gd` | The canonical formatter: load and save gives the same bytes (C-ROUND) |
+| `src/content/content_schema.gd` | Whether the files are valid, every problem as "file: field: why" (C-SCHEMA) |
+| `src/content/content_checks.gd` | Whether the world is playable: doors and cards reachable, nobody in the way, lines fitting the box (C-CHECKS); the tests' map walking (`tests/world_paths.gd` hands on to it) |
+
+Moving the content out of code changed nothing in play: C-SAME compares
+the world the loader gives (every map through `WorldMap`, the area name on
+every cell, every line of the code's narration) with a snapshot taken from
+the code before the move (`tests/fixtures/world_before_content.json`, made
+by `tools/snapshot_world.tscn`). Screenshots from before and after (xvfb,
+`--fixed-fps 60`) are pixel-identical: Sootbridge and Mossbank (`--new
+--skip-intro --at=...`), the diner, the intro's first line over black and
+its morning (`--new --auto`), a save made by the old code continued by the
+new one, and Sootbridge and Mossbank run from an exported PCK. (One shot,
+mid-way through the cards scattering, differs between two runs of the old
+code itself, so it shows nothing.)
+
 ## Tests
 
 `tools/test.sh` runs every tier and ends with a pass/fail table (exit 1 if
@@ -324,7 +400,7 @@ and guard (`if not check(...): return`) before using something a feature
 may not have yet. `tests/scene/test_harness.gd` checks the helpers on
 today's game.
 
-The unit tests: 207, about 23 seconds (demo 2's and demo 2.1's among them). They cover hand ranking, equity against known odds
+The unit tests: 217, about 21 seconds (demo 2's and demo 2.1's among them, and the editor's phase 1: `tests/test_content.gd`, README "Content"). They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -944,8 +1020,10 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `src/game/game.gd` | The `Game` autoload: the run's state, saving, scene changes, dev flags |
 | `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position, the deck and the pickups taken; what wins, blackouts, recruits and the open table's crew do; old saves load past the opening, and every load repairs the deck |
 | `src/game/save_file.gd` | GameState to user:// JSON, written atomically |
-| `scenes/world/overworld.tscn`, `src/world/overworld.gd` | The intro, walking, talking, picking up cards, the gate, encounters, handing over to the table and back |
-| `src/world/world_map.gd` | The maps as text (Sootbridge and its washhouse, the Mill Road, Mossbank and Ridge Road, three interiors), with their crews, townsfolk, signs, doors, cards lying about, the gate, the open table and Sootbridge's street game; line of sight |
+| `scenes/world/overworld.tscn`, `src/world/overworld.gd` | The intro, walking, talking, picking up cards, the gate, encounters, handing over to the table and back (its words from `content/`) |
+| `src/world/world_map.gd` | A map and its queries: tiles (the legend), who stands where, doors, gates, cards lying about, line of sight, where a crew walks to meet you; the maps themselves are in `content/` (Sootbridge and its washhouse, the Mill Road, Mossbank and Ridge Road, three interiors) |
+| `content/` | The world as data: the atlas, the maps, their dialogue, the intro's narration (README "Content") |
+| `src/content/` | Loading, formatting, validating and checking `content/`: `content.gd`, `content_format.gd`, `content_schema.gd`, `content_checks.gd` (README "Content") |
 | `src/world/map_view.gd` | Paints a map: tile art if present, placeholders if not |
 | `src/world/critter.gd` | Anyone walking around; placeholder animals drawn from rectangles |
 | `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |
@@ -970,11 +1048,11 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `src/tutorial/scripted_bot.gd` | A seat that plays a short policy per street, so a lesson's moment happens every time |
 | `src/tutorial/coach_box.gd` | The coach's text box at the table |
 | `assets/fonts/` | Tiny5 and Departure Mono (SIL OFL 1.1, licenses alongside) |
-| `tests/` | The unit runner (`run_tests.gd`) and tests, the compile and pad checks, `expected_red.txt` (tests written ahead of their feature), `world_paths.gd` (reachability over the maps, for tests) |
+| `tests/` | The unit runner (`run_tests.gd`) and tests, the compile and pad checks, `expected_red.txt` (tests written ahead of their feature), `world_paths.gd` (reachability over the maps, for tests; ContentChecks does the walking), `world_snapshot.gd` and `fixtures/world_before_content.json` (C-SAME: the world as the code had it before content/) |
 | `tests/scene_tests.tscn`, `tests/scene_runner.gd`, `tests/scene_test_case.gd`, `tests/scene/` | Scene tests: the real game from the title, driven by pad events (README "Tests") |
 | `tools/test.sh` | Every test tier from one command, with a pass/fail table |
 | `src/world/open_table.gd` | Mossbank's open table and Sootbridge's street game from the overworld: the seat offer, the buy-in (or the stake), the cash table, the cash-out, Sage and Bandit joining |
-| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), open-table sessions and the street game's pace (`cash_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
+| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), open-table sessions and the street game's pace (`cash_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md), `format_content.gd` (puts content/ back in canonical form after a hand edit and lists what's wrong), `snapshot_world.tscn` (C-SAME's snapshot) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
 | `scripts/export.sh` | Exports both presets headless into `build/` |
