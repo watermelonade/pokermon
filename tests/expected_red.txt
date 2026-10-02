@@ -14,3 +14,15 @@
 # J: the journey (tests/scene/test_journey.gd)
 
 # B: demo 2.1's fixes (tests/test_save_safety.gd, tests/scene/test_open_table.gd)
+
+# C: the editor's phase 1, content out of code (tests/test_content.gd,
+# docs/EDITOR_SPEC.md)
+test_C_SAME_the_world_is_the_snapshot
+test_C_ROUND_every_file_saves_to_the_same_bytes
+test_C_ROUND_maps_keep_their_rows_one_per_line
+test_C_SCHEMA_the_content_is_valid
+test_C_SCHEMA_problems_name_the_file_and_the_field
+test_C_NOCODE_no_overworld_text_left_in_the_code
+test_C_CHECKS_the_world_passes_the_editor_checks
+test_C_CHECKS_find_each_kind_of_problem
+test_C_EXPORT_presets_pack_content_and_leave_out_the_editor

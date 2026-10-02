@@ -1,0 +1,2067 @@
+{
+  "code_text": {
+    "res://src/world/open_table.gd": {
+      "_ask_line": [
+        "You fold with conviction. I could make something of that. I'm coming along.",
+        "*psst* me too. a dog with no crew is a plan with no raccoon."
+      ],
+      "_crew_joins": [
+        "%s join your crew! Now the crews on the road will deal you in.",
+        " and "
+      ],
+      "_play_street": [
+        "This game's for empty pockets. With $%d, Mossbank's open table will have you.",
+        "Sit in? They'll stake you %d chips.",
+        "Deal me in",
+        "Not now",
+        "Suit yourself. The crate's not going anywhere."
+      ],
+      "cash_out_line": [
+        "You're cleaned out. The $%d buy-in stays on the felt.",
+        "You cash out $%d: up $%d on the buy-in.",
+        "You cash out $%d, exactly what you sat down with.",
+        "You cash out $%d: down $%d on the buy-in."
+      ],
+      "play": [
+        "Too few players left at the table for a game. Maybe another day.",
+        "The buy-in is $%d and you have $%d. Not today.",
+        "Sit in? The buy-in is $%d.",
+        "Deal me in",
+        "Not now",
+        "Maybe later. The seat isn't going anywhere."
+      ],
+      "street_line": [
+        "You hand back their %d and keep $%d. Not bad for a crate.",
+        "You hand back their %d chips. Even. Nothing won, nothing owed.",
+        "You're under their %d. They wave it off: you owe nothing."
+      ]
+    },
+    "res://src/world/overworld.gd": {
+      "(top)": [
+        "Rosie's Diner",
+        "Mossbank Tournament Hall",
+        "Sootbridge Washhouse",
+        "The Mill Road"
+      ],
+      "_after_win": [
+        "You beat %s! They grumble and pay up: $%d.",
+        "You won the Mossbank Open! The Regulars hand over the bracelet. Slowly."
+      ],
+      "_area_name": [
+        "Ridge Road",
+        "Mossbank Hall Plaza"
+      ],
+      "_blackout": [
+        "%s cleaned you out.",
+        "You wander back toward town, pockets flapping, and everything goes dark...",
+        "Rough night, hon? You're at Rosie's. Your wallet's $%d lighter.",
+        "Your crew's had pie and a little cry. They're ready when you are."
+      ],
+      "_crew_title": [
+        "%s, of %s"
+      ],
+      "_encounter": [
+        "(%s look you over: one dog, no crew.)",
+        "Come back with a crew.",
+        "%s, with %s"
+      ],
+      "_found_lines": [
+        "%s %d still missing.",
+        "That's all four Aces. His deck is whole again. The gate east will let you by."
+      ],
+      "_give_card": [
+        "%s gives you the %s!"
+      ],
+      "_interact": [
+        "The Mossbank bracelet! Pie for the champ. On the house. (Not that House, hon.)"
+      ],
+      "_intro": [
+        "Sootbridge, late. Coal smoke, rain on the cobbles. And him, coming home.",
+        "He lost at the Lamp again tonight. He always loses. Then it's your fault.",
+        "He's singing. He doesn't see the cover's off the manhole.",
+        "A stumble, a clatter of cards, and he's gone. Down into the dark.",
+        "You wait at the edge all night. He doesn't call for you. Nothing comes up.",
+        "Morning. You slept by the manhole. His cards lay where they fell.",
+        "You gathered them, the way he never did. Four are missing: all four Aces.",
+        "They went down with him. But the drains run all over town.",
+        "His deck and his wallet. Yours now. You won't leave without those Aces.",
+        "Walk: arrows, WASD, D-pad or stick. Talk: A, Enter or Space. Menu: Start or Tab."
+      ],
+      "_offer_recruit": [
+        "%s the %s (%s)",
+        "Nobody, thanks",
+        "Ask one of them to join your crew?",
+        "%s joins your crew! Pick who sits with you under Crew (Start or Tab)."
+      ],
+      "_offer_tutorial": [
+        "Well, look who wandered in. A dog, on his own, in my diner. Rough night, hon?",
+        "I'm Rosie. New to the tables? I'll show you how they work. Pie after.",
+        "Take Rosie's table lesson?",
+        "Yes, show me",
+        "No thanks",
+        "Suit yourself, hon. I'm at the diner whenever you want a lesson."
+      ],
+      "_open_start_menu": [
+        "Saved! (The game also saves itself at every door and after every match.)"
+      ],
+      "_play_tutorial": [
+        "Look at you, hon! A natural. Mostly.",
+        "Come by for pie, win or lose. Or another lesson.",
+        "Fair enough, hon. I'm at the diner if you want another go."
+      ],
+      "_rest_at_diner": [
+        "What'll it be, hon?",
+        "Rest in a booth",
+        "A table lesson",
+        "There. Pie all round. Your crew is fed, rested and itching to play."
+      ],
+      "_take_pickup": [
+        "You found the %s!"
+      ]
+    }
+  },
+  "world": {
+    "map_ids": [
+      "sootbridge",
+      "washhouse",
+      "mill_road",
+      "town",
+      "diner",
+      "home",
+      "hall"
+    ],
+    "maps": {
+      "diner": {
+        "areas": [
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ],
+          [
+            [
+              "Rosie's Diner",
+              14
+            ]
+          ]
+        ],
+        "crews": [],
+        "gates": [],
+        "height": 10,
+        "labels": [],
+        "npcs": [
+          {
+            "cell": "Vector2i(5, 1)",
+            "facing": "Vector2i(0, 1)",
+            "id": "rosie",
+            "lines": [
+              "Sit a while, hon. Nobody leaves Rosie's hungry. Or broke. Well. Hungry.",
+              "If a crew cleans you out, you'll wake up in that booth. Happens to everybody.",
+              "And don't mind the painting. It came with the place."
+            ],
+            "name": "Rosie",
+            "sprite": "npc_cook"
+          }
+        ],
+        "outdoor": false,
+        "pickups": [],
+        "rows": [
+          "WWWWWWWWWWWWWW",
+          "W____________W",
+          "WCCCCCCCCC___W",
+          "W____________W",
+          "W____________W",
+          "W_tt____tt___W",
+          "W_tt____tt__pW",
+          "Wp___________W",
+          "W_____XX_____W",
+          "WWWWWWWWWWWWWW"
+        ],
+        "signs": [
+          {
+            "cell": "Vector2i(13, 4)",
+            "text": "A painting: dogs playing cards. One slips an ace under the table. Did it just wink?"
+          }
+        ],
+        "warps": [
+          {
+            "cell": "Vector2i(6, 8)",
+            "facing": "Vector2i(0, 1)",
+            "to": "town",
+            "to_cell": "Vector2i(7, 7)"
+          },
+          {
+            "cell": "Vector2i(7, 8)",
+            "facing": "Vector2i(0, 1)",
+            "to": "town",
+            "to_cell": "Vector2i(7, 7)"
+          }
+        ],
+        "width": 14
+      },
+      "hall": {
+        "areas": [
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ],
+          [
+            [
+              "Mossbank Tournament Hall",
+              20
+            ]
+          ]
+        ],
+        "crews": [
+          {
+            "after": "*keels over* ...I'm fine. Wear it well. The next town won't be so polite.",
+            "before": [
+              "So. You're the one cleaning out Ridge Road. I'm Graves. I captain the Regulars.",
+              "Four of us, same seats every Thursday since 1971. Tonight: either side of you.",
+              "Lou's asleep, so signal all you like. We will. Our signals are older than you.",
+              "Win the Open and the Mossbank bracelet is yours. You won't."
+            ],
+            "boss": true,
+            "bracelet": "mossbank",
+            "cell": "Vector2i(9, 6)",
+            "chips": 1000,
+            "dealer": 1,
+            "facing": "Vector2i(0, 1)",
+            "id": "mossbank_regulars",
+            "members": [
+              [
+                "&possum",
+                3
+              ],
+              [
+                "&cat",
+                2
+              ],
+              [
+                "&owl",
+                2
+              ],
+              [
+                "&possum",
+                1
+              ]
+            ],
+            "name": "the Mossbank Regulars",
+            "reward": 500,
+            "sight": 0,
+            "tournament": true
+          }
+        ],
+        "gates": [],
+        "height": 13,
+        "labels": [],
+        "npcs": [
+          {
+            "asleep": true,
+            "cell": "Vector2i(9, 2)",
+            "facing": "Vector2i(0, 1)",
+            "id": "lou",
+            "lines": [
+              "Zzz... ante up... zzz...",
+              "Zzz... the House... always... zzz..."
+            ],
+            "name": "Lou, the dealer",
+            "sprite": "npc_dealer"
+          }
+        ],
+        "outdoor": false,
+        "pickups": [],
+        "rows": [
+          "WWWWWWWWWWWWWWWWWWWW",
+          "W__________________W",
+          "W_p______________p_W",
+          "W______tttttt______W",
+          "W______tttttt______W",
+          "W______tttttt______W",
+          "W__________________W",
+          "W__________________W",
+          "W__________________W",
+          "W__________________W",
+          "W__________________W",
+          "W________XX________W",
+          "WWWWWWWWWWWWWWWWWWWW"
+        ],
+        "signs": [
+          {
+            "cell": "Vector2i(5, 0)",
+            "text": "HALL RULES: 1. No biting. 2. No cards in cheek pouches. 3. Do not wake Lou."
+          }
+        ],
+        "warps": [
+          {
+            "cell": "Vector2i(9, 11)",
+            "facing": "Vector2i(0, 1)",
+            "to": "town",
+            "to_cell": "Vector2i(92, 10)"
+          },
+          {
+            "cell": "Vector2i(10, 11)",
+            "facing": "Vector2i(0, 1)",
+            "to": "town",
+            "to_cell": "Vector2i(92, 10)"
+          }
+        ],
+        "width": 20
+      },
+      "home": {
+        "areas": [
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ],
+          [
+            [
+              "Home",
+              10
+            ]
+          ]
+        ],
+        "crews": [],
+        "gates": [],
+        "height": 9,
+        "labels": [],
+        "npcs": [],
+        "outdoor": false,
+        "pickups": [],
+        "rows": [
+          "WWWWWWWWWW",
+          "W_bb___p_W",
+          "W_bb_____W",
+          "W________W",
+          "W___tt___W",
+          "W___tt___W",
+          "W________W",
+          "W___XX___W",
+          "WWWWWWWWWW"
+        ],
+        "signs": [
+          {
+            "cell": "Vector2i(4, 4)",
+            "text": "Your practice table. The felt has seen better days. So has the deck."
+          },
+          {
+            "cell": "Vector2i(5, 4)",
+            "text": "Your practice table. The felt has seen better days. So has the deck."
+          }
+        ],
+        "warps": [
+          {
+            "cell": "Vector2i(4, 7)",
+            "facing": "Vector2i(0, 1)",
+            "to": "town",
+            "to_cell": "Vector2i(17, 7)"
+          },
+          {
+            "cell": "Vector2i(5, 7)",
+            "facing": "Vector2i(0, 1)",
+            "to": "town",
+            "to_cell": "Vector2i(17, 7)"
+          }
+        ],
+        "width": 10
+      },
+      "mill_road": {
+        "areas": [
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ],
+          [
+            [
+              "The Mill Road",
+              40
+            ]
+          ]
+        ],
+        "crews": [],
+        "gates": [],
+        "height": 12,
+        "labels": [
+          {
+            "rect": "Rect2i(21, 1, 6, 2)",
+            "text": "OLD MILL"
+          }
+        ],
+        "npcs": [
+          {
+            "cell": "Vector2i(10, 7)",
+            "facing": "Vector2i(0, -1)",
+            "id": "flint",
+            "lines": [
+              "Sootbridge behind you, Mossbank ahead. Nothing between but the mill and me.",
+              "There's a card table in Mossbank, out on the street. Anyone can sit. Even you."
+            ],
+            "name": "Flint, a carter",
+            "sprite": "npc"
+          },
+          {
+            "cell": "Vector2i(30, 4)",
+            "facing": "Vector2i(0, 1)",
+            "id": "hedda",
+            "lines": [
+              "The mill's been shut for years. The wheel still turns. Nobody knows why.",
+              "You look like you've had a night. Mossbank's kind to strays. Mostly."
+            ],
+            "name": "Hedda",
+            "sprite": "npc_badger"
+          }
+        ],
+        "outdoor": true,
+        "pickups": [],
+        "rows": [
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TTTTT......TTTTT.....RRRRRR.....TTTTTTTT",
+          "TTT.........,,.......RRRRRR.........TTTT",
+          "TT...;;;.............#w#d#w....S......TT",
+          "TT...;;;..........................,,..TT",
+          "T======================================T",
+          "T======================================T",
+          "TT.........,,,...............;;;.....TTT",
+          "TT....TTT...............,,,.........TTTT",
+          "TTTT....TTTT......TTTTT......TTTT...TTTT",
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+        ],
+        "signs": [
+          {
+            "cell": "Vector2i(31, 3)",
+            "text": "THE MILL ROAD. West: Sootbridge. East: Mossbank. Mind the geese."
+          }
+        ],
+        "warps": [
+          {
+            "cell": "Vector2i(1, 5)",
+            "facing": "Vector2i(-1, 0)",
+            "to": "sootbridge",
+            "to_cell": "Vector2i(37, 4)"
+          },
+          {
+            "cell": "Vector2i(1, 6)",
+            "facing": "Vector2i(-1, 0)",
+            "to": "sootbridge",
+            "to_cell": "Vector2i(37, 5)"
+          },
+          {
+            "cell": "Vector2i(38, 5)",
+            "facing": "Vector2i(1, 0)",
+            "to": "town",
+            "to_cell": "Vector2i(2, 11)"
+          },
+          {
+            "cell": "Vector2i(38, 6)",
+            "facing": "Vector2i(1, 0)",
+            "to": "town",
+            "to_cell": "Vector2i(2, 12)"
+          }
+        ],
+        "width": 40
+      },
+      "sootbridge": {
+        "areas": [
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ],
+          [
+            [
+              "Sootbridge",
+              40
+            ]
+          ]
+        ],
+        "crews": [],
+        "gates": [
+          {
+            "cells": [
+              "Vector2i(34, 4)",
+              "Vector2i(34, 5)"
+            ],
+            "requires": "full_deck",
+            "text": "The gate out of town. You can't leave. Not without the Aces."
+          }
+        ],
+        "height": 22,
+        "labels": [
+          {
+            "rect": "Rect2i(2, 1, 8, 2)",
+            "text": "WASHHOUSE"
+          },
+          {
+            "rect": "Rect2i(11, 1, 9, 2)",
+            "text": "THE LAMP"
+          }
+        ],
+        "npcs": [
+          {
+            "after": [
+              "The drains run all over town, dog. What goes down comes up somewhere."
+            ],
+            "cell": "Vector2i(5, 12)",
+            "facing": "Vector2i(0, 1)",
+            "gives_card": {
+              "card": 50,
+              "id": "ace_mags"
+            },
+            "id": "mags",
+            "lines": [
+              "Mags. I keep the drains. Don't look at me like that, it's honest work.",
+              "Found this in my grate at dawn. A card. Smells of him. Of the Lamp's beer.",
+              "Here. It's more yours than his, I reckon. Go careful, dog."
+            ],
+            "name": "Mags",
+            "sprite": "possum"
+          },
+          {
+            "cell": "Vector2i(17, 4)",
+            "facing": "Vector2i(0, 1)",
+            "id": "ash",
+            "lines": [
+              "You're his dog. The one he shouted at. ...He's not shouting now, is he?",
+              "I won't say sorry. I'll say: the coal yard. Something shines behind the crates."
+            ],
+            "name": "Ash",
+            "sprite": "cat"
+          },
+          {
+            "cell": "Vector2i(26, 7)",
+            "facing": "Vector2i(0, -1)",
+            "id": "cinder",
+            "lines": [
+              "They're not opening the manhole. Too deep, the constable says. Too late.",
+              "Mum says the drains run under half the town. Even under the washhouse."
+            ],
+            "name": "Cinder, the sweep",
+            "sprite": "npc_kid"
+          },
+          {
+            "animal": [
+              "&owl",
+              3
+            ],
+            "cell": "Vector2i(20, 5)",
+            "facing": "Vector2i(0, 1)",
+            "id": "street_pip",
+            "lines": [
+              "We heard about last night. Sit, if your pockets are empty. We stake you."
+            ],
+            "name": "Pip",
+            "open_table": {
+              "blinds": [
+                3,
+                6
+              ],
+              "dealer": 0,
+              "id": "sootbridge_street_game",
+              "max_money": 100,
+              "players": [
+                [
+                  "&owl",
+                  3
+                ],
+                [
+                  "&raccoon",
+                  3
+                ],
+                [
+                  "&goose",
+                  2
+                ]
+              ],
+              "stake": 60
+            },
+            "sprite": "owl"
+          },
+          {
+            "animal": [
+              "&raccoon",
+              3
+            ],
+            "cell": "Vector2i(21, 6)",
+            "facing": "Vector2i(-1, 0)",
+            "id": "street_scraps",
+            "lines": [
+              "*psst* our chips, your paws. win and you keep the extra. lose and, eh."
+            ],
+            "name": "Scraps",
+            "open_table": {
+              "blinds": [
+                3,
+                6
+              ],
+              "dealer": 0,
+              "id": "sootbridge_street_game",
+              "max_money": 100,
+              "players": [
+                [
+                  "&owl",
+                  3
+                ],
+                [
+                  "&raccoon",
+                  3
+                ],
+                [
+                  "&goose",
+                  2
+                ]
+              ],
+              "stake": 60
+            },
+            "sprite": "raccoon"
+          },
+          {
+            "animal": [
+              "&goose",
+              2
+            ],
+            "cell": "Vector2i(19, 6)",
+            "facing": "Vector2i(1, 0)",
+            "id": "street_gander",
+            "lines": [
+              "HONK. PENNIES ON THE CRATE. THE CRATE IS MINE. THE PENNIES ARE ANYONE'S."
+            ],
+            "name": "Gander",
+            "open_table": {
+              "blinds": [
+                3,
+                6
+              ],
+              "dealer": 0,
+              "id": "sootbridge_street_game",
+              "max_money": 100,
+              "players": [
+                [
+                  "&owl",
+                  3
+                ],
+                [
+                  "&raccoon",
+                  3
+                ],
+                [
+                  "&goose",
+                  2
+                ]
+              ],
+              "stake": 60
+            },
+            "sprite": "goose"
+          }
+        ],
+        "outdoor": true,
+        "pickups": [
+          {
+            "card": 51,
+            "cell": "Vector2i(18, 7)",
+            "id": "ace_gutter"
+          },
+          {
+            "card": 48,
+            "cell": "Vector2i(33, 12)",
+            "id": "ace_coal_yard"
+          }
+        ],
+        "rows": [
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
+          "TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
+          "TTBwBDBBwBBBwBBdBBwBBwBdBwwBdBwBBBBTTTTT",
+          "T:::::::::::::::::::::::::::::::::g::::T",
+          "T:::::::::::::::::::::::::::::::::g::::T",
+          "T:::::::::::o:::::::x:::::::::::::BTTTTT",
+          "T:::::::S:::::::::::::::::::::::::BTTTTT",
+          "TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
+          "T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
+          "T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
+          "TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
+          "T::::::::::::::::::;x.............BTTTTT",
+          "T...........:.........xxxxxxxxxxxxBTTTTT",
+          "T..RRRRRR...:..........xx....xx...BTTTTT",
+          "T..RRRRRR...:....,.....xx....xx...BTTTTT",
+          "T..BwBdBB...:.....................BTTTTT",
+          "T...........::::::::::::::::::::..BTTTTT",
+          "T..,,.......:..........xx....xx...BTTTTT",
+          "T..,,...TT..:..........xx....xx...BTTTTT",
+          "T.......TT........................BTTTTT",
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+        ],
+        "signs": [
+          {
+            "cell": "Vector2i(8, 7)",
+            "text": "SOOTBRIDGE. Mind the drains. The council will fix that manhole cover. Soon."
+          }
+        ],
+        "warps": [
+          {
+            "cell": "Vector2i(5, 3)",
+            "facing": "Vector2i(0, -1)",
+            "to": "washhouse",
+            "to_cell": "Vector2i(5, 6)"
+          },
+          {
+            "cell": "Vector2i(38, 4)",
+            "facing": "Vector2i(1, 0)",
+            "to": "mill_road",
+            "to_cell": "Vector2i(2, 5)"
+          },
+          {
+            "cell": "Vector2i(38, 5)",
+            "facing": "Vector2i(1, 0)",
+            "to": "mill_road",
+            "to_cell": "Vector2i(2, 6)"
+          }
+        ],
+        "width": 40
+      },
+      "town": {
+        "areas": [
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ],
+          [
+            [
+              "Mossbank",
+              34
+            ],
+            [
+              "Ridge Road",
+              52
+            ],
+            [
+              "Mossbank Hall Plaza",
+              14
+            ]
+          ]
+        ],
+        "crews": [
+          {
+            "after": "FINE. YOU WIN. WE'LL BE AT THE POND, HONKING ABOUT IT FOR WEEKS.",
+            "before": [
+              "HONK! HALT! THIS IS OUR ROAD NOW. WE DECIDED THAT JUST NOW.",
+              "NOBODY PASSES THE POND HECKLERS WITHOUT A HAND. SIT. DEAL. FEAR.",
+              "(Nutmeg, the squirrel, holds their chips. In his cheeks. Mostly.)"
+            ],
+            "cell": "Vector2i(44, 8)",
+            "chips": 500,
+            "dealer": 0,
+            "facing": "Vector2i(0, 1)",
+            "id": "pond_hecklers",
+            "members": [
+              [
+                "&goose",
+                0
+              ],
+              [
+                "&squirrel",
+                0
+              ],
+              [
+                "&goose",
+                1
+              ]
+            ],
+            "name": "the Pond Hecklers",
+            "reward": 120,
+            "sight": 6
+          },
+          {
+            "after": "We let you win, obviously. Now move. You're standing in our sunbeam.",
+            "before": [
+              "Oh. A human. With pets. How quaint.",
+              "We weren't going to play today. It's warm. But fine. Don't be boring.",
+              "(Behind her, the raccoon whispers \"psst, I have a plan.\" Nobody listens.)"
+            ],
+            "cell": "Vector2i(48, 7)",
+            "chips": 500,
+            "dealer": 0,
+            "facing": "Vector2i(1, 0)",
+            "id": "alley_cats",
+            "members": [
+              [
+                "&cat",
+                0
+              ],
+              [
+                "&cat",
+                1
+              ],
+              [
+                "&raccoon",
+                1
+              ]
+            ],
+            "name": "the Alley Cats",
+            "reward": 150,
+            "sight": 4
+          },
+          {
+            "after": "We called everything. EVERYTHING. Why didn't that work?!",
+            "before": [
+              "HALT! Halt. Hi. Halt! This stretch of road belongs to the Nut Club!",
+              "Toll's one game. Or one nut. No nut? Game it is! Sit sit sit!",
+              "Club rule one: we call. Rule two: we always call. Rule three: snacks."
+            ],
+            "cell": "Vector2i(60, 2)",
+            "chips": 500,
+            "dealer": 0,
+            "facing": "Vector2i(0, 1)",
+            "id": "nut_club",
+            "members": [
+              [
+                "&squirrel",
+                1
+              ],
+              [
+                "&squirrel",
+                2
+              ],
+              [
+                "&squirrel",
+                3
+              ]
+            ],
+            "name": "the Nut Club",
+            "reward": 180,
+            "sight": 6
+          },
+          {
+            "after": "*flops over* I have died. Tell my mother I bluffed bravely. ...Shh.",
+            "before": [
+              "...",
+              "Oh. You can see us. Most folks walk right past.",
+              "We're the Night Shift. We play at night. It is not night. Deal quietly."
+            ],
+            "cell": "Vector2i(78, 15)",
+            "chips": 500,
+            "dealer": 0,
+            "facing": "Vector2i(0, 1)",
+            "id": "night_shift",
+            "members": [
+              [
+                "&possum",
+                0
+              ],
+              [
+                "&owl",
+                1
+              ],
+              [
+                "&raccoon",
+                2
+              ]
+            ],
+            "name": "the Night Shift",
+            "reward": 220,
+            "sight": 5
+          }
+        ],
+        "gates": [],
+        "height": 25,
+        "labels": [
+          {
+            "rect": "Rect2i(4, 3, 8, 3)",
+            "text": "DINER"
+          },
+          {
+            "rect": "Rect2i(15, 3, 7, 3)",
+            "text": "HOME"
+          },
+          {
+            "rect": "Rect2i(25, 3, 6, 3)",
+            "text": "SHOP"
+          },
+          {
+            "rect": "Rect2i(88, 5, 9, 4)",
+            "text": "TOURNAMENT HALL"
+          }
+        ],
+        "npcs": [
+          {
+            "cell": "Vector2i(30, 9)",
+            "facing": "Vector2i(0, 1)",
+            "id": "bertram",
+            "lines": [
+              "Ridge Road, eh? Crews line it like crows on a fence. Nobody gets by for free.",
+              "Step into a crew's sight and they'll deal you in. Win, and one might join you.",
+              "Press Start (or Tab) and pick Crew to choose which two animals sit with you.",
+              "I played that road forty years. Lost my shirt twice. Won it back once."
+            ],
+            "name": "Old Bertram",
+            "sprite": "npc_badger"
+          },
+          {
+            "cell": "Vector2i(12, 13)",
+            "facing": "Vector2i(0, -1)",
+            "id": "kid",
+            "lines": [
+              "Lou the dealer has been asleep since before I was born. Mom says so.",
+              "So in the hall you can signal your crew all you like! Nose! Ear! Hat!",
+              "When I grow up I'm gonna have a crew of nine geese. Nine!"
+            ],
+            "name": "Juniper, age 9",
+            "sprite": "npc_kid"
+          },
+          {
+            "cell": "Vector2i(5, 9)",
+            "facing": "Vector2i(0, 1)",
+            "id": "tally",
+            "lines": [
+              "Two hundred and twelve! Two hundred and thirteen! Wait. Did I count me?",
+              "A dog! Do dogs count? I'll count you. Two hundred and fourteen!"
+            ],
+            "name": "Tally, the census",
+            "sprite": "squirrel"
+          },
+          {
+            "cell": "Vector2i(20, 14)",
+            "facing": "Vector2i(-1, 0)",
+            "id": "dot",
+            "lines": [
+              "HONK. THE TABLE BY THE POND IS OPEN TO ALL. EVEN DOGS. ESPECIALLY DOGS.",
+              "THEY NEED A FOURTH. THEY ALWAYS NEED A FOURTH. GO ON. SIT."
+            ],
+            "name": "Dot",
+            "sprite": "goose"
+          },
+          {
+            "animal": [
+              "&owl",
+              0
+            ],
+            "cell": "Vector2i(13, 17)",
+            "facing": "Vector2i(1, 0)",
+            "id": "table_sage",
+            "lines": [
+              "Ah. A dog. Do sit, if you have the buy-in. We play for money, not pats."
+            ],
+            "name": "Sage",
+            "open_table": {
+              "buy_in": 100,
+              "dealer": 0,
+              "id": "mossbank_open_table",
+              "players": [
+                [
+                  "&owl",
+                  0
+                ],
+                [
+                  "&raccoon",
+                  0
+                ],
+                [
+                  "&goose",
+                  3
+                ],
+                [
+                  "&possum",
+                  2
+                ],
+                [
+                  "&cat",
+                  3
+                ]
+              ]
+            },
+            "sprite": "owl"
+          },
+          {
+            "animal": [
+              "&raccoon",
+              0
+            ],
+            "cell": "Vector2i(16, 18)",
+            "facing": "Vector2i(-1, 0)",
+            "id": "table_bandit",
+            "lines": [
+              "*psst* fresh chips. i mean, hi. sit down, sit down."
+            ],
+            "name": "Bandit",
+            "open_table": {
+              "buy_in": 100,
+              "dealer": 0,
+              "id": "mossbank_open_table",
+              "players": [
+                [
+                  "&owl",
+                  0
+                ],
+                [
+                  "&raccoon",
+                  0
+                ],
+                [
+                  "&goose",
+                  3
+                ],
+                [
+                  "&possum",
+                  2
+                ],
+                [
+                  "&cat",
+                  3
+                ]
+              ]
+            },
+            "sprite": "raccoon"
+          },
+          {
+            "animal": [
+              "&goose",
+              3
+            ],
+            "cell": "Vector2i(15, 16)",
+            "facing": "Vector2i(0, 1)",
+            "id": "table_waddles",
+            "lines": [
+              "DEAL THE DOG IN. DEAL EVERYONE IN. THIS IS MY TABLE NOW."
+            ],
+            "name": "Waddles",
+            "open_table": {
+              "buy_in": 100,
+              "dealer": 0,
+              "id": "mossbank_open_table",
+              "players": [
+                [
+                  "&owl",
+                  0
+                ],
+                [
+                  "&raccoon",
+                  0
+                ],
+                [
+                  "&goose",
+                  3
+                ],
+                [
+                  "&possum",
+                  2
+                ],
+                [
+                  "&cat",
+                  3
+                ]
+              ]
+            },
+            "sprite": "goose"
+          },
+          {
+            "animal": [
+              "&possum",
+              2
+            ],
+            "cell": "Vector2i(13, 18)",
+            "facing": "Vector2i(1, 0)",
+            "id": "table_pudding",
+            "lines": [
+              "Sit, if you like. I play slow. If I lose, I lie down for a bit. It's fine."
+            ],
+            "name": "Pudding",
+            "open_table": {
+              "buy_in": 100,
+              "dealer": 0,
+              "id": "mossbank_open_table",
+              "players": [
+                [
+                  "&owl",
+                  0
+                ],
+                [
+                  "&raccoon",
+                  0
+                ],
+                [
+                  "&goose",
+                  3
+                ],
+                [
+                  "&possum",
+                  2
+                ],
+                [
+                  "&cat",
+                  3
+                ]
+              ]
+            },
+            "sprite": "possum"
+          },
+          {
+            "animal": [
+              "&cat",
+              3
+            ],
+            "cell": "Vector2i(14, 19)",
+            "facing": "Vector2i(0, -1)",
+            "id": "table_mittens",
+            "lines": [
+              "A dog at the table. How novel. Do try not to drool on the felt."
+            ],
+            "name": "Mittens",
+            "open_table": {
+              "buy_in": 100,
+              "dealer": 0,
+              "id": "mossbank_open_table",
+              "players": [
+                [
+                  "&owl",
+                  0
+                ],
+                [
+                  "&raccoon",
+                  0
+                ],
+                [
+                  "&goose",
+                  3
+                ],
+                [
+                  "&possum",
+                  2
+                ],
+                [
+                  "&cat",
+                  3
+                ]
+              ]
+            },
+            "sprite": "cat"
+          }
+        ],
+        "outdoor": true,
+        "pickups": [],
+        "rows": [
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TT................................TTTTTTTTTTTTTT...............,,,.........TTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...............,,,.........TTTTTTTTTTT............TT",
+          "TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...........................TTTTTTTTTTT............TT",
+          "TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...====================....TTTTTTTTTTT..RRRRRRRRR.TT",
+          "TT..#w#D##w#...#wDw#w#...#wd#w#...TTTTTTTTTTTTTT...====================....TTTTTTTTTTT..RRRRRRRRR.TT",
+          "TT.....=.S.......=.........=......TTTTTTTTTTTTTT...==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
+          "TT.....=,,...,...=....,....=......TT...............==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
+          "TT.....=.........=.....,...=.......................==;;;TTTTTTTTTTT..==..T.TTTTTTTTTTT..#w#wDw#w#.TT",
+          "TT.....=.........=.........=...S...................==;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
+          "T====================================================;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
+          "T====================================================...TTTTTTTTTT...==....TTTTTTTTTTT....,.=.,...TT",
+          "TT........................S...........;;;;;..;;;........TTTTTTTTTT;;.==....TTTTTTTTTTT......=.....TT",
+          "TT....................................;;;;;..;;;........TTTTTTTTTT;;.==..................,..=..,..TT",
+          "TT...~~~~...,,,,,,,...FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.....................=.....TT",
+          "TT..~~~~~~..,,,,,,,...F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.................S...=.....TT",
+          "TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
+          "TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
+          "TT...~~~~...S,,,,,....F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT................................TT",
+          "TT...........,,,,,....FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT......,,,,....;;;;;.............TT",
+          "TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...,,,,....;;;;;.............TT",
+          "TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+          "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+        ],
+        "signs": [
+          {
+            "cell": "Vector2i(9, 7)",
+            "text": "ROSIE'S DINER. Pie, coffee, booths. Lose on the road? You'll wake up here."
+          },
+          {
+            "cell": "Vector2i(31, 10)",
+            "text": "EAST: Ridge Road, then the Tournament Hall. Mostly Ridge Road. Lots of it."
+          },
+          {
+            "cell": "Vector2i(26, 13)",
+            "text": "MOSSBANK. Population 212. Squirrels, please stop counting yourselves twice."
+          },
+          {
+            "cell": "Vector2i(27, 6)",
+            "text": "SHOP. Closed for the Mossbank Open. The shopkeeper entered. Wish her luck."
+          },
+          {
+            "cell": "Vector2i(88, 16)",
+            "text": "MOSSBANK TOURNAMENT HALL. Tonight: the Mossbank Open. Dealer: Lou. Lou: asleep."
+          },
+          {
+            "cell": "Vector2i(12, 19)",
+            "text": "OPEN TABLE. Anyone may sit. $100 buy-in. Leave whenever you like."
+          }
+        ],
+        "warps": [
+          {
+            "cell": "Vector2i(7, 6)",
+            "facing": "Vector2i(0, -1)",
+            "to": "diner",
+            "to_cell": "Vector2i(6, 7)"
+          },
+          {
+            "cell": "Vector2i(17, 6)",
+            "facing": "Vector2i(0, -1)",
+            "to": "home",
+            "to_cell": "Vector2i(4, 6)"
+          },
+          {
+            "cell": "Vector2i(92, 9)",
+            "facing": "Vector2i(0, -1)",
+            "to": "hall",
+            "to_cell": "Vector2i(9, 10)"
+          },
+          {
+            "cell": "Vector2i(1, 11)",
+            "facing": "Vector2i(-1, 0)",
+            "to": "mill_road",
+            "to_cell": "Vector2i(37, 5)"
+          },
+          {
+            "cell": "Vector2i(1, 12)",
+            "facing": "Vector2i(-1, 0)",
+            "to": "mill_road",
+            "to_cell": "Vector2i(37, 6)"
+          }
+        ],
+        "width": 100
+      },
+      "washhouse": {
+        "areas": [
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ],
+          [
+            [
+              "Sootbridge Washhouse",
+              12
+            ]
+          ]
+        ],
+        "crews": [],
+        "gates": [],
+        "height": 9,
+        "labels": [],
+        "npcs": [
+          {
+            "cell": "Vector2i(7, 3)",
+            "facing": "Vector2i(0, 1)",
+            "id": "nell",
+            "lines": [
+              "Out, dog, I've just mopped. ...Oh. You're his. I heard.",
+              "Something came up my floor drain this morning. A card. It's by the tubs."
+            ],
+            "name": "Nell",
+            "sprite": "npc_cook"
+          }
+        ],
+        "outdoor": false,
+        "pickups": [
+          {
+            "card": 49,
+            "cell": "Vector2i(10, 2)",
+            "id": "ace_washhouse"
+          }
+        ],
+        "rows": [
+          "WWWWWWWWWWWW",
+          "W_uu_uu_uu_W",
+          "W__________W",
+          "W__________W",
+          "WCCCC______W",
+          "W__________W",
+          "W_______p__W",
+          "W____XX____W",
+          "WWWWWWWWWWWW"
+        ],
+        "signs": [],
+        "warps": [
+          {
+            "cell": "Vector2i(5, 7)",
+            "facing": "Vector2i(0, 1)",
+            "to": "sootbridge",
+            "to_cell": "Vector2i(5, 4)"
+          },
+          {
+            "cell": "Vector2i(6, 7)",
+            "facing": "Vector2i(0, 1)",
+            "to": "sootbridge",
+            "to_cell": "Vector2i(5, 4)"
+          }
+        ],
+        "width": 12
+      }
+    },
+    "open_table": {
+      "buy_in": 100,
+      "dealer": 0,
+      "id": "mossbank_open_table",
+      "players": [
+        [
+          "&owl",
+          0
+        ],
+        [
+          "&raccoon",
+          0
+        ],
+        [
+          "&goose",
+          3
+        ],
+        [
+          "&possum",
+          2
+        ],
+        [
+          "&cat",
+          3
+        ]
+      ]
+    },
+    "street_game": {
+      "blinds": [
+        3,
+        6
+      ],
+      "dealer": 0,
+      "id": "sootbridge_street_game",
+      "max_money": 100,
+      "players": [
+        [
+          "&owl",
+          3
+        ],
+        [
+          "&raccoon",
+          3
+        ],
+        [
+          "&goose",
+          2
+        ]
+      ],
+      "stake": 60
+    }
+  }
+}
