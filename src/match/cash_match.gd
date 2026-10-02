@@ -133,3 +133,15 @@ static func sit_down(state: GameState, buy_in: int) -> bool:
 ## Adds the chips you left the table with to your money.
 static func cash_out(state: GameState, chips: int) -> void:
 	state.money += maxi(0, chips)
+
+
+## Sootbridge's street game (docs/DEMO_SPEC.md S-STREET): stub until it's
+## built. Whether a dog with this much money may sit (only under
+## `max_money`); takes nothing either way.
+static func sit_staked(_state: GameState, _max_money: int) -> bool:
+	return false
+
+
+## Street game stub: adds what's above the stake to your money, returns it.
+static func cash_out_staked(_state: GameState, _chips: int, _stake: int) -> int:
+	return 0

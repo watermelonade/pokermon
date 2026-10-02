@@ -217,3 +217,121 @@ func test_S_PARTY_in_game_a_dog_alone_is_never_spotted() -> void:
 	await frames(60)
 	check(not heard.has(str(crew["before"][0])), "S-PARTY: the Pond Hecklers dealt a dog alone in")
 	check(not state().is_beaten("pond_hecklers"), "S-PARTY: no match was played")
+
+
+# --- Demo 2.1's fixes (docs/DEMO_SPEC.md B-JOINSAVE, B-CASHOUT) ---------------
+
+## Sits at the open table (a bot in your seat, seed 7), plays a hand and
+## waits for it to finish. True at the table, the hand over.
+func _sit_and_play_a_hand(id: String, npc: Dictionary) -> bool:
+	game.dev_args["autoplay"] = ""  # a bot plays your seat
+	game.dev_args["seed"] = "7"  # the same deal and bots every run
+	if not await _offer(id, npc, 0):
+		return false
+	if not check(await came_true(at_table, 10.0), "%s: the table opens" % id):
+		return false
+	return await wait_for_hand_done(1, 300.0)
+
+
+## What the save on disk says about the crew and the money, for messages.
+func _disk_brief(s: GameState) -> String:
+	if s == null:
+		return "(no save)"
+	var names: Array[String] = []
+	for a in s.roster:
+		names.append(a.name)
+	return "$%d, roster %s, met there: %s" % [s.money, names, s.found_at]
+
+
+## The first sit's crew is in this run: Sage and Bandit in the roster and
+## the Binder's "where you met it" for both.
+func _has_the_pair(s: GameState) -> bool:
+	return s != null and s.has_animal(&"owl", "Sage") and s.has_animal(&"raccoon", "Bandit") \
+		and s.found_at.get("owl", "") == "Mossbank, at the open table" \
+		and s.found_at.get("raccoon", "") == "Mossbank, at the open table"
+
+
+## B-JOINSAVE: after the first open-table session the save on disk already
+## has Sage and Bandit (with the Binder's "Mossbank, at the open table") in
+## the same save as the cash-out: every save written after you get up holds
+## both. Quitting (no save: a crash, a kill) during the cash-out line, or
+## during Sage's line, and continuing loses nothing: the money, the pair,
+## where you met them, both following you.
+func test_B_JOINSAVE_the_crew_joins_in_the_cash_out_save() -> void:
+	var npc := _player("B-JOINSAVE")
+	if npc.is_empty():
+		return
+	timeout_s = 900.0
+	var buy_in := int(npc["open_table"]["buy_in"])
+	for quit_at in ["cash-out", "Sage"]:
+		if not await _at_mossbank("B-JOINSAVE"):  # (continue_from loads the title after writing the save)
+			return
+		var money := state().money
+		if not await _sit_and_play_a_hand("B-JOINSAVE", npc):
+			return
+		var left: Array[int] = []
+		table().connect("left", func(chips: int) -> void: left.append(chips))
+		var saves: Array[String] = []  ## each save written after you got up: "" if it holds the pair, else what it holds
+		var on_saved := func() -> void:
+			if not left.is_empty():
+				saves.append("" if _has_the_pair(game.state) else _disk_brief(game.state))
+		game.saved.connect(on_saved)
+		await press("menu")
+		await frames(10)
+		await press("ui_accept")
+		var at_line := func() -> bool:
+			if not dialog_open():
+				return false
+			return dialog_line().begins_with("You ") if quit_at == "cash-out" else str(dialog().get("_speaker")) == "Sage"
+		var reached: bool = await came_true(at_line, 30.0)
+		game.saved.disconnect(on_saved)
+		if not check(left.size() == 1, "B-JOINSAVE: (%s) leaving the table fires left(chips) once: %s" % [quit_at, left]):
+			return
+		if not check(reached, "B-JOINSAVE: (%s) the line comes after leaving (now: %s)" % [quit_at, _where()]):
+			return
+		var chips: int = left[0]
+		var want := money - buy_in + chips
+		var disk := save_on_disk()
+		check(_has_the_pair(disk), "B-JOINSAVE: (%s) at that line the save on disk has Sage and Bandit, met at the open table: %s" % [quit_at, _disk_brief(disk)])
+		check(disk != null and disk.money == want, "B-JOINSAVE: (%s) ...and the cash-out, $%d: %s" % [quit_at, want, _disk_brief(disk)])
+		check(saves.all(func(x: String) -> bool: return x == ""), "B-JOINSAVE: (%s) a save between the cash-out and the join: %s" % [quit_at, saves])
+		# Quit right here, without saving, and Continue.
+		if not await goto_title() or not await continue_game():
+			return
+		await advance(30.0, "cancel")
+		check(_has_the_pair(state()), "B-JOINSAVE: (%s) after quitting there and continuing: %s" % [quit_at, _disk_brief(state())])
+		check_eq(state().money, want, "B-JOINSAVE: (%s) after continuing, money ($%d - $%d + %d):" % [quit_at, money, buy_in, chips])
+		check_eq((overworld().get("followers") as Array).size(), 2, "B-JOINSAVE: (%s) after continuing, following you:" % quit_at)
+
+
+## B-CASHOUT: no frame where you've left the table but your stack isn't in
+## your money and the save. On the first frame after the table's
+## left(chips), money = before - buy-in + chips, in the game and on disk;
+## quit there (without saving) and Continue keeps the stack.
+func test_B_CASHOUT_the_stack_is_banked_the_frame_you_leave() -> void:
+	var npc := _player("B-CASHOUT")
+	if npc.is_empty() or not await _at_mossbank("B-CASHOUT"):
+		return
+	timeout_s = 600.0
+	var buy_in := int(npc["open_table"]["buy_in"])
+	var money := state().money
+	if not await _sit_and_play_a_hand("B-CASHOUT", npc):
+		return
+	var left: Array[int] = []
+	table().connect("left", func(chips: int) -> void: left.append(chips))
+	await press("menu")
+	await frames(10)
+	_send("ui_accept", true)  # A on "Leave with N chips", held: the check below is the very next frame
+	var fired: bool = await came_true(func() -> bool: return not left.is_empty(), 2.0)
+	var in_game := state().money
+	var disk := save_on_disk()
+	_send("ui_accept", false)
+	if not check(fired and left.size() == 1, "B-CASHOUT: A on the leave offer fires left(chips) once: %s" % [left]):
+		return
+	var want := money - buy_in + left[0]
+	check_eq(in_game, want, "B-CASHOUT: the first frame after leaving, money ($%d - $%d + %d):" % [money, buy_in, left[0]])
+	check(disk != null and disk.money == want, "B-CASHOUT: the first frame after leaving, the save on disk has $%d: %s" % [want, _disk_brief(disk)])
+	if not await goto_title() or not await continue_game():
+		return
+	await advance(30.0, "cancel")
+	check_eq(state().money, want, "B-CASHOUT: quit on that frame and Continue: money")

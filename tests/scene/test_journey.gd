@@ -123,3 +123,95 @@ func test_J_OLD_ridge_road_still_pays_and_recruits() -> void:
 	check(state().has_animal(&"goose", "Honk"), "J-OLD: Honk joined")
 	check_eq(state().roster.size(), 3, "J-OLD: roster size")
 	check_eq(state().party.size(), 2, "J-OLD: party size (full: Honk waits on the bench)")
+
+
+## J-STRANDED (demo 2.1): the playtester's stranded dog (docs/PLAYTEST.md,
+## "What it found"): past the opening, $0, no crew, never sat at the open
+## table, standing in Mossbank. The open table won't seat it; it walks back
+## to Sootbridge and plays the street game (a bot in its seat, a seed of
+## its own each session) until it can afford the open table, walks back,
+## sits, and Sage and Bandit join. The demo can always be finished.
+## Each session the bot gets up after the first hand that leaves it above
+## the stake, when it busts, or after STREET_HANDS hands (docs/DEMO_SPEC.md,
+## "Test decisions (2.1)").
+const STREET_HANDS := 8
+const STREET_SESSIONS := 60
+
+func test_J_STRANDED_a_broke_dog_alone_can_still_finish_the_demo() -> void:
+	timeout_s = 20000.0
+	var seated := open_table_npcs()
+	var street := street_game_npcs()
+	if not check(not seated.is_empty() and not street.is_empty(), "J-STRANDED: Mossbank's open table (%d players) and Sootbridge's street game (%d)" % [seated.size(), street.size()]):
+		return
+	var open_npc: Dictionary = seated[0]
+	var buy_in := int(open_npc["open_table"]["buy_in"])
+	var street_map: String = street[0][0]
+	var street_npc: Dictionary = street[0][1]
+	var stake := int(street_npc["open_table"].get("stake", 0))
+	var s := demo_state_at("town", mossbank_entry())
+	s.money = 0
+	if not check(s.roster.is_empty() and not s.met_open_table, "J-STRANDED: the dog starts alone"):
+		return
+	if not check(await continue_from(s) and await advance(20.0, "cancel"), "J-STRANDED: continue in Mossbank: " + last_stop):
+		return
+	# Mossbank's table won't seat a dog with $0.
+	menus.clear()
+	if not check(await talk_to(open_npc["id"], "town"), "J-STRANDED: talk to %s: %s" % [open_npc["id"], last_stop]):
+		return
+	await advance(20.0, "stop")
+	check(menus.is_empty() and not at_table(), "J-STRANDED: $0 isn't offered a seat at the open table (menus %s)" % [menus])
+	if menu_open():
+		await press("ui_cancel")
+	await advance(20.0, "cancel")
+	# Back to Sootbridge: street games until the buy-in is in the wallet.
+	game.dev_args["autoplay"] = ""  # a bot plays your seat
+	var sessions := 0
+	var hands := 0
+	while state().money < buy_in and sessions < STREET_SESSIONS:
+		game.dev_args["seed"] = str(7 + sessions)
+		if not check(await talk_to(street_npc["id"], street_map, 600.0), "J-STRANDED: session %d: talk to %s: %s" % [sessions + 1, street_npc["id"], last_stop]):
+			return
+		await advance(20.0, "stop")
+		if not check(menu_open() and await choose_index(0), "J-STRANDED: session %d: take the seat (heard %s)" % [sessions + 1, heard.slice(-3)]):
+			return
+		if not check(await came_true(at_table, 10.0), "J-STRANDED: session %d: the table opens" % [sessions + 1]):
+			return
+		var before := state().money
+		var hand := 1
+		while true:
+			if not await wait_for_hand_done(hand, 600.0):
+				return
+			if table_flow() == FLOW_MATCH_DONE or table_stack() > stake or hand >= STREET_HANDS:
+				break
+			hand += 1
+		hands += table_hand()
+		var chips := await leave_table()
+		if not check(chips >= 0, "J-STRANDED: session %d: leave: %s" % [sessions + 1, last_stop]):
+			return
+		await advance(30.0, "cancel")
+		if not check_eq(state().money, before + maxi(0, chips - stake), "J-STRANDED: session %d: $%d + max(0, %d - %d stake): money" % [sessions + 1, before, chips, stake]):
+			return
+		sessions += 1
+	if not check(state().money >= buy_in, "J-STRANDED: %d street sessions (%d hands) got the dog to $%d, not the $%d buy-in" % [sessions, hands, state().money, buy_in]):
+		return
+	print("J-STRANDED: $0 to $%d in %d street sessions, %d hands" % [state().money, sessions, hands])
+	# Back to Mossbank: sit, a hand, leave, and the crew joins.
+	game.dev_args["seed"] = "7"
+	var money := state().money
+	if not check(await talk_to(open_npc["id"], "town", 600.0), "J-STRANDED: back at the open table: %s" % last_stop):
+		return
+	await advance(20.0, "stop")
+	if not check(menu_open() and await choose_index(0), "J-STRANDED: with $%d the open table offers a seat (heard %s)" % [money, heard.slice(-3)]):
+		return
+	if not check(await came_true(at_table, 10.0), "J-STRANDED: the open table opens"):
+		return
+	if not await wait_for_hand_done(1, 600.0):
+		return
+	var chips := await leave_table()
+	if not check(chips >= 0, "J-STRANDED: leave the open table: " + last_stop):
+		return
+	game.dev_args.erase("autoplay")
+	await advance(60.0, "cancel")
+	check_eq(state().money, money - buy_in + chips, "J-STRANDED: money after the open table ($%d - $%d + %d):" % [money, buy_in, chips])
+	check(state().has_animal(&"owl", "Sage") and state().has_animal(&"raccoon", "Bandit"), "J-STRANDED: Sage and Bandit joined (roster %d)" % state().roster.size())
+	check_eq((overworld().get("followers") as Array).size(), 2, "J-STRANDED: following you:")

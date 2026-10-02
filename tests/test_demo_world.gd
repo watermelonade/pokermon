@@ -383,3 +383,73 @@ func test_S_PARTY_crews_never_spot_a_dog_alone() -> void:
 	check_eq(town.spotter(cell, {}, 0).get("id", "nobody"), "nobody", "S-PARTY: an empty party in the Hecklers' sight is spotted by")
 	check_eq(town.spotter(cell, {}, 1).get("id"), "pond_hecklers", "S-PARTY: one animal along: spotted by")
 	check_eq(town.spotter(cell, {}).get("id"), "pond_hecklers", "S-PARTY: spotter's default (a full party): spotted by")
+
+
+# --- W-STREET (demo 2.1) -------------------------------------------------------
+
+## The street game's npc entries in Sootbridge (the maps reachable from the
+## start with the gate shut): those whose `open_table` carries a "stake".
+## [map id, npc entry] each.
+func _street_players() -> Array:
+	var out: Array = []
+	for id: String in _sootbridge_maps():
+		for n: Dictionary in WorldMap.get_map(id).npcs:
+			if n.has("open_table") and (n["open_table"] as Dictionary).has("stake"):
+				out.append([id, n])
+	return out
+
+
+## W-STREET: Sootbridge has a street table: npc entries with `open_table`
+## carrying "stake" (chips fronted) and "max_money" (= the Mossbank open
+## table's buy-in), one per player (2-5 of them, [species, individual]),
+## each standing beside a crate or table, reachable from the start with
+## the gate shut, and none of them in the way: with everyone standing and
+## the gate open Mossbank is still reachable, and removing any one of them
+## never matters (W-NPCS, which counts them too, still holds).
+func test_W_STREET_sootbridge_has_a_street_game_for_empty_pockets() -> void:
+	if not _have_maps("W-STREET"):
+		return
+	var found := _street_players()
+	if not check(not found.is_empty(), "W-STREET: Sootbridge has a street game (no npc there has an open_table with a stake)"):
+		return
+	var mossbank := WorldMap.get_map("town").open_tables()
+	if not check(not mossbank.is_empty(), "W-STREET: Mossbank has its open table (for max_money)"):
+		return
+	var buy_in := int(mossbank[0]["open_table"]["buy_in"])
+	var tables := {}  ## table id -> [[map, npc]]
+	for e: Array in found:
+		var tid: Variant = (e[1]["open_table"] as Dictionary).get("id")
+		if not tables.has(tid):
+			tables[tid] = []
+		tables[tid].append(e)
+	var reach := _reach(false)
+	for tid: Variant in tables:
+		var entries: Array = tables[tid]
+		var t: Dictionary = entries[0][1]["open_table"]
+		check(tid is String and tid != "", "W-STREET: the street table has an id")
+		check(t.get("stake") is int and int(t.get("stake")) > 0, "W-STREET: %s fronts a stake above 0 (%s)" % [tid, t.get("stake")])
+		check_eq(t.get("max_money"), buy_in, "W-STREET: %s's max_money is the Mossbank buy-in:" % tid)
+		check(t.get("dealer") is int and Dealer.Kind.values().has(t.get("dealer")), "W-STREET: %s has a dealer kind" % tid)
+		var players: Array = t.get("players", [])
+		check(players.size() >= 2 and players.size() <= 5, "W-STREET: %s seats 2-5 players (has %d)" % [tid, players.size()])
+		for p: Variant in players:
+			check(p is Array and p.size() == 2 and Species.CATALOG.has(StringName(str(p[0]))) and p[1] is int and p[1] >= 0 and p[1] < 4,
+				"W-STREET: %s: a player isn't [species, individual]: %s" % [tid, p])
+		check_eq(entries.size(), players.size(), "W-STREET: %s: npc entries standing at the table, one per player:" % tid)
+		var walk_up := false
+		for e: Array in entries:
+			var m := WorldMap.get_map(e[0])
+			var n: Dictionary = e[1]
+			check_eq(n["open_table"], t, "W-STREET: %s carries the same table" % n["id"])
+			var by_table := false
+			for d in DIRS:
+				by_table = by_table or m.char_at(n["cell"] + d) in ["x", "t"]
+			check(by_table, "W-STREET: %s at %s doesn't stand beside a crate or table" % [n["id"], n["cell"]])
+			var lines: Variant = n.get("lines", [])
+			check(lines is Array and not (lines as Array).is_empty(), "W-STREET: %s has no lines" % n["id"])
+			for c in WorldPaths.talk_spots(m, n["cell"]):
+				walk_up = walk_up or reach.get(e[0], {}).has(c)
+			var blocked := {e[0]: {n["cell"]: true}}
+			check(_reach(true, false, blocked).has("town"), "W-STREET: %s at %s stands where every route to Mossbank passes" % [n["id"], n["cell"]])
+		check(walk_up, "W-STREET: nobody at %s can be walked up to from the start with the gate shut" % tid)
+	check(_reach(true).has("town"), "W-STREET: with everyone standing (the street game's players too), Mossbank is reachable")

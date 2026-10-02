@@ -252,3 +252,69 @@ func test_S_BUYIN_money_after_is_money_before_minus_buy_in_plus_stack() -> void:
 			return
 		played += 1
 	check(refused > 10 and played > 100, "S-BUYIN: the seeds cover both cases (%d refused, %d played)" % [refused, played])
+
+
+## S-STREET (demo 2.1): Sootbridge's street game. Nobody buys in: the
+## players front you a stake, and when you get up you keep what's above
+## it; below it you owe nothing. So money after = money before +
+## max(0, stack at leaving - stake), exactly, and never less than before,
+## over 200 seeded sessions. Sitting is only for empty pockets: at or
+## above `max_money` (the open table's buy-in) it's refused, and nothing
+## changes. (CashMatch.sit_staked and cash_out_staked: docs/DEMO_SPEC.md,
+## "Test decisions (2.1)".)
+func test_S_STREET_staked_session_never_costs_money_and_pays_what_is_above_the_stake() -> void:
+	var policies := ["check_call", "fold", "bet:0.5", "bluff:1.0", "call_upto:60", "raise_to:80"]
+	const MAX_MONEY := 100
+	var refused := 0
+	var played := 0
+	var gained := 0
+	var below := 0
+	for seed_value in range(1, 201):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash("street:%d" % seed_value)
+		var s := GameState.fresh()
+		s.money = rng.randi_range(0, 160)
+		var before := s.money
+		var saved := JSON.stringify(s.to_dict())
+		if before >= MAX_MONEY:
+			if not check(not CashMatch.sit_staked(s, MAX_MONEY), "S-STREET: seed %d: $%d is at or above $%d, but sat down" % [seed_value, before, MAX_MONEY]):
+				return
+			if not check_eq(JSON.stringify(s.to_dict()), saved, "S-STREET: seed %d: a refused seat changes nothing:" % seed_value):
+				return
+			refused += 1
+			continue
+		if not check(CashMatch.sit_staked(s, MAX_MONEY), "S-STREET: seed %d: $%d is under $%d, but sit_staked refused" % [seed_value, before, MAX_MONEY]):
+			return
+		if not check_eq(s.money, before, "S-STREET: seed %d: sitting down takes nothing: money" % seed_value):
+			return
+		var stake: int = [20, 40, 50, 100][rng.randi_range(0, 3)]
+		var rivals := []
+		for i in rng.randi_range(2, 5):
+			rivals.append(["R%d" % i, stake, ScriptedBot.new({"default": policies[rng.randi_range(0, policies.size() - 1)]})])
+		var m := _match(stake, rivals, seed_value)
+		if m == null:
+			return
+		for _hand in rng.randi_range(1, 25):
+			if m.is_over():
+				break
+			m.start_hand()
+			if not _play_hand(m, func(t: HoldemTable) -> Array: return _random_action(t, rng)):
+				return
+		var stack := m.table.seats[YOU].stack
+		var took := m.leave()
+		if not check_eq(took, stack, "S-STREET: seed %d: leave() returns your stack" % seed_value):
+			return
+		var added := CashMatch.cash_out_staked(s, took, stake)
+		if not check_eq(added, maxi(0, stack - stake), "S-STREET: seed %d: a %d stack on a %d stake pays" % [seed_value, stack, stake]):
+			return
+		if not check_eq(s.money, before + maxi(0, stack - stake), "S-STREET: seed %d: $%d + max(0, %d stack - %d stake) =" % [seed_value, before, stack, stake]):
+			return
+		if not check(s.money >= before, "S-STREET: seed %d: money went down, $%d to $%d" % [seed_value, before, s.money]):
+			return
+		played += 1
+		if stack > stake:
+			gained += 1
+		elif stack < stake:
+			below += 1
+	check(refused > 20 and played > 100 and gained > 10 and below > 10,
+		"S-STREET: the seeds cover every case (%d refused, %d played: %d up, %d down)" % [refused, played, gained, below])

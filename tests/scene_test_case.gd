@@ -755,6 +755,33 @@ static func open_table_npcs() -> Array:
 	return WorldMap.get_map("town").open_tables()
 
 
+## Sootbridge's street game (demo 2.1, W-STREET): [map id, npc entry] for
+## each npc on the maps reachable from the start with the gate shut whose
+## `open_table` carries a "stake".
+static func street_game_npcs() -> Array:
+	var out: Array = []
+	if not WorldMap.MAPS.has(WorldMap.START_MAP):
+		return out
+	for id: String in WorldPaths.maps_reached(WorldMap.START_MAP, WorldMap.START_CELL, false):
+		for n: Dictionary in WorldMap.get_map(id).npcs:
+			if n.has("open_table") and (n["open_table"] as Dictionary).has("stake"):
+				out.append([id, n])
+	return out
+
+
+## Your stack at the table (seat 0), or -1 with no table.
+func table_stack() -> int:
+	var t := table()
+	if t == null or t.get("match_") == null:
+		return -1
+	return int((t.get("match_").get("table").get("seats") as Array)[0].get("stack"))
+
+
+## The save file as it is on disk right now (null if it doesn't read).
+func save_on_disk() -> GameState:
+	return SaveFile.read(game.save_path)
+
+
 ## Where the Mill Road comes into Mossbank, or (-1, -1).
 static func mossbank_entry() -> Vector2i:
 	if not WorldMap.MAPS.has("mill_road"):

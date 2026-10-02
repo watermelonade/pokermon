@@ -154,3 +154,106 @@ func test_a_dog_alone_loads_alone() -> void:
 	var d := _crewed().to_dict()
 	d["roster"] = []
 	check_eq(GameState.from_dict(d).roster.size(), 2, "past the open table, a lost roster gets Sage and Bandit back")
+
+
+# --- B-DECKFIX (demo 2.1) --------------------------------------------------------
+
+## The four Aces' pickup ids (ground and Mags's gift) -> card, from the maps.
+func _ace_pickups() -> Dictionary:
+	var out := {}
+	var aces := GameState.opening_missing_cards()
+	for map_id: String in WorldMap.MAPS:
+		var data: Dictionary = WorldMap.MAPS[map_id]
+		for p: Dictionary in data.get("pickups", []):
+			if aces.has(int(p["card"])):
+				out[p["id"]] = int(p["card"])
+		for n: Dictionary in data["npcs"]:
+			if n.has("gives_card") and aces.has(int(n["gives_card"]["card"])):
+				out[n["gives_card"]["id"]] = int(n["gives_card"]["card"])
+	return out
+
+
+## The repaired deck's rules (docs/DEMO_SPEC.md B-DECKFIX): no duplicates,
+## nothing that isn't a card, every card but the Aces held, and each Ace
+## held exactly when its pickup is recorded as taken.
+func _deck_is_whole_but_the_untaken_aces(s: GameState, what: String) -> bool:
+	var ok := true
+	var seen := {}
+	for c in s.deck:
+		ok = check(c >= 0 and c < GameState.DECK_SIZE, "B-DECKFIX: %s: %d isn't a card" % [what, c]) and ok
+		ok = check(not seen.has(c), "B-DECKFIX: %s: %d held twice" % [what, c]) and ok
+		seen[c] = true
+	var aces := GameState.opening_missing_cards()
+	for c in GameState.DECK_SIZE:
+		if not aces.has(c):
+			ok = check(seen.has(c), "B-DECKFIX: %s: the %s is missing (only Aces may be)" % [what, GameState.card_name(c)]) and ok
+	var pickups := _ace_pickups()
+	for id: String in pickups:
+		var card: int = pickups[id]
+		ok = check(s.taken_pickups.has(id) == seen.has(card), "B-DECKFIX: %s: %s is %s but the %s is %s" % [what, id,
+			"taken" if s.taken_pickups.has(id) else "not taken", GameState.card_name(card), "held" if seen.has(card) else "not held"]) and ok
+	return ok
+
+
+## B-DECKFIX: loading a save repairs its deck. Duplicates and things that
+## aren't cards are dropped, any card but an Ace that's missing is put
+## back, and an Ace is held exactly when its pickup (or Mags's gift) is
+## recorded as taken; a run past the opening holds all four (and so has
+## them all taken). Found by the playtester: `[51, 51, 51, 0, 0]` loaded as
+## a 2-card deck, and a run that lost cards could never pass the gate.
+func test_B_DECKFIX_loading_repairs_a_damaged_deck() -> void:
+	var pickups := _ace_pickups()
+	if not check_eq(pickups.size(), 4, "B-DECKFIX: the maps have the four Aces' pickups:"):
+		return
+	var ids: Array = pickups.keys()
+	ids.sort()
+	# Mid-opening, in Sootbridge: two Aces found (the first two ids).
+	var s := GameState.fresh()
+	for id: String in ids.slice(0, 2):
+		s.take_pickup(id)
+	if not check_eq(s.deck.size(), 50, "B-DECKFIX: two Aces taken: deck size"):
+		return
+	var base: Dictionary = JSON.parse_string(JSON.stringify(s.to_dict()))  # as a file holds it
+	var cases := {
+		"dupes": [51, 51, 51, 0, 0],
+		"out of range": (base["deck"] as Array) + [52, -1, 99, 3.5, "As"],
+		"lost cards": (base["deck"] as Array).slice(10),
+		"untaken Aces held": (base["deck"] as Array) + pickups.values(),
+		"garbage": "fifty-two",
+		"empty": [],
+	}
+	for what: String in cases:
+		var d: Dictionary = base.duplicate(true)
+		d["deck"] = cases[what]
+		var back := GameState.from_dict(JSON.parse_string(JSON.stringify(d)))
+		if not check(back != null, "B-DECKFIX: %s: the save loads" % what):
+			continue
+		if _deck_is_whole_but_the_untaken_aces(back, what):
+			check_eq(back.deck.size(), 50, "B-DECKFIX: %s: 48 cards and the two Aces taken:" % what)
+	# No deck at all in a new-format save: the same.
+	var none: Dictionary = base.duplicate(true)
+	none.erase("deck")
+	none["version"] = GameState.VERSION
+	var back := GameState.from_dict(JSON.parse_string(JSON.stringify(none)))
+	if check(back != null, "B-DECKFIX: a save without its deck loads"):
+		_deck_is_whole_but_the_untaken_aces(back, "no deck, past the opening")
+	# Past the opening (the gate let you through with all 52): the deck is
+	# whole whatever the file says, and the four pickups are taken. Even
+	# when they weren't recorded (a pre-demo save's run saved since).
+	var past := GameState.fresh()
+	for id: String in ids:
+		past.take_pickup(id)
+	past.opening_done = true
+	var damaged := past.to_dict()
+	damaged["deck"] = [51, 51, 0]
+	damaged["taken_pickups"] = []
+	damaged["map"] = "town"
+	damaged["cell"] = [40, 12]
+	back = GameState.from_dict(JSON.parse_string(JSON.stringify(damaged)))
+	if check(back != null, "B-DECKFIX: past the opening: the save loads"):
+		_deck_is_whole_but_the_untaken_aces(back, "past the opening")
+		check(back.has_full_deck(), "B-DECKFIX: past the opening the deck is whole: %d cards" % back.deck.size())
+	# A good save is untouched: the repair changes nothing that's right.
+	var good := GameState.from_dict(JSON.parse_string(JSON.stringify(base)))
+	check_eq(good.to_dict(), GameState.from_dict(JSON.parse_string(JSON.stringify(good.to_dict()))).to_dict(), "B-DECKFIX: a good save round trips:")
+	check_eq(good.deck, s.deck, "B-DECKFIX: a good save's deck, in its order:")

@@ -291,3 +291,48 @@ other three findings to be fixed.
 R-* still holds: everything green, R-CHART unchanged, the soak green
 with the playtester taught the street game (its `stranded` note becomes
 a check: a stranded dog must be able to get back to the street game).
+
+### Test decisions (2.1)
+
+As for demo 2, where the outcomes left something open the tests (written
+first) decided the smallest reasonable thing:
+
+- **S-STREET**: the money arithmetic is headless, in CashMatch, beside
+  sit_down and cash_out: `static sit_staked(state, max_money) -> bool`
+  (true when money is under `max_money`; it takes nothing either way) and
+  `static cash_out_staked(state, chips, stake) -> int` (adds
+  max(0, chips - stake), returns what it added). The stake is your stack
+  when you sit; the rivals sit with the same.
+- **W-STREET**: the street table is found by its `open_table` carrying
+  `"stake"` (the Mossbank table has none). Its players are npc entries on
+  a map in Sootbridge (reachable from the start with the gate shut), one
+  entry per player, each beside a crate (`x`) or felt (`t`), 4-neighbour.
+  `max_money` equals the Mossbank open table's `buy_in`. With everyone
+  standing and the gate open, Mossbank stays reachable.
+- **G-STREET**: the offer is the overworld's ChoiceMenu, two options, yes
+  first; sitting leaves money as it was; the table's setup gives seat 0
+  (the dog) the stake. Turned away means: a line containing "empty
+  pockets", no menu, no table, the run unchanged. The broke dog stands in
+  Sootbridge past the opening (full deck, $0, no crew), a bot in its seat
+  (seed 7).
+- **J-STRANDED** starts as the playtester's stranded dog: past the
+  opening, $0, no crew, never sat at the open table, at Mossbank's way in.
+  Mossbank's table won't seat it (no menu). Each street session has its
+  own seed (7, 8, 9, ...) and the bot in your seat gets up after the first
+  hand that ends with its stack above the stake, when it busts, or after 8
+  hands; at most 60 sessions. Then the open table: one hand, leave, and
+  Sage and Bandit are in the roster.
+- **B-JOINSAVE** reads the save on disk (`Game.save_path`) on the frame
+  the cash-out line shows, and on the frame Sage's line shows; every save
+  written after the table's `left` must already hold the pair. "Quitting"
+  is going to the title without saving (a crash or a kill), then Continue.
+- **B-CASHOUT**: the save on disk and the money are checked on the first
+  frame after the table's `left(chips)` fires; then quit without saving and
+  Continue.
+- **B-DECKFIX**: a run past the opening (`opening_done`, which the gate
+  sets only with all 52, and which a pre-demo save loads with) holds all
+  four Aces, so loading it records all four pickups as taken; otherwise
+  the taken pickups decide which Aces are held. Either way, after a load
+  each Ace is held exactly when its pickup is taken, and every other card
+  is held once. S-SAVE's odd deck (cards that aren't the rule's) becomes a
+  legal one in the same commit.
