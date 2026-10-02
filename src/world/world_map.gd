@@ -77,11 +77,21 @@ const OPEN_TABLE_BUY_IN := 100
 ## way back for a dog that lost its wallet before it had a crew, not a
 ## second income. The players are the three individuals no crew or table
 ## had yet (Pip the owl, Scraps the raccoon, Gander the goose: a Rock, a
-## Bluffer and a Maniac), so none of them can ever be in your crew. The
-## stake is what tools/cash_sim.gd --street measured (README "Measured so
-## far"): about 10-15 minutes of play from $0 back to the buy-in.
+## Bluffer and a Maniac), so none of them can ever be in your crew.
+##
+## The stake and the blinds are tuned on the pace (tools/cash_sim.gd
+## --street, README "Measured so far"): from $0 back to the buy-in in
+## about 10-15 minutes, a bot in your seat, at about 20 s a hand. At the
+## open table's depth (50 big blinds: a 50 stake at 1/2) it took a median
+## 74 hands, about 25 minutes, and a bigger stake at the same depth only
+## got there by paying in a few big lumps (200 at 2/4: median 41 hands but
+## a tenth of runs done in 7). Shallow is what works: you keep what's above
+## the stake and owe nothing below it, so every all-in is a free roll, and
+## at 10 big blinds the pennies come in often and small. 60 at 3/6: median
+## 39 hands (13 minutes; 4-26 for the middle 80%) on 400 runs of seeds the
+## tuning never saw.
 const STREET_GAME := {
-	"id": "sootbridge_street_game", "stake": 50, "max_money": OPEN_TABLE_BUY_IN, "dealer": Dealer.Kind.STREET,
+	"id": "sootbridge_street_game", "stake": 60, "blinds": [3, 6], "max_money": OPEN_TABLE_BUY_IN, "dealer": Dealer.Kind.STREET,
 	"players": [[&"owl", 3], [&"raccoon", 3], [&"goose", 2]],
 }
 

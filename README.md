@@ -190,7 +190,7 @@ banked.
 **The street game** (demo 2.1, Sootbridge): Pip the Owl (Rock), Scraps the
 Raccoon (Bluffer) and Gander the Goose (Maniac) play round an upturned
 crate outside the Lamp, before the gate. It's the same cash table with
-other money: there's no buy-in, they front you a stake of chips (STAKE_PLACEHOLDER),
+other money: there's no buy-in, they front you a stake of 60 chips at blinds of 3/6,
 and when you get up you keep what's above it; below it (or bust) you owe
 nothing, so a session never costs money (`CashMatch.sit_staked` and
 `cash_out_staked`, `WorldMap.STREET_GAME`). Only a dog with less than the
@@ -673,6 +673,41 @@ So a session about breaks even for a decent player, with one in eight
 going bust within 20 hands; the Rock takes the money off the Maniac. No
 target yet: it's the starting point for the money-as-health economy
 (docs/DESIGN.md).
+
+**The street game's pace** (`tools/cash_sim.gd --street`, demo 2.1):
+how long a broke dog takes from $0 back to the open table's $100 buy-in
+at Sootbridge's street game, with a Shark bot in your seat (what
+`--autoplay` plays) against Pip (Rock), Scraps (Bluffer) and Gander
+(Maniac). Each session it gets up after the first hand that leaves it
+above the stake, when it busts, or after 8 hands (the policy J-STRANDED
+uses); it keeps what's above the stake. Minutes are hands times about 20 s
+a hand, an estimate of a person's pace at the table, not measured. The
+target is docs/DESIGN.md's 10-15 minutes. 60 runs a row on seed 1 while
+tuning:
+
+| Stake, blinds (depth) | Hands to $100: median (10th-90th percentile) | About | Sessions (median) | Busted |
+| --- | --- | --- | --- | --- |
+| 50 at 1/2 (25 bb) | 74 (36-131) | 25 min | 13 | 9% |
+| 100 at 1/2 (50 bb, the open table's depth) | 56 (16-124) | 19 min | 9 | 5% |
+| 200 at 2/4 (50 bb) | 41 (7-85) | 14 min | 6 | 4% |
+| 50 at 2/4 (12 bb) | 46 (21-123) | 15 min | 9 | 14% |
+| **60 at 3/6 (10 bb)** | **37 (14-77)** | **12 min** | **7** | **20%** |
+| 50 at 4/8 (6 bb) | 28 (10-58) | 9 min | 6 | 27% |
+| 50 at 5/10 (5 bb) | 25 (10-51) | 8 min | 7 | 37% |
+
+The game's: **60 at 3/6** (`WorldMap.STREET_GAME`). On seeds the tuning
+never saw (200 runs each): seed 2, median 39 hands (13-76), 13 minutes
+(4-25), 8 sessions; seed 3, median 39 (15-77), 13 minutes (5-26), 7
+sessions; a bot that plays every session to 8 hands instead of getting up
+when ahead (seed 4) takes a median 46 (16-105), 15 minutes. About $15 is
+kept a session and one in five busts (which costs nothing). Shallow is
+what works: below the stake you owe nothing, so every all-in is a free
+roll, and at 10 big blinds the pennies come in often and small; at the
+open table's depth it took twice as long, and a bigger stake got there
+only in a few big lumps (a tenth of runs at 200 done in 7 hands). The
+spread is wide either way (4-26 minutes for the middle 80%): that's cards.
+In the game, J-STRANDED (seed 7 on) took 10 sessions and 60 hands. The
+street players' styles weren't changed: the stake and blinds were enough.
 
 **Boss tables, bot vs bot** (`tools/boss_sim.gd`; how each match is set
 up is how the game sets up yours: the rigged draw, leader-heavy stacks,
