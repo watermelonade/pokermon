@@ -64,8 +64,25 @@ const TILES := {
 ## five players so the three left after that still make a game (CashMatch
 ## wants two rivals at least).
 const OPEN_TABLE := {
-	"id": "mossbank_open_table", "buy_in": 100, "dealer": Dealer.Kind.STREET,
+	"id": "mossbank_open_table", "buy_in": OPEN_TABLE_BUY_IN, "dealer": Dealer.Kind.STREET,
 	"players": [[&"owl", 0], [&"raccoon", 0], [&"goose", 3], [&"possum", 2], [&"cat", 3]],
+}
+const OPEN_TABLE_BUY_IN := 100
+
+## Sootbridge's street game (demo 2.1, docs/DEMO_SPEC.md W-STREET): three
+## townsfolk playing for pennies on an upturned crate outside the Lamp.
+## No buy-in: they front you `stake` chips and you keep what's above it
+## when you get up (OpenTable, CashMatch.cash_out_staked), and only a dog
+## with less than the open table's buy-in may sit (`max_money`): it's the
+## way back for a dog that lost its wallet before it had a crew, not a
+## second income. The players are the three individuals no crew or table
+## had yet (Pip the owl, Scraps the raccoon, Gander the goose: a Rock, a
+## Bluffer and a Maniac), so none of them can ever be in your crew. The
+## stake is what tools/cash_sim.gd --street measured (README "Measured so
+## far"): about 10-15 minutes of play from $0 back to the buy-in.
+const STREET_GAME := {
+	"id": "sootbridge_street_game", "stake": 50, "max_money": OPEN_TABLE_BUY_IN, "dealer": Dealer.Kind.STREET,
+	"players": [[&"owl", 3], [&"raccoon", 3], [&"goose", 2]],
 }
 
 
@@ -75,6 +92,8 @@ const MAPS := {
 	# gate east to the Mill Road. The four Aces are found four ways: one in
 	# the gutter in plain sight, one inside the washhouse, one at the dead
 	# end of the coal yard's alley (behind the crates), one given by Mags.
+	# Outside the Lamp, three townsfolk play for pennies on a crate: the
+	# street game (STREET_GAME, demo 2.1), for a dog with empty pockets.
 	"sootbridge": {
 		"outdoor": true,
 		"rows": [
@@ -84,7 +103,7 @@ const MAPS := {
 			"TTBwBDBBwBBBwBBdBBwBBwBdBwwBdBwBBBBTTTTT",
 			"T:::::::::::::::::::::::::::::::::g::::T",
 			"T:::::::::::::::::::::::::::::::::g::::T",
-			"T:::::::::::o:::::::::::::::::::::BTTTTT",
+			"T:::::::::::o:::::::x:::::::::::::BTTTTT",
 			"T:::::::S:::::::::::::::::::::::::BTTTTT",
 			"TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
 			"T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
@@ -134,6 +153,17 @@ const MAPS := {
 			{"id": "cinder", "name": "Cinder, the sweep", "sprite": "npc_kid", "cell": Vector2i(26, 7), "facing": Vector2i.UP, "lines": [
 				"They're not opening the manhole. Too deep, the constable says. Too late.",
 				"Mum says the drains run under half the town. Even under the washhouse."]},
+			# The street game round its crate outside the Lamp: one entry per
+			# player, all carrying STREET_GAME (OpenTable.play reads it).
+			{"id": "street_pip", "name": "Pip", "sprite": "owl", "cell": Vector2i(20, 5), "facing": Vector2i.DOWN,
+				"open_table": STREET_GAME, "animal": [&"owl", 3], "lines": [
+				"We heard about last night. Sit, if your pockets are empty. We stake you."]},
+			{"id": "street_scraps", "name": "Scraps", "sprite": "raccoon", "cell": Vector2i(21, 6), "facing": Vector2i.LEFT,
+				"open_table": STREET_GAME, "animal": [&"raccoon", 3], "lines": [
+				"*psst* our chips, your paws. win and you keep the extra. lose and, eh."]},
+			{"id": "street_gander", "name": "Gander", "sprite": "goose", "cell": Vector2i(19, 6), "facing": Vector2i.RIGHT,
+				"open_table": STREET_GAME, "animal": [&"goose", 2], "lines": [
+				"HONK. PENNIES ON THE CRATE. THE CRATE IS MINE. THE PENNIES ARE ANYONE'S."]},
 		],
 		"crews": [],
 	},

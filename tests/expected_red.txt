@@ -7,14 +7,10 @@
 # S: state and rules (tests/test_demo_state.gd, tests/test_cash_match.gd)
 
 # W: the world (tests/test_demo_world.gd)
-test_W_STREET_sootbridge_has_a_street_game_for_empty_pockets
 
 # G: the game, scene tests (tests/scene/test_opening.gd, test_open_table.gd,
 # test_street_game.gd)
-test_G_STREET_a_broke_dog_sits_free_and_keeps_what_is_above_the_stake
-test_G_STREET_money_at_the_buy_in_is_turned_away
 
 # J: the journey (tests/scene/test_journey.gd)
-test_J_STRANDED_a_broke_dog_alone_can_still_finish_the_demo
 
 # B: demo 2.1's fixes (tests/test_save_safety.gd, tests/scene/test_open_table.gd)
