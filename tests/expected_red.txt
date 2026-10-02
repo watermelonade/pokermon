@@ -17,4 +17,3 @@
 
 # C: the editor's phase 1, content out of code (tests/test_content.gd,
 # docs/EDITOR_SPEC.md)
-test_C_EXPORT_presets_pack_content_and_leave_out_the_editor
