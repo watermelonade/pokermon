@@ -26,9 +26,19 @@ implementing.
   Crew members each have their own reasons to stay (like Paper Mario's
   party). Tone: starts heavy, gets lighter, ends heavy (friendship, duty,
   community, what wealth does to people).
+- **The owner and the two runs (not built yet):** the owner is
+  introduced as a monster; the world slowly shows the cycle that made him
+  one (debts, a loan shark, a puppy mill as his last scheme, implied and
+  never shown). The player lives under the same pressures. You choose male
+  or female at the start: a female dog starts pregnant without being told,
+  and a mid-game emergency reveals puppies (a new cost unique to that run);
+  the male run has its own hidden thread of equal weight. Details and
+  open questions in the design doc.
 - **Money is health (not built yet; the demo still has the blackout):**
-  your bank account is your only life bar. Going broke means "dying": you
-  restart at your last save, losing everything since. Cash tables can be
+  your bank account is your only life bar. Before the endgame, going broke
+  restarts the day: you wake in your room and everything since you woke is
+  undone. Rock bottom (the streets, starting from nothing) only exists
+  after the post-game begins (decided 2026-10-02). Cash tables can be
   left any time; tournaments and winner-takes-all games can't.
   Winner-takes-all is how you recruit: the loser is wiped out and joins
   you (later, owes you instead). A coin toss decides whose deck is used,
