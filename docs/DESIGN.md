@@ -101,9 +101,29 @@ implementing.
 - **The Binder:** 25 species, 4+ recruitable individuals each, so a crew of
   one species is possible. Dogs only join after the finale, enough of them
   to recreate the painting.
-- **Look and feel (for now):** old-school Pokemon, Game Boy Advance era:
-  16x16 tiles, outlined 3/4 top-down characters, trainer-style "!"
-  encounters, bottom-of-screen text boxes, a healing-center diner, a
-  battle-menu-style table. Inspired by, never copied.
+- **Look and feel (decided 2026-10-02):** simple, old-school Pokemon
+  style, Game Boy Advance era: 16x16 tiles, outlined 3/4 top-down
+  characters, trainer-style "!" encounters, bottom-of-screen text boxes, a
+  battle-menu-style table. Inspired by, never copied. The point: look
+  simple, reveal unexpected depth at every turn. "Alive" comes from
+  schedules, idle animation, day/night palette shifts and reactions, not
+  from 3D. A Paper Mario-style 3D diorama look was mocked up and kept for
+  later (mockups in the design doc), not the target.
+- **Pillars added 2026-10-02:** Pokemon's structure with a real world's
+  logic (actions, gestures and ignorance matter; the world lives on its
+  own; fun from minute one, no tutorials), and simple on the surface,
+  deep underneath.
+- **Not built yet, from the 2026-10-02 brainstorm (details in the design
+  doc):** poker is never explained in text; Sootbridge becomes a
+  house-games town (high-low cards, matching, liar's dice, wheel, slots)
+  that teaches poker's pieces, poker starts in Mossbank. Badges as pins on
+  your collar (collar size = the budget): table badges give information
+  or social edges, never better cards (Card Sense shows your hand's name,
+  the newcomer's aid); world badges change house-game luck, hunger,
+  prices; a badge economy (traded, won, counterfeit, cursed, worn by
+  NPCs). A silent dog that answers with gestures (bark, wag, growl, sit);
+  rule-matched dialogue lines that fit the moment and don't repeat. NPCs
+  with money, jobs and habits on a daily tick, their fortunes shown
+  through authored states (thriving to on the street).
 - **Steam Deck:** 640x400 base resolution, integer-scaled to 1280x800,
   controller only, save between hands.
