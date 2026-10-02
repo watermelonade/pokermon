@@ -33,7 +33,12 @@ extends RefCounted
 ##
 ## Money: sitting down takes a fixed buy-in from your money (sit_down) and
 ## leaving puts your stack back (cash_out), so money after = money before -
-## buy-in + stack at leaving.
+## buy-in + stack at leaving. Sootbridge's street game (demo 2.1) is the
+## same table with other money: no buy-in, a stake fronted by the players
+## (sit_staked, only under the open table's buy-in) and only what's above
+## it kept (cash_out_staked), so a session there never costs money. The
+## arithmetic lives here, headless, so the tests run it over hundreds of
+## seeded sessions (S-BUYIN, S-STREET).
 
 const YOU := 0
 ## The buy-in in big blinds (see the top): a $100 seat plays 1/2.
@@ -135,13 +140,19 @@ static func cash_out(state: GameState, chips: int) -> void:
 	state.money += maxi(0, chips)
 
 
-## Sootbridge's street game (docs/DEMO_SPEC.md S-STREET): stub until it's
-## built. Whether a dog with this much money may sit (only under
-## `max_money`); takes nothing either way.
-static func sit_staked(_state: GameState, _max_money: int) -> bool:
-	return false
+
+## Sootbridge's street game (docs/DEMO_SPEC.md, demo 2.1 S-STREET): only
+## for empty pockets, so true only while your money is under `max_money`
+## (the open table's buy-in). It takes nothing either way: the players
+## front you the stake, it isn't yours.
+static func sit_staked(state: GameState, max_money: int) -> bool:
+	return state.money < max_money
 
 
-## Street game stub: adds what's above the stake to your money, returns it.
-static func cash_out_staked(_state: GameState, _chips: int, _stake: int) -> int:
-	return 0
+## Getting up from a staked seat: you keep what's above the stake and owe
+## nothing below it, so a session never costs money. Adds max(0, chips -
+## stake) to your money and returns it.
+static func cash_out_staked(state: GameState, chips: int, stake: int) -> int:
+	var won := maxi(0, chips - stake)
+	state.money += won
+	return won

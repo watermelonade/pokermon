@@ -5,7 +5,6 @@
 # Whoever turns a test green deletes its line in the same commit.
 
 # S: state and rules (tests/test_demo_state.gd, tests/test_cash_match.gd)
-test_S_STREET_staked_session_never_costs_money_and_pays_what_is_above_the_stake
 
 # W: the world (tests/test_demo_world.gd)
 test_W_STREET_sootbridge_has_a_street_game_for_empty_pockets
