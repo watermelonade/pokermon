@@ -709,6 +709,16 @@ spread is wide either way (4-26 minutes for the middle 80%): that's cards.
 In the game, J-STRANDED (seed 7 on) took 10 sessions and 60 hands. The
 street players' styles weren't changed: the stake and blinds were enough.
 
+**The street game on screen** (demo 2.1): checked with screenshots under
+a virtual display, driven like a scene test: the crate and its three
+players outside the Lamp, the offer ("Sit in? They'll stake you 60
+chips."), the table mid-hand (the HUD: "Staked 60 (theirs; you keep the
+rest)", blinds 3/6), the leave offer ("You'd owe nothing, and keep
+nothing." below the stake; it said "Down 1 on your 50 buy-in" until the
+screenshots caught it), the line after getting up, and a dog with $200
+turned away ("This game's for empty pockets."). Not checked: how it feels
+to play, or whether 20 s a hand is a person's pace.
+
 **Boss tables, bot vs bot** (`tools/boss_sim.gd`; how each match is set
 up is how the game sets up yours: the rigged draw, leader-heavy stacks,
 interception on, 1000 chips). Your side is a Shark bot in your seat (what
