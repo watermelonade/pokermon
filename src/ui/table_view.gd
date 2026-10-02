@@ -1631,6 +1631,8 @@ func _draw_text_box(now: float, readout: String) -> void:
 		var how := "Even on your %d buy-in." % _buy_in()
 		if up != 0:
 			how = "%s %d on your %d buy-in." % ["Up" if up > 0 else "Down", absi(up), _buy_in()]
+		if staked:  # the street game: what's above their stake is yours, below it you owe nothing
+			how = "You'd keep %d." % up if up > 0 else "You'd owe nothing, and keep nothing."
 		_text(Vector2(x, r.position.y + 21), "Leave the table?", L, INK)
 		_text(Vector2(x, r.position.y + 37), _fit(how, width, L), L, INK_SOFT)
 		return
@@ -1796,16 +1798,22 @@ func _draw_help() -> void:
 		y += 13
 	y += 8
 	if cash:
-		_text(Vector2(x, y), "The open table", L, PixelFrame.BLUE.darkened(0.3))
+		_text(Vector2(x, y), "The street game" if staked else "The open table", L, PixelFrame.BLUE.darkened(0.3))
 		y += 15
-		for line: String in [
+		var about: Array[String] = [
 			"A cash game: every seat plays for itself, no crews,",
 			"no signals. The blinds never go up. You bought in for",
 			"%d; leave after any hand and your chips are your money." % _buy_in(),
 			"Bust, and you're out what you bought in for.",
-			"",
-			"And watch the animals: each kind has a tell.",
-		]:
+		]
+		if staked:
+			about = [
+				"A cash game: every seat plays for itself, no crews,",
+				"no signals. They staked you %d chips: leave after any" % _buy_in(),
+				"hand and what's above the stake is your money.",
+				"Below it, or bust, you owe them nothing.",
+			]
+		for line: String in about + ["", "And watch the animals: each kind has a tell."]:
 			_text(Vector2(x, y), line, L, INK_SOFT)
 			y += 13
 		return
