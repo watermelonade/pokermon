@@ -74,6 +74,13 @@ const TABLE_STALL_FRAMES := 60 * 90
 const TABLE_MATCH_FRAMES := 60 * 60 * 15
 ## Mossbank's open table (WorldMap.OPEN_TABLE): who may join from it.
 const OPEN_TABLE_CREW := [["owl", 0], ["raccoon", 0]]
+## A stranded dog (alone, under the open table's buy-in) must sit at the
+## street game within this many game frames of walking (tables don't
+## count), and again within as many after each session while it's still
+## stranded: 10 game minutes, against about one to get there on foot.
+const STRANDED_FRAMES := 60 * 60 * 10
+## The street game's refusal (OpenTable._play_street): only for empty pockets.
+const STREET_REFUSAL := "empty pockets"
 
 
 class Watch:
@@ -153,7 +160,10 @@ var stats := {"decisions": 0, "closes": 0, "focus_saves": 0, "continue_moved": 0
 	"old_save": false, "aces": 0, "pickups": 0, "gifts": 0, "gate_refusals": 0, "gate_walks": 0,
 	"frames_to_deck": 0, "frames_to_mill_road": 0, "frames_to_town": 0, "frames_to_crew": 0,
 	"cash_sessions": 0, "cash_human": 0, "cash_hands": 0, "cash_net": 0, "cash_forfeits": 0,
-	"cash_offers": 0, "cash_declined": 0, "alone_in_sight": 0}
+	"cash_offers": 0, "cash_declined": 0, "alone_in_sight": 0,
+	# Demo 2.1's street game in Sootbridge (and the stranded dog it's for).
+	"stranded_start": false, "stranded": 0, "street_sessions": 0, "street_hands": 0, "street_kept": 0,
+	"street_refusals": 0, "frames_stranded_to_street": 0, "frames_stranded_to_table": 0}
 var last_saved := ""  ## the last save file's contents, normalized
 var reload_expect := ""  ## after a quit: what Continue must bring back
 var want_new_game := false
@@ -187,7 +197,11 @@ var join_expected := false  ## the first sit is over: Sage and Bandit must be in
 var money_seen := -1  ## money at the last checked frame (the buy-in is checked against it)
 var gate_dialog_seen := false
 var alone_cell := Vector2i(-999, -999)
-var stranded_noted := false
+var stranded_since := -1  ## the frame the dog was last found stranded (alone, under the buy-in), or -1
+var street := {}  ## the street-game session in progress: money before, the stake
+var stranded_map := ""  ## the map the stranded dog's way to the street game was last checked from
+var street_refusal_showing := false
+var table_is_cash := false  ## the table on screen is a cash table (open table or street game)
 var cash_forfeit_frame := -999
 
 
@@ -217,7 +231,7 @@ func _init() -> void:
 	p_cash_human = float(args.get("cash-human", str(p_cash_human)))
 	cash_hands_max = maxi(1, int(args.get("cash-hands", str(cash_hands_max))))
 	if start == "mix":
-		start = "old" if seed_value % 10 == 0 else "new"
+		start = "old" if seed_value % 10 == 0 else ("stranded" if seed_value % 10 == 5 else "new")
 	started_ms = Time.get_ticks_msec()
 	node_added.connect(_on_node_added)
 	process_frame.connect(_tick)
@@ -241,6 +255,9 @@ func _setup() -> void:
 			pass  # whatever the slot holds (the kill torture continues its own runs)
 		"old":
 			_write_damaged("pre_demo")  # a save from before demo 2: no deck fields
+		"stranded":
+			_write_stranded()
+			stats["stranded_start"] = true
 	if damage:
 		_write_damaged(damage)
 	opening_ids = _opening_ids()
@@ -362,7 +379,7 @@ func _act_world(ow: Node) -> void:
 		return
 	if in_table:  # (a freed table compares equal to null, so a flag)
 		in_table = false
-		if not cash:  # crew matches and lessons (an open-table session has its own stats)
+		if not table_is_cash:  # crew matches and lessons (cash tables have their own stats)
 			stats["match_ms"].append(Time.get_ticks_msec() - table_started_ms)
 		_log("table closed after %d s (%d game s)" % [(Time.get_ticks_msec() - table_started_ms) / 1000, (frame - table_started_frame) / 60])
 		table_seen = null
@@ -434,7 +451,7 @@ func _act_table(_ow: Node, table: Object) -> void:
 		table_hand = hand
 		_log("table: hand %d" % hand)
 		if table.get("cash_game"):
-			stats["cash_hands"] += 1
+			stats["street_hands" if table.get("staked") else "cash_hands"] += 1
 	if table != table_seen:
 		table_seen = table
 		in_table = true
@@ -442,7 +459,8 @@ func _act_table(_ow: Node, table: Object) -> void:
 		table_started_frame = frame
 		table_sig_frame = frame
 		if table.get("cash_game"):
-			_log("table: open table, %s, buy-in %d, %d seats" % [cash_mode, int(table.get("buy_in")), (table.get("setup") as Array).size()])
+			_log("table: %s, %s, %s %d, %d seats" % ["street game" if table.get("staked") else "open table", cash_mode,
+				"stake" if table.get("staked") else "buy-in", int(table.get("buy_in")), (table.get("setup") as Array).size()])
 			_check_cash_seats(table)
 		else:
 			stats["real_matches"] += 1
@@ -607,9 +625,12 @@ func _act_menu(menu: Control) -> void:
 			target = -1 if r < 0.12 else (-2 if r < 0.2 else rng.randi_range(0, options.size() - 1))
 		elif str(menu.get("_title")).begins_with("Sit in?"):
 			# The open table's seat: mostly yes (the crew comes from there).
+			# The street game's (a stake, demo 2.1): mostly yes when stranded.
 			stats["cash_offers"] += 1
 			var r := rng.randf()
 			var yes := 0.3 if game.state.met_open_table else 0.7  # again now and then, once the crew's along
+			if "stake" in str(menu.get("_title")):
+				yes = 0.85 if _stranded(game.state) else 0.5
 			target = 0 if r < yes else (1 if r < yes + (1.0 - yes) * 0.65 else -1)
 			if target != 0:
 				stats["cash_declined"] += 1
@@ -735,6 +756,8 @@ func _plan(ow: Node) -> void:
 		_go_gate(ow)
 	elif r < 0.78 and m.id == "town" and (game.state.party.is_empty() or rng.randf() < 0.3):
 		_go_open_table(ow)
+	elif r < 0.78 and m.id == "sootbridge" and (_stranded(game.state) or rng.randf() < 0.4):
+		_go_street_game(ow)  # with money it must turn you away (street_refused, street_rich)
 	else:
 		_go_progress(ow)
 	if ops.is_empty():
@@ -757,10 +780,21 @@ func _go_progress(ow: Node) -> void:
 						return
 				_go_random(ow)
 				return
+			if _stranded(state):
+				# Broke and alone: the street game is the way back (demo 2.1).
+				if m.id == "sootbridge" and _go_street_game(ow):
+					return
+				if m.id == "washhouse":
+					_go_warp_to(ow, "sootbridge", "progress: stranded, out to the street game")
+					return
 			_go_warp_to(ow, "mill_road" if m.id == "sootbridge" else "sootbridge", "progress: out of town")
 		"mill_road":
-			_go_warp_to(ow, "town" if state.has_full_deck() else "sootbridge", "progress: along the Mill Road")
+			var on := state.has_full_deck() and not _stranded(state)
+			_go_warp_to(ow, "town" if on else "sootbridge", "progress: along the Mill Road%s" % (" (stranded: back to Sootbridge)" if _stranded(state) else ""))
 		"town":
+			if _stranded(state):
+				_go_warp_to(ow, "mill_road", "progress: stranded, back to Sootbridge's street game")
+				return
 			if state.party.is_empty() and _go_open_table(ow):
 				return
 			for w: Dictionary in m.warps:
@@ -833,18 +867,36 @@ func _go_gate(ow: Node) -> void:
 
 ## One of the open table's players, to be offered a seat.
 func _go_open_table(ow: Node) -> bool:
+	return _go_table_player(ow, false)
+
+
+## One of the street game's players (Sootbridge, demo 2.1): a seat for a
+## broke dog, a refusal for one with money.
+func _go_street_game(ow: Node) -> bool:
+	return _go_table_player(ow, true)
+
+
+func _go_table_player(ow: Node, street_game: bool) -> bool:
 	var data: Dictionary = ow.get("npc_data")
 	var targets: Array = []
 	for n: Object in ow.get("npc_nodes"):
-		if (data.get(n, {}) as Dictionary).has("open_table"):
+		var entry: Dictionary = data.get(n, {})
+		if entry.has("open_table") and (entry["open_table"] as Dictionary).has("stake") == street_game:
 			targets.append(n.get("cell"))
 	if targets.is_empty():
 		return false
 	var t: Vector2i = targets[rng.randi_range(0, targets.size() - 1)]
-	if _talk_to(ow, t, "to the open table's player at %s" % t):
+	if _talk_to(ow, t, "to the %s's player at %s ($%d)" % ["street game" if street_game else "open table", t, game.state.money]):
 		stats["talks"] += 1
 		return true
 	return false
+
+
+## Alone (nobody in the roster: the crew comes from the open table) and
+## under the open table's buy-in: no crew will play it and the open table
+## won't seat it, so only the street game can get it going again.
+func _stranded(state: GameState) -> bool:
+	return state != null and state.roster.is_empty() and state.money < int(WorldMap.OPEN_TABLE["buy_in"])
 
 
 ## Somewhere a townsperson or crew member stands when the map loads but
@@ -1036,10 +1088,18 @@ func _reload(ow: Node, save: bool, closing := false) -> void:
 	if cash:
 		# Quit while seated: the buy-in was saved when you sat down, the stack
 		# in front of you is forfeit (OpenTable's docstring), and the first sit
-		# didn't happen as far as the crew goes.
+		# didn't happen as far as the crew goes. (Since demo 2.1 the stack is
+		# banked inside the table's `left`, so there's no frame after getting
+		# up where a quit could forfeit it.)
 		stats["cash_forfeits"] += 1
-		_note("cash_forfeited", "quit at the open table (or in the frame between getting up and the cash-out): the $%d buy-in is gone, Continue has you standing by the table" % int(cash["buy_in"]))
+		_note("cash_forfeited", "quit at the open table: the $%d buy-in is gone, Continue has you standing by the table" % int(cash["buy_in"]))
 		cash = {}
+		cash_forfeit_frame = frame
+	if street:
+		# Quit at the street game: nothing of yours was on the table (the
+		# continue check holds the money to the last save, from before).
+		_log("quit at the street game: the stake was theirs, nothing lost")
+		street = {}
 		cash_forfeit_frame = frame
 	title_detour = rng.randf() < 0.3
 	_log("quit%s and continue (expect %s)" % [" after saving" if save else " without saving", _brief(reload_expect)])
@@ -1081,10 +1141,10 @@ func _on_game_line(line: String) -> void:
 		var chips := int(line.substr(22).get_slice(" ", 0))
 		_log(line)
 		if cash.is_empty() and frame - cash_forfeit_frame <= 3:
-			# The old overworld's OpenTable.play, still awaiting the frame after
-			# `left` when the driver quit to the title: it cashes out into a
-			# GameState nobody holds any more (and can't save it). A real quit
-			# ends the process there.
+			# Until demo 2.1 the old overworld's OpenTable.play, still awaiting
+			# the frame after `left` when the driver quit to the title, cashed
+			# out into a GameState nobody held any more. It cashes out inside
+			# `left` now (B-CASHOUT), so this shouldn't happen; kept as a guard.
 			_log("(the quit run's open table finishing: ignored)")
 			return
 		if cash.is_empty():
@@ -1100,6 +1160,38 @@ func _on_game_line(line: String) -> void:
 		if cash["first"]:
 			join_expected = true
 		cash = {}
+	elif line.begins_with("street game: sat down, staked "):
+		# Sootbridge's street game (demo 2.1): sitting takes nothing, and only
+		# a dog under the open table's buy-in may.
+		var stake := int(line.get_slice("staked ", 1))
+		street = {"before": money_seen, "stake": stake}
+		stats["street_sessions"] += 1
+		_log(line)
+		if state.money != money_seen:
+			_fail("street_money", "sat at the street game with $%d: money is now $%d (a stake isn't a buy-in)" % [money_seen, state.money])
+		if money_seen >= int(WorldMap.STREET_GAME["max_money"]):
+			_fail("street_rich", "the street game seated a dog with $%d (it's for under $%d)" % [money_seen, int(WorldMap.STREET_GAME["max_money"])])
+		if stats["stranded_start"] and not stats["frames_stranded_to_street"]:
+			stats["frames_stranded_to_street"] = frame
+		if stranded_since >= 0:
+			stranded_since = frame - table_frames  # it got here: the clock starts again
+	elif line.begins_with("street game: left with "):
+		var chips := int(line.substr(23).get_slice(" ", 0))
+		_log(line)
+		if street.is_empty():
+			if frame - cash_forfeit_frame > 3:
+				_fail("street_money", "left the street game without having sat down: " + line)
+			return
+		var want: int = street["before"] + maxi(0, chips - int(street["stake"]))
+		if state.money != want:
+			_fail("street_money", "street game: $%d before, staked %d, left with %d: money is $%d, not $%d"
+				% [street["before"], street["stake"], chips, state.money, want])
+		if state.money < int(street["before"]):
+			_fail("street_money", "the street game cost money: $%d before, $%d after" % [street["before"], state.money])
+		if cash_stack >= 0 and chips != cash_stack:
+			_fail("street_money", "street game: left with %d but the stack in front of you was %d" % [chips, cash_stack])
+		stats["street_kept"] += maxi(0, chips - int(street["stake"]))
+		street = {}
 	elif line.begins_with("match against "):
 		var crew_id := line.substr(14).get_slice(":", 0)
 		var won := line.ends_with("won")
@@ -1118,6 +1210,7 @@ func _on_node_added(node: Node) -> void:
 	if s == null or s.resource_path != TABLE_SCRIPT:
 		return
 	game.dev_args["seed"] = str(rng.randi_range(1, 1 << 30))
+	table_is_cash = bool(node.get("cash_game"))
 	if node.get("cash_game"):
 		# The open table: a bot for a few hands, or random presses.
 		cash_mode = "human" if rng.randf() < p_cash_human else "auto"
@@ -1190,19 +1283,6 @@ func _allowed_open_table(a: Animal) -> bool:
 		if a.species == StringName(e[0]) and a.name == Species.individual(StringName(e[0]), e[1]).name:
 			return true
 	return false
-
-
-## The state just saved has sat at the open table with nobody in the roster,
-## and the file loads with Sage and Bandit seated, all else the same.
-func _crew_join_pending(want: String, got: String) -> bool:
-	var a: Dictionary = JSON.parse_string(want)
-	var b: Dictionary = JSON.parse_string(got)
-	if not a.get("met_open_table", false) or not (a.get("roster", []) as Array).is_empty():
-		return false
-	for k in ["roster", "party", "seen", "recruited"]:
-		a.erase(k)
-		b.erase(k)
-	return JSON.stringify(a, "", true) == JSON.stringify(b, "", true)
 
 
 func _only_bracelets_added(want: String, got: String) -> bool:
@@ -1311,13 +1391,10 @@ func _on_saved() -> void:
 		b.erase("party")
 		if JSON.stringify(a, "", true) == JSON.stringify(b, "", true):
 			got = want
-	if got != want and _crew_join_pending(want, got):
-		# Saved between getting up from the first sit (met_open_table, the
-		# cash-out) and Sage and Bandit joining (the next save, after their
-		# lines): the load seats them (GameState.from_dict), without the
-		# Binder's "where you met it".
-		_note("crew_join_pending", "saved after the first sit, before Sage and Bandit joined; the load adds them")
-		got = want
+	# (Until demo 2.1 a save between getting up from the first sit and Sage
+	# and Bandit joining read back with the pair added: noted as
+	# crew_join_pending. They join in the cash-out's save now, B-JOINSAVE,
+	# so that's a save_roundtrip failure like any other.)
 	if got != want and _only_bracelets_added(want, got):
 		# Saved between beating the Regulars and the bracelet (the window
 		# closed during the win dialog): the load gives the bracelet.
@@ -1359,6 +1436,7 @@ func _check_world(ow: Node) -> void:
 	_check_deck_grows(state)
 	_check_milestones(state, m)
 	_check_gate_dialog(ow, state, m)
+	_check_street_dialog(ow, state)
 	if mode != WALK or ow.get("_moving"):
 		return
 	var player: Object = ow.get("player")
@@ -1416,6 +1494,8 @@ func _check_milestones(state: GameState, m: WorldMap) -> void:
 		stats["frames_to_town"] = frame
 	if state.met_open_table and not stats["frames_to_crew"]:
 		stats["frames_to_crew"] = frame
+	if stats["stranded_start"] and state.met_open_table and not stats["frames_stranded_to_table"]:
+		stats["frames_stranded_to_table"] = frame
 
 
 ## The gate's line on screen: you walked into it short of Aces (counted),
@@ -1459,10 +1539,93 @@ func _check_opening(ow: Node, state: GameState, m: WorldMap, cell: Vector2i) -> 
 		alone_cell = cell
 		if not m.spotter(cell, state.beaten).is_empty():
 			stats["alone_in_sight"] += 1
-	if state.roster.is_empty() and state.money < int(WorldMap.OPEN_TABLE["buy_in"]) and not stranded_noted:
-		stranded_noted = true
-		_note("stranded", "a dog alone with $%d, under the open table's $%d buy-in: no crew will ever play it, so the demo can't be finished"
-			% [state.money, int(WorldMap.OPEN_TABLE["buy_in"])])
+	_check_stranded(state, m, cell)
+
+
+## A stranded dog (alone, under the open table's buy-in: until demo 2.1 a
+## note, the demo couldn't be finished) must always be able to get back to
+## the street game: when it's first found stranded, and on every map it
+## walks onto, the street game's players must be walkable to from where it
+## stands (the maps as data, gates as the deck has them, everyone standing
+## at home); and it must sit there within STRANDED_FRAMES of walking, then
+## again within as many after each session, until it can afford the open
+## table again.
+func _check_stranded(state: GameState, m: WorldMap, cell: Vector2i) -> void:
+	if not _stranded(state):
+		stranded_since = -1
+		return
+	var walked := frame - table_frames
+	if stranded_since < 0:
+		stranded_since = walked
+		stats["stranded"] += 1
+		_log("stranded: alone with $%d at %s %s" % [state.money, m.id, cell])
+		stranded_map = ""
+	if stranded_map != m.id:
+		stranded_map = m.id
+		if not _street_reachable(state, m.id, cell):
+			_fail("stranded", "a dog alone with $%d at %s %s can't walk to the street game: the demo can't be finished" % [state.money, m.id, cell])
+	if walked - stranded_since > STRANDED_FRAMES:
+		stranded_since = walked
+		_fail("stranded", "a dog alone with $%d hasn't sat at the street game in %d game minutes of walking" % [state.money, STRANDED_FRAMES / 3600])
+
+
+## Whether the street game's players can be walked up to from `cell` on
+## `map_id` (across doors, with Sootbridge's gate as this deck has it,
+## around everyone standing at home).
+func _street_reachable(state: GameState, map_id: String, cell: Vector2i) -> bool:
+	var goals := {}  ## map id -> {cell: true}: next to a street game player
+	for id: String in WorldMap.MAPS:
+		var gm := WorldMap.get_map(id)
+		for n: Dictionary in gm.npcs:
+			if n.has("open_table") and (n["open_table"] as Dictionary).has("stake"):
+				if not goals.has(id):
+					goals[id] = {}
+				for d in DIRS:
+					goals[id][n["cell"] + d] = true
+	var full := state.has_full_deck()
+	var bodies_on := {}  ## map id -> standing_cells
+	var seen := {}
+	var queue: Array = [[map_id, cell]]
+	var head := 0
+	while head < queue.size():
+		var here: String = queue[head][0]
+		var c: Vector2i = queue[head][1]
+		head += 1
+		if (goals.get(here, {}) as Dictionary).has(c):
+			return true
+		var key := "%s %s" % [here, c]
+		if seen.has(key):
+			continue
+		seen[key] = true
+		var hm := WorldMap.get_map(here)
+		var w := hm.warp_at(c)
+		if not w.is_empty() and head > 1:
+			queue.append([w["to"], w["to_cell"]])
+			continue
+		if not bodies_on.has(here):
+			bodies_on[here] = hm.standing_cells(state)
+		var bodies: Dictionary = bodies_on[here]
+		for d in DIRS:
+			var n: Vector2i = c + d
+			if not hm.tile_walkable(n) or bodies.has(n) or (not full and not hm.gate_at(n).is_empty()):
+				continue
+			if not seen.has("%s %s" % [here, n]):
+				queue.append([here, n])
+	return false
+
+
+## The street game's refusal on screen: only ever to a dog with the open
+## table's buy-in or more (counted); a broke one must be offered the seat.
+func _check_street_dialog(ow: Node, state: GameState) -> void:
+	var dialog: Control = ow.get("dialog")
+	var lines: Variant = dialog.get("_lines")
+	var showing := dialog.visible and lines is Array and (lines as Array).size() > 0 and STREET_REFUSAL in str(lines[0]).to_lower()
+	if showing and not street_refusal_showing:
+		stats["street_refusals"] += 1
+		_log("the street game turns away a dog with $%d" % state.money)
+		if state.money < int(WorldMap.STREET_GAME["max_money"]):
+			_fail("street_refused", "the street game turned away a dog with $%d (under $%d)" % [state.money, int(WorldMap.STREET_GAME["max_money"])])
+	street_refusal_showing = showing
 
 
 ## The four Aces' pickup ids: the ones lying about and the one given.
@@ -1678,6 +1841,28 @@ func _check_slot_on_disk(when: String) -> void:
 
 
 # --- Damaged saves --------------------------------------------------------------
+
+## The playtester's stranded dog (docs/PLAYTEST.md, "What it found" on
+## demo 2; demo 2.1's J-STRANDED): past the opening, $0, nobody in the
+## crew, never sat at the open table, standing where the Mill Road comes
+## into Mossbank. The open table won't seat it and no crew plays a dog
+## alone: the street game in Sootbridge is its only way on
+## (--pt-start=stranded; `mix` plays one on every seed ending in 5).
+func _write_stranded() -> void:
+	var s := GameState.fresh()
+	for id in _opening_ids():
+		s.take_pickup(id)
+	s.seen_intro = true
+	s.opening_done = true
+	s.money = 0
+	s.map_id = "town"
+	for w: Dictionary in WorldMap.get_map("mill_road").warps:
+		if w["to"] == "town":
+			s.cell = w["to_cell"]
+			s.facing = w["facing"]
+	SaveFile.erase(game.save_path)
+	SaveFile.write(s, game.save_path)
+
 
 ## A save that's been through some progress (the four Aces, the open table
 ## sat at and Sage and Bandit with you, a crew beaten, a goose recruited,

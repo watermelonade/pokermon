@@ -2,7 +2,8 @@
 # Batch runs of the playtester (tools/playtest.gd). See docs/PLAYTEST.md.
 #
 #   tools/playtest.sh runs COUNT [FIRST_SEED] [--pt-flags...]   skipped matches (fast); every 10th seed
-#                                                              plays on from a pre-demo save
+#                                                              plays on from a pre-demo save, and seeds
+#                                                              ending in 5 start stranded ($0, no crew)
 #   tools/playtest.sh real COUNT [FIRST_SEED] [--pt-flags...]   real matches at the table
 #   tools/playtest.sh kill COUNT [FIRST_SEED]                   kill -9 at random moments, then Continue
 #   tools/playtest.sh damaged [--pt-flags...]                   every kind of damaged save
@@ -128,7 +129,7 @@ for kind in sorted(os.listdir(root)):
         if done:
             fr = sorted(s["frames_to_complete"] for s in done)
             print(f"   game time to complete: median {fr[len(fr)//2]/60:.0f}s, max {fr[-1]/60:.0f}s")
-        new = [s for s in stats if not s.get("old_save")]
+        new = [s for s in stats if not s.get("old_save") and not s.get("stranded_start")]
         def med(key):
             v = sorted(s[key] for s in new if s.get(key))
             return f"{len(v)}/{len(new)} (median {v[len(v)//2]/60:.0f}s)" if v else f"0/{len(new)}"
@@ -139,6 +140,11 @@ for kind in sorted(os.listdir(root)):
               f"{tot('alone_in_sight')} times alone in a crew's sight; {sum(1 for s in stats if s.get('old_save'))} runs from a pre-demo save")
         print(f"   open table: {tot('cash_sessions')} sessions ({tot('cash_human')} by random presses, {tot('cash_forfeits')} quit while seated), "
               f"{tot('cash_hands')} hands, net {tot('cash_net'):+d} chips; {tot('cash_offers')} seat offers, {tot('cash_declined')} declined")
+        stranded = [s for s in stats if s.get("stranded_start")]
+        back = sorted(s["frames_stranded_to_table"] for s in stranded if s.get("frames_stranded_to_table"))
+        print(f"   street game: {tot('street_sessions')} sessions, {tot('street_hands')} hands, ${tot('street_kept')} kept, "
+              f"{tot('street_refusals')} dogs with money turned away; {len(stranded)} stranded starts, "
+              f"{len(back)} back at the open table" + (f" (median {back[len(back)//2]/60:.0f} game s)" if back else ""))
         print(f"   totals: {tot('steps')} steps, {tot('encounters')} encounters ({tot('wins')} won, {tot('losses')} lost), "
               f"{tot('real_matches')} real matches, {tot('recruits')} recruits, {tot('talks')} talks, {tot('doors')} doors, "
               f"{tot('menus')} start menus, {tot('reloads')} quit+continue, {tot('saves_written')} saves checked")
@@ -163,5 +169,5 @@ case "$cmd" in
 	kill) kill_torture "${1:-50}" "${2:-1}" ;;
 	damaged) damaged "$@" ;;
 	summary) summary "${1:-$OUT}" ;;
-	*) sed -n '2,14p' "$0"; exit 2 ;;
+	*) sed -n '2,15p' "$0"; exit 2 ;;
 esac
