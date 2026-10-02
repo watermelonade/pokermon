@@ -13,6 +13,20 @@ on Steam. The owner has limited art experience and uses pixel-art tools
 (Aseprite); everything visual is placeholder, drawn from code, until real
 art exists.
 
+## Talking with the owner: audio sessions
+
+The owner sometimes dictates by voice and sends several short messages to
+get a thought out. When they say **"start audio session"**:
+
+- Confirm once, then answer every following message with only "…": no
+  work, no tool calls, no answers, no reports from background agents (hold
+  those until the trigger).
+- **"go ahead Claude"** (or close to it, e.g. "Claude, go ahead and
+  respond") is the trigger: read everything since the session started as
+  one message, respond in full, and the audio session ends. The next
+  message gets a normal reply unless they start a new session.
+- **"end audio session"** goes back to normal without a full response.
+
 ## Running and testing
 
 ```
