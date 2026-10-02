@@ -186,6 +186,33 @@ seen_intro_false part_only part_newer_main_truncated`, and since demo 2
 `alone_before_table`. The damaged batch is also lenient about the deck and
 gate checks, which a damaged deck legitimately breaks.
 
+## Runs on demo 2.1 (2026-10-02: the street game, three fixes)
+
+`tools/test.sh soak` (R-PLAY), JOBS=4, on demo5/street: **pass**, 628 s of
+wall clock.
+
+- **20 fast runs** (seeds 1-20, `--pt-start=mix`: 10 and 20 from a
+  pre-demo save, 5 and 15 stranded): all passed and all completed the
+  demo (median 299 game seconds to the bracelet, longest 1,547: seed 15).
+  The 16 new games found the four Aces (median 50 game seconds) and got
+  their crew at the open table (139 s). 55 street-game sessions, 110
+  hands, $447 kept, and 27 dogs with money turned away. Both stranded
+  starts got back: seed 5 in 6 sessions (19 hands, $186 kept) and back at
+  the open table 323 game seconds in; seed 15 lost its wallet at the open
+  table a second time (a quit while seated) and was stranded again, 49
+  sessions (91 hands; 20 of its tables by random presses) and 1,412 game
+  seconds. `stranded`, `street_money`, `street_rich` and `street_refused`
+  never fired. 8,112 saves read back, none needing the old
+  `crew_join_pending` leniency.
+- **1 real run** (seed 1001): passed, completed the demo, 13 real
+  matches, 150 s of wall clock.
+- **Kill torture**, 10 kills: 10 passed (one killed mid-save).
+- **Damaged saves** (`tools/playtest.sh damaged`, 51 kinds): all 51
+  passed and 50 finished the demo (45 before). No deck check fired even
+  leniently: `deck_dupes`, `deck_oob`, `deck_garbage` and
+  `deck_short_in_town` load whole (B-DECKFIX); `taken_unknown` keeps its
+  unknown id (noted as `pickup_unknown`, as before).
+
 ## Runs on demo 2 (2026-10-01: the opening, the open table)
 
 `tools/test.sh soak` (R-PLAY), JOBS=4, on demo4/playtest with the world
