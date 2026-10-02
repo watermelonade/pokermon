@@ -24,6 +24,15 @@ all: `godot --path . res://scenes/dev/art_preview.tscn`.
 
 ## Running it
 
+On Windows, `scripts\windows\install_context_menu.ps1` adds "Play A Friend
+in Need" to the desktop's right-click menu (Windows 11: under "Show more
+options"). It finds Godot 4.7.2 or asks where it is, and each launch
+re-imports first, so the game starts straight after a `git pull`.
+`-Everywhere` adds it to every folder's background menu too; `-Uninstall`
+removes it. Run it with
+`powershell -ExecutionPolicy Bypass -File scripts\windows\install_context_menu.ps1`.
+Not run on Windows yet (written in a Linux sandbox).
+
 Install [Godot 4.7](https://godotengine.org/download) (the standard build;
 the .NET one isn't needed), open `project.godot` in it, and press F5. That
 starts the title screen; to play just the table, open `scenes/table.tscn`
