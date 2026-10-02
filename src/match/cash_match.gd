@@ -23,7 +23,8 @@ extends RefCounted
 ## blinds deep. `blinds_for(buy_in)` sets them at BUY_IN_BIGS big blinds to
 ## the buy-in (a short, quick street game; a card room's 100 would mean a lot
 ## of folding for every hand that matters). The default, before anyone
-## picks, is HoldemTable's 5/10.
+## picks, is HoldemTable's 5/10. A table can name its own instead
+## (`table_blinds`: the street game's "blinds", shallower, see world_map.gd).
 ##
 ## Leaving keeps your chips on your seat (marked left, never dealt in again)
 ## rather than taking them off the table, so total_chips() still counts
@@ -63,6 +64,15 @@ func _init(seed_value := 0) -> void:
 static func blinds_for(buy_in: int) -> Array[int]:
 	var bb := maxi(2, roundi(buy_in / float(BUY_IN_BIGS)))
 	return [maxi(1, bb / 2), bb]
+
+
+## The blinds a table on the map plays at: its own "blinds" if it names
+## them, else blinds_for its buy-in (or its stake).
+static func table_blinds(t: Dictionary) -> Array[int]:
+	var own: Array = t.get("blinds", [])
+	if own.size() == 2:
+		return [int(own[0]), int(own[1])]
+	return blinds_for(int(t.get("stake", t.get("buy_in", 0))))
 
 
 ## Fixes the blinds for every hand from now on.

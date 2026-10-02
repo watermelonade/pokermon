@@ -51,7 +51,11 @@ a $100 buy-in, a cash game, every seat for itself, leave after any hand
 with your stack. After your first sit, win or lose, Sage the Owl (Rock)
 and Bandit the Raccoon (Bluffer) join you and follow you (the cash game is
 the open-table work in `src/match/cash_match.gd` and
-`src/world/open_table.gd`). From there the demo is as before. The Mossbank Open is at the
+`src/world/open_table.gd`). Lose your wallet there before they join
+(quitting while seated forfeits the buy-in) and you're a dog alone that
+can't afford the table: back in Sootbridge, outside the Lamp, three
+townsfolk play for pennies on a crate, and they'll stake a broke dog (the
+street game, below). From there the demo is as before. The Mossbank Open is at the
 Tournament Hall at the east end of Ridge Road. Along the road, four rival
 crews stand watching: walk into one's line of sight and a "!" pops up, it
 walks over, has its say, and you're at the table (no dealer on the road, so
@@ -176,7 +180,26 @@ quitting at the table can't undo a bad session) and the cash-out the
 moment you get up.
 
 After your first sit, win or lose, Sage the Owl and Bandit the Raccoon
-ask to come along and join your crew (`src/world/open_table.gd`). To play
+ask to come along and join your crew (`src/world/open_table.gd`). They
+join, and are saved, the moment you get up, in the same save as your
+cash-out (demo 2.1): the lines after only tell you so, and quitting
+during them loses nothing. The cash-out itself happens inside the table's
+`left` signal, so there's no frame where you've left and your stack isn't
+banked.
+
+**The street game** (demo 2.1, Sootbridge): Pip the Owl (Rock), Scraps the
+Raccoon (Bluffer) and Gander the Goose (Maniac) play round an upturned
+crate outside the Lamp, before the gate. It's the same cash table with
+other money: there's no buy-in, they front you a stake of chips (STAKE_PLACEHOLDER),
+and when you get up you keep what's above it; below it (or bust) you owe
+nothing, so a session never costs money (`CashMatch.sit_staked` and
+`cash_out_staked`, `WorldMap.STREET_GAME`). Only a dog with less than the
+open table's buy-in may sit ("This game's for empty pockets."): it's a
+safety net, not a second income. It's what gets a dog that lost its
+wallet at the open table before its crew joined back on its feet: no
+crew plays a dog alone, so without it the demo couldn't be finished. The
+pace from $0 back to the $100 buy-in is measured below ("Measured so
+far"). To play
 a cash table on its own: `godot --path . scenes/table.tscn -- --cash`
 (you and four animals at $100); in a scripted overworld run
 `--autoplay --cash-hands=3` has the bot in your seat get up after three
@@ -235,7 +258,7 @@ tools/test.sh unit scene -k S_DECK   # a name fragment for the unit and scene ru
 | compile | every script under src/ compiles with the autoloads | `godot --headless --path . res://tests/compile_check.tscn` |
 | pad | a pretend Xbox pad signals at the real table | `godot --headless --path . res://tests/pad_check.tscn` |
 | scene | the real game from the title, driven by pad events: `tests/scene/test_*.gd` | `godot --headless --fixed-fps 60 --path . res://tests/scene_tests.tscn [-- fragment]` |
-| journey | the scene tests in `tests/scene/test_journey.gd` (J-LOOP: title to a crew in Mossbank and back) | `tools/test.sh journey` |
+| journey | the scene tests in `tests/scene/test_journey.gd` (J-LOOP: title to a crew in Mossbank and back; J-STRANDED: a broke dog alone back to the open table through the street game) | `tools/test.sh journey` |
 | chart | R-CHART: bot 3v3 matches unchanged, `tools/simulate.gd -- 8 123 --cycle` against `tests/baselines/cycle_8_123.txt` | `tools/test.sh chart` |
 | soak | R-PLAY: `tools/playtest.sh runs 20`, `real 1`, `kill 10`, judged | `tools/test.sh soak` |
 
@@ -244,8 +267,8 @@ tools/test.sh unit scene -k S_DECK   # a name fragment for the unit and scene ru
 the outcome they check where there is one (`test_S_DECK_...` for S-DECK in
 docs/DEMO_SPEC.md), so `-k S_DECK` runs one outcome.
 
-**Expected red.** Demo 2 (docs/DEMO_SPEC.md) is built test first: its
-tests were written before the code and fail until it's built. They're
+**Expected red.** Demo 2 and demo 2.1 (docs/DEMO_SPEC.md) are built test
+first: their tests were written before the code and fail until it's built. They're
 listed in `tests/expected_red.txt`, one test name per line. Both runners
 print a listed test that fails on a check as `red` (with its first
 failure in the summary) and don't fail the run for it; a listed test that
@@ -292,7 +315,7 @@ and guard (`if not check(...): return`) before using something a feature
 may not have yet. `tests/scene/test_harness.gd` checks the helpers on
 today's game.
 
-The unit tests: 201, about 20 seconds (20 of them demo 2's, red). They cover hand ranking, equity against known odds
+The unit tests: 207, about 23 seconds (demo 2's and demo 2.1's among them). They cover hand ranking, equity against known odds
 (AA vs a random hand ~85%), blinds and action order (including heads-up and
 going heads-up), side pots, split pots and odd chips, uncalled bets, busted
 seats, fines as dead money (in the main pot), full bot matches, soft play
@@ -310,7 +333,7 @@ for the table, the party, recruiting (each individual once), win money,
 blackouts (half your money, the odd coin kept), and a save round trip,
 including damaged and missing saves (and the repairs the playtester's
 findings called for: a recruit's old spot, a short party, a won Open
-without its bracelet, a save left only as its .part); the Binder's record (who you've met
+without its bracelet, a save left only as its .part, and since demo 2.1 a damaged deck, repaired on load); the Binder's record (who you've met
 and recruited, per individual, where you first met each species), a save
 from before the Binder existed loading with it rebuilt from the roster and
 beaten crews, the Binder's slots and completion count, and bond growth
@@ -371,6 +394,7 @@ godot --headless --path . -s tools/simulate.gd -- 80 7 --cycle # only the five t
 godot --headless --path . -s tools/chip_flow.gd -- MANIAC SHARK 40   # why a matchup goes the way it does
 godot --headless --path . -s tools/boss_sim.gd -- 200 50001 --crews=all  # boss tables: your crews vs the Open's Regulars (also --vs=road, --boss=5, --dealer=BOUGHT, --fair)
 godot --headless --path . -s tools/cash_sim.gd -- 200 20 1   # the open table: what a 20-hand session is worth (also --buy-in=, --players=, --you=)
+godot --headless --path . -s tools/cash_sim.gd -- --street 200 8 1   # the street game: sessions and hands from $0 to the buy-in (also --stake=, --blinds=, --leave=)
 godot --headless --path . -s tools/heat_report.gd -- 30 1 STRICT     # how often a dealer warns, fines, ejects each style
 godot --headless --path . -s tools/setup_input_map.gd         # rewrite the input actions in project.godot
 python3 tools/make_sfx.py --music                             # rebuild the placeholder sounds (assets/audio/README.md)
@@ -855,7 +879,7 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `src/match/dealer.gd` | Who's watching: street (nobody), asleep, relaxed, watchful, strict, bought |
 | `src/match/heat.gd` | Each crew's Heat: warnings, fines, ejections |
 | `src/match/boss_table.gd` | Boss tables: the rigged seat draw (and a fair one), the leader-heavy stacks, the table's setup |
-| `src/match/cash_match.gd` | The open table's cash game: every seat its own team, fixed blinds from the buy-in, leaving between hands, busted rivals leave, sitting down and cashing out (money) |
+| `src/match/cash_match.gd` | The open table's cash game: every seat its own team, fixed blinds from the buy-in, leaving between hands, busted rivals leave, sitting down and cashing out (money), and the street game's staked seats |
 | `src/ui/seat_layout.gd` | Where everything at a seat goes, for 2-9 seats (the ellipse up to 6, two columns for 7-9; a cash table's 3-6 on the 6-seat ring's places) |
 | `src/ui/table_view.gd` | The table scene: layout, flow, input, drawing (placeholder art drawn from code) |
 | `src/ui/card_art.gd` | Placeholder cards with pixel suits |
@@ -864,10 +888,10 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `scenes/table.tscn` | The table; embeddable (`setup`, `dealer_kind`, `starting_chips`, `embedded`, `finished(won)`; in cash mode `cash_game`, `buy_in`, `left(chips)`) and still runnable on its own |
 | `scenes/title.tscn`, `src/game/title_screen.gd` | Main scene: Continue / New game |
 | `src/game/game.gd` | The `Game` autoload: the run's state, saving, scene changes, dev flags |
-| `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position, the deck and the pickups taken; what wins, blackouts, recruits and the open table's crew do; old saves load past the opening |
+| `src/game/game_state.gd` | The run: roster, party, money, bracelets, beaten crews, position, the deck and the pickups taken; what wins, blackouts, recruits and the open table's crew do; old saves load past the opening, and every load repairs the deck |
 | `src/game/save_file.gd` | GameState to user:// JSON, written atomically |
 | `scenes/world/overworld.tscn`, `src/world/overworld.gd` | The intro, walking, talking, picking up cards, the gate, encounters, handing over to the table and back |
-| `src/world/world_map.gd` | The maps as text (Sootbridge and its washhouse, the Mill Road, Mossbank and Ridge Road, three interiors), with their crews, townsfolk, signs, doors, cards lying about, the gate and the open table; line of sight |
+| `src/world/world_map.gd` | The maps as text (Sootbridge and its washhouse, the Mill Road, Mossbank and Ridge Road, three interiors), with their crews, townsfolk, signs, doors, cards lying about, the gate, the open table and Sootbridge's street game; line of sight |
 | `src/world/map_view.gd` | Paints a map: tile art if present, placeholders if not |
 | `src/world/critter.gd` | Anyone walking around; placeholder animals drawn from rectangles |
 | `src/world/sprite_bank.gd` | Finds `assets/sprites/<id>.png` and `assets/tiles/<name>.png` if they exist |
@@ -895,8 +919,8 @@ not tested here), how LB + LT feels for a fake, and the Deck.
 | `tests/` | The unit runner (`run_tests.gd`) and tests, the compile and pad checks, `expected_red.txt` (tests written ahead of their feature), `world_paths.gd` (reachability over the maps, for tests) |
 | `tests/scene_tests.tscn`, `tests/scene_runner.gd`, `tests/scene_test_case.gd`, `tests/scene/` | Scene tests: the real game from the title, driven by pad events (README "Tests") |
 | `tools/test.sh` | Every test tier from one command, with a pass/fail table |
-| `src/world/open_table.gd` | Mossbank's open table from the overworld: the seat offer, the buy-in, the cash table, the cash-out, Sage and Bandit joining |
-| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), open-table sessions (`cash_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
+| `src/world/open_table.gd` | Mossbank's open table and Sootbridge's street game from the overworld: the seat offer, the buy-in (or the stake), the cash table, the cash-out, Sage and Bandit joining |
+| `tools/` | Evaluator check, balance simulator, boss-table simulator (`boss_sim.gd`), open-table sessions and the street game's pace (`cash_sim.gd`), chip-flow analysis, Heat report, rules soak, input-map writer, `make_sfx.py` (synthesizes and measures the placeholder audio), the playtester (`playtest.gd`, `playtest.sh`, docs/PLAYTEST.md) |
 | `scripts/cloud_setup.sh` | Installs Godot in Claude Code cloud sessions |
 | `export_presets.cfg` | Linux and Windows x86_64 release exports (README "Building") |
 | `scripts/export.sh` | Exports both presets headless into `build/` |

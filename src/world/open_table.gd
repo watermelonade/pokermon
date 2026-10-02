@@ -165,6 +165,7 @@ static func _run(ow: Variant, setup: Array[Dictionary], buy_in: int, t: Dictiona
 	var view: Control = TABLE_SCENE.instantiate()
 	view.set("cash_game", true)
 	view.set("staked", staked)
+	view.set("cash_blinds", CashMatch.table_blinds(t))
 	view.set("embedded", true)
 	view.set("buy_in", buy_in)
 	view.set("starting_chips", buy_in)

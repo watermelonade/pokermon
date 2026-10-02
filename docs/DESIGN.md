@@ -18,7 +18,10 @@ implementing.
   builds the first part (docs/DEMO_SPEC.md): the intro, Sootbridge with
   the four Aces to find (pickups only, no simple card games yet), a gate
   that won't let you leave without them, the Mill Road to Mossbank, and
-  no crew until Mossbank's open table, where Sage and Bandit join you. Then low
+  no crew until Mossbank's open table, where Sage and Bandit join you.
+  Demo 2.1 adds the first piece of the safety net (below): a street game
+  in Sootbridge, for a dog with less than the open table's buy-in, where
+  the players stake you and you keep what's above the stake. Then low
   stakes tables to afford the next city, and so on up to the penthouse.
   Crew members each have their own reasons to stay (like Paper Mario's
   party). Tone: starts heavy, gets lighter, ends heavy (friendship, duty,
@@ -40,6 +43,8 @@ implementing.
   shelter cost money daily (needs an in-game clock); shelter runs from
   alley to penthouse. A safety net (street games, odd jobs, a soup kitchen)
   gets you from nothing back to a few days' upkeep in about 10-15 minutes.
+  (Built so far: Sootbridge's street game, demo 2.1, tuned to about that
+  from $0 back to the open table's buy-in; README "Measured so far".)
   On the streets your crew stays, still indebted, and can work real jobs
   for you.
 - **Discovery (not built yet):** one honest, hard path up, completable with

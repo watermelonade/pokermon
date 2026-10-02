@@ -32,7 +32,8 @@ extends SceneTree
 ## ends when you bust, clean the table out, have played `hands` (default
 ## 8), or, with --leave=up (the default), after the first hand that leaves
 ## you above the stake; --leave=hands plays every session to the limit.
-## --stake=N tries another stake, --players= other players. Prints, over
+## --stake=N tries another stake, --blinds=2/4 other blinds (default the
+## table's, CashMatch.table_blinds), --players= other players. Prints, over
 ## the runs, the sessions and hands it took (median and the 10th and 90th
 ## percentiles), and the minutes that is at about 20 s a hand for a person
 ## (an estimate: the table's own pace with a person playing, not measured
@@ -47,6 +48,7 @@ var you_style := PlayStyle.Kind.SHARK
 var street := false  ## --street: the pace from broke at Sootbridge's street game
 var stake := 0  ## --stake=: the street game's stake (default the map's)
 var leave_up := true  ## --leave=up: get up after the first hand above the stake
+var blinds_flag: Array[int] = []  ## --blinds=1/2: the street game's blinds instead of the stake's
 const SECONDS_A_HAND := 20.0  ## a person's pace at the table: an estimate, see the top
 
 
@@ -57,6 +59,8 @@ func _init() -> void:
 			street = true
 		elif arg.begins_with("--stake="):
 			stake = int(arg.get_slice("=", 1))
+		elif arg.begins_with("--blinds="):
+			blinds_flag = [int(arg.get_slice("=", 1).get_slice("/", 0)), int(arg.get_slice("=", 1).get_slice("/", 1))]
 		elif arg.begins_with("--leave="):
 			leave_up = arg.get_slice("=", 1) == "up"
 		elif arg.begins_with("--buy-in="):
@@ -155,7 +159,7 @@ func _run_street() -> void:
 	if stake <= 0:
 		stake = int(t["stake"])
 	var target := int(t["max_money"])
-	var blinds := CashMatch.blinds_for(stake)
+	var blinds := blinds_flag if blinds_flag.size() == 2 else CashMatch.table_blinds(t)
 	var names: Array[String] = ["You (%s)" % PlayStyle.Kind.keys()[you_style].capitalize()]
 	for p: Array in players:
 		var a := Species.individual(p[0], p[1])

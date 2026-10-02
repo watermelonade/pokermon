@@ -10,7 +10,7 @@ Mossbank's open table and the crew that joins there; then walk, encounter,
 table, recruit, blackout, save, quit, continue) before a person does.
 
 ```
-tools/playtest.sh runs 200 1        # 200 runs, seeds 1-200, matches skipped (~25 s each; every 10th from a pre-demo save)
+tools/playtest.sh runs 200 1        # 200 runs, seeds 1-200, matches skipped (~25 s each; every 10th from a pre-demo save, seeds ending in 5 stranded)
 tools/playtest.sh real 12 1001      # 12 runs with real matches (a few minutes each)
 tools/playtest.sh kill 150 1        # kill -9 mid-play and mid-save, then Continue, 150 times
 tools/playtest.sh damaged           # one run per kind of damaged save (list below)
@@ -53,7 +53,16 @@ hooks.
   ("Sit in?") gets yes 70% of the time, Not now or B otherwise; later it
   goes back now and then for another session. Before the crew it also walks
   into Ridge Road crews' sight (they must leave a dog alone).
-- **Open-table sessions**: 70% with a bot in your seat that gets up after
+- **The street game** (demo 2.1): a dog alone with less than the open
+  table's buy-in (stranded) heads back along the Mill Road to Sootbridge
+  and talks to the players round the crate outside the Lamp; their offer
+  ("Sit in? They'll stake you...") gets yes 85% of the time. It sits there
+  session after session (played like an open-table session, below) until
+  it can afford the open table, then walks back to Mossbank for its crew.
+  A dog with money talks to them now and then too, and must be turned
+  away. `--pt-start=stranded` starts a run that way ($0, no crew, never
+  sat, at Mossbank's way in), and `mix` does on every seed ending in 5.
+- **Open-table (and street-game) sessions**: 70% with a bot in your seat that gets up after
   1-4 hands (TableView's `autoplay` and the `cash-hands` dev flag, set in
   `Game.dev_args` as the table is added), A skipping the pause between
   hands; 30% by random presses on your turn (`--pt-cash-human`), with Start
@@ -116,12 +125,15 @@ last 60 things the driver did, and the replay command.
 | `money_negative` | Money is never below 0 |
 | `party_size`, `party_index`, `party_duplicate` | While walking: nobody seated while the roster is empty (the dog alone), else two (as many as the roster allows), real roster entries, nobody twice |
 | `roster_duplicate`, `roster_stranger` | Nobody in the roster twice; nobody but Sage and Bandit (the open table's two) and animals from crews you beat |
-| `crew_early`, `crew_missing`, `crew_join` | Nobody in the roster before the open table (a new game's run); Sage and Bandit in it once you've sat there, and right after the first session |
+| `crew_early`, `crew_missing`, `crew_join` | Nobody in the roster before the open table (a new game's run); Sage and Bandit in it once you've sat there, and right after the first session (in the cash-out's own save since demo 2.1: a save in between is a `save_roundtrip` failure, no longer the `crew_join_pending` note) |
 | `spotted_alone` | A crew dealt in a dog with an empty party (spotting, or talking to one) |
 | `deck_size`, `deck_cards`, `deck_pickups`, `deck_shrank`, `deck_pickup`, `pickup_unknown` | 48 to 52 cards, only Aces missing, each Ace held exactly when its pickup (or Mags's gift) is taken, so 52 iff all four; the deck never shrinks, and each pickup adds exactly one card (a pre-demo save's run: all 52) |
 | `pickup_reappeared`, `pickup_hidden` | While walking, the cards drawn on the ground are exactly the ones still waiting |
 | `gate_bypassed`, `gate_refused` | With Aces missing you're never anywhere that can't be reached from the start with the gates shut (the Mill Road, Mossbank, past the gate cells); the gate never refuses a full deck |
 | `cash_buy_in`, `cash_money`, `cash_seats` | Sitting down takes exactly the buy-in; getting up: money = before - buy-in + the chips you left with, which are the stack the table showed; you (the dog) at seat 0, each seat its own team, nobody from your crew at the table |
+| `street_money` | The street game (demo 2.1): sitting takes nothing; getting up adds exactly max(0, the stack you left with - the stake), which is the stack the table showed, and money never goes down |
+| `street_rich`, `street_refused` | The street game seats only a dog with less than the open table's buy-in, and always seats one: its "empty pockets" line never to a dog under it |
+| `stranded` | A dog alone under the open table's buy-in (until demo 2.1 a note: the demo couldn't be finished) can always walk to the street game (checked from every map it's on: the maps as data, the gate as its deck has it, everyone standing at home), and sits there within 10 game minutes of walking, again after each session, until it can afford the open table |
 | `joined_still_standing` | Sage and Bandit stop standing at the table once they've joined |
 | `old_save_load` | `--pt-start=old`: a pre-demo save loads with all 52 cards, opening_done, its roster, party, map and cell |
 | `bracelet`, `beaten_unknown` | The bracelet exactly when the Regulars are beaten; beaten crews exist |
@@ -132,10 +144,9 @@ last 60 things the driver did, and the replay command.
 Notes (not failures) record what's worth knowing: `blackout_skipped`,
 `recruit_skipped`, `bracelet_pending` (the window closed between a match's
 end and its outcome being saved), `short_party_saved`, `cash_forfeited`
-(the window closed at the open table: the buy-in is gone, by design),
-`crew_join_pending` (a save between getting up from the first sit and Sage
-and Bandit joining: see "What it found"), `stranded` (a dog alone with
-less than the buy-in: see "What it found"). The batch for damaged
+(the window closed at the open table: the buy-in is gone, by design).
+Until demo 2.1 there were two more, `crew_join_pending` and `stranded`
+(see "What it found"); both are fixed, and checked now. The batch for damaged
 saves is lenient about `roster_stranger` and `beaten_unknown`, which a
 damaged save can legitimately cause.
 
@@ -151,8 +162,10 @@ default 4),
 presses rather than a bot), `win`, `reload` (chance per decision to quit and
 continue), `close` and `focus` (chance per frame), `chips` (starting chips at
 real crew tables), `start` (`new`; `continue`; `old`, a pre-demo save
-written first, as damage `pre_demo`; `mix`, old on every 10th seed and new
-otherwise, which `playtest.sh runs` uses), `slot` (save slot name, default
+written first, as damage `pre_demo`; `stranded`, a broke dog alone in
+Mossbank, past the opening, never sat; `mix`, old on every 10th seed,
+stranded on seeds ending in 5 and new otherwise, which `playtest.sh runs`
+uses), `slot` (save slot name, default
 `playtest`), `damage=KIND`, `save-spam=N` (N extra saves every frame, for the
 kill torture), `lenient=kind,kind`, `keep-going`, `verbose`, `out=FILE`
 (appends the result as one JSON line).
@@ -275,8 +288,14 @@ Fixed (each with a test in `tests/test_save_safety.gd` where it's logic):
    unreadable (a crash between removing the old save and renaming, where
    the platform won't rename over a file).
 
-On demo 2 (2026-10-01), reported, not fixed (the game is other agents'
-work this round); nothing it found blocks the soak:
+On demo 2 (2026-10-01), reported, not fixed then (the game was other
+agents' work that round); nothing it found blocked the soak. All four are
+fixed in demo 2.1 (docs/DEMO_SPEC.md, the last section), each with a test:
+1 is B-JOINSAVE (the pair join in the cash-out's own save), 2 is the
+street game (S-STREET, W-STREET, G-STREET, J-STRANDED, and the `stranded`
+check above), 3 is B-CASHOUT (the cash-out runs inside the table's `left`)
+and 4 is B-DECKFIX (every load repairs the deck: `deck_dupes` now loads
+with 52 cards, `deck_short_in_town` with its four Aces back).
 
 1. **A save between the first sit and Sage and Bandit joining reads back
    different** (every first session: 16 of 18 new games in the first 20

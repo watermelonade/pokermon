@@ -159,6 +159,9 @@ var buy_in := 0
 ## Sootbridge's street game (demo 2.1): `buy_in` is a stake the players
 ## fronted you, not your money, and the HUD says so. Set before adding.
 var staked := false
+## A cash table's own blinds, [small, big] (the street game's), instead of
+## CashMatch.blinds_for the buy-in. Set before adding.
+var cash_blinds: Array = []
 var cash: CashMatch  ## the cash game, when cash_game; match_ is its crew_match
 var _leave_open := false  ## the "Leave the table?" prompt is up
 var _leave_cursor := 0  ## 0 leave, 1 stay
@@ -363,8 +366,8 @@ func _new_match() -> void:
 	if cash_game:
 		cash = CashMatch.new(seed_value)
 		match_ = cash.crew_match  # the view drives it like any match; CashMatch says what differs
-		var blinds := CashMatch.blinds_for(_buy_in())
-		cash.set_blinds(blinds[0], blinds[1])
+		var blinds: Array = cash_blinds if cash_blinds.size() == 2 else CashMatch.blinds_for(_buy_in())
+		cash.set_blinds(int(blinds[0]), int(blinds[1]))
 	else:
 		match_ = TeamMatch.new(seed_value)
 	if tutorial and tutorial.lesson_index >= 0:  # a rematch: the lessons from the top
