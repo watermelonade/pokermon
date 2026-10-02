@@ -283,7 +283,15 @@ func test_B_JOINSAVE_the_crew_joins_in_the_cash_out_save() -> void:
 			if not dialog_open():
 				return false
 			return dialog_line().begins_with("You ") if quit_at == "cash-out" else str(dialog().get("_speaker")) == "Sage"
-		var reached: bool = await came_true(at_line, 30.0)
+		var reached := false
+		for _i in 900:  # A through the lines before it (the cash-out line, before Sage's)
+			if at_line.call():
+				reached = true
+				break
+			if dialog_open():
+				await press("ui_accept")
+			else:
+				await frames(1)
 		game.saved.disconnect(on_saved)
 		if not check(left.size() == 1, "B-JOINSAVE: (%s) leaving the table fires left(chips) once: %s" % [quit_at, left]):
 			return
