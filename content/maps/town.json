@@ -1,0 +1,191 @@
+{
+  "id": "town",
+  "outdoor": true,
+  "rows": [
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TT................................TTTTTTTTTTTTTT...............,,,.........TTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...............,,,.........TTTTTTTTTTT............TT",
+    "TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...........................TTTTTTTTTTT............TT",
+    "TT..RRRRRRRR...RRRRRRR...RRRRRR...TTTTTTTTTTTTTT...====================....TTTTTTTTTTT..RRRRRRRRR.TT",
+    "TT..#w#D##w#...#wDw#w#...#wd#w#...TTTTTTTTTTTTTT...====================....TTTTTTTTTTT..RRRRRRRRR.TT",
+    "TT.....=.S.......=.........=......TTTTTTTTTTTTTT...==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
+    "TT.....=,,...,...=....,....=......TT...............==...;;;;;;;......==....TTTTTTTTTTT..RRRRRRRRR.TT",
+    "TT.....=.........=.....,...=.......................==;;;TTTTTTTTTTT..==..T.TTTTTTTTTTT..#w#wDw#w#.TT",
+    "TT.....=.........=.........=...S...................==;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
+    "T====================================================;;;TTTTTTTTTT...==....TTTTTTTTTTT......=.....TT",
+    "T====================================================...TTTTTTTTTT...==....TTTTTTTTTTT....,.=.,...TT",
+    "TT........................S...........;;;;;..;;;........TTTTTTTTTT;;.==....TTTTTTTTTTT......=.....TT",
+    "TT....................................;;;;;..;;;........TTTTTTTTTT;;.==..................,..=..,..TT",
+    "TT...~~~~...,,,,,,,...FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.....................=.....TT",
+    "TT..~~~~~~..,,,,,,,...F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT;;.==.................S...=.....TT",
+    "TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
+    "TT..~~~~~~....tt......F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...=============================TT",
+    "TT...~~~~...S,,,,,....F,,,,,,,F...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT................................TT",
+    "TT...........,,,,,....FFFFFFFFF...TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT......,,,,....;;;;;.............TT",
+    "TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...,,,,....;;;;;.............TT",
+    "TT................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+  ],
+  "labels": [
+    {"rect": [4, 3, 8, 3], "text": "DINER"},
+    {"rect": [15, 3, 7, 3], "text": "HOME"},
+    {"rect": [25, 3, 6, 3], "text": "SHOP"},
+    {"rect": [88, 5, 9, 4], "text": "TOURNAMENT HALL"}
+  ],
+  "warps": [
+    {"cell": [7, 6], "to": "diner", "to_cell": [6, 7], "facing": "up"},
+    {"cell": [17, 6], "to": "home", "to_cell": [4, 6], "facing": "up"},
+    {"cell": [92, 9], "to": "hall", "to_cell": [9, 10], "facing": "up"},
+    {"cell": [1, 11], "to": "mill_road", "to_cell": [37, 5], "facing": "left"},
+    {"cell": [1, 12], "to": "mill_road", "to_cell": [37, 6], "facing": "left"}
+  ],
+  "gates": [],
+  "pickups": [],
+  "signs": [
+    {"cell": [9, 7], "dialogue": "diner_sign"},
+    {"cell": [31, 10], "dialogue": "east_sign"},
+    {"cell": [26, 13], "dialogue": "mossbank_sign"},
+    {"cell": [27, 6], "dialogue": "shop_sign"},
+    {"cell": [88, 16], "dialogue": "hall_sign"},
+    {"cell": [12, 19], "dialogue": "open_table_sign"}
+  ],
+  "open_tables": [
+    {"id": "mossbank_open_table", "buy_in": 100, "dealer": "STREET", "players": [["owl", 0], ["raccoon", 0], ["goose", 3], ["possum", 2], ["cat", 3]]}
+  ],
+  "npcs": [
+    {
+      "id": "bertram",
+      "name": "Old Bertram",
+      "sprite": "npc_badger",
+      "cell": [30, 9],
+      "facing": "down",
+      "dialogue": "bertram"
+    },
+    {
+      "id": "kid",
+      "name": "Juniper, age 9",
+      "sprite": "npc_kid",
+      "cell": [12, 13],
+      "facing": "up",
+      "dialogue": "kid"
+    },
+    {
+      "id": "tally",
+      "name": "Tally, the census",
+      "sprite": "squirrel",
+      "cell": [5, 9],
+      "facing": "down",
+      "dialogue": "tally"
+    },
+    {
+      "id": "dot",
+      "name": "Dot",
+      "sprite": "goose",
+      "cell": [20, 14],
+      "facing": "left",
+      "dialogue": "dot"
+    },
+    {
+      "id": "table_sage",
+      "name": "Sage",
+      "sprite": "owl",
+      "cell": [13, 17],
+      "facing": "right",
+      "open_table": "mossbank_open_table",
+      "animal": ["owl", 0],
+      "dialogue": "table_sage"
+    },
+    {
+      "id": "table_bandit",
+      "name": "Bandit",
+      "sprite": "raccoon",
+      "cell": [16, 18],
+      "facing": "left",
+      "open_table": "mossbank_open_table",
+      "animal": ["raccoon", 0],
+      "dialogue": "table_bandit"
+    },
+    {
+      "id": "table_waddles",
+      "name": "Waddles",
+      "sprite": "goose",
+      "cell": [15, 16],
+      "facing": "down",
+      "open_table": "mossbank_open_table",
+      "animal": ["goose", 3],
+      "dialogue": "table_waddles"
+    },
+    {
+      "id": "table_pudding",
+      "name": "Pudding",
+      "sprite": "possum",
+      "cell": [13, 18],
+      "facing": "right",
+      "open_table": "mossbank_open_table",
+      "animal": ["possum", 2],
+      "dialogue": "table_pudding"
+    },
+    {
+      "id": "table_mittens",
+      "name": "Mittens",
+      "sprite": "cat",
+      "cell": [14, 19],
+      "facing": "up",
+      "open_table": "mossbank_open_table",
+      "animal": ["cat", 3],
+      "dialogue": "table_mittens"
+    }
+  ],
+  "crews": [
+    {
+      "id": "pond_hecklers",
+      "name": "the Pond Hecklers",
+      "cell": [44, 8],
+      "facing": "down",
+      "sight": 6,
+      "members": [["goose", 0], ["squirrel", 0], ["goose", 1]],
+      "reward": 120,
+      "chips": 500,
+      "dealer": "STREET",
+      "dialogue": "pond_hecklers"
+    },
+    {
+      "id": "alley_cats",
+      "name": "the Alley Cats",
+      "cell": [48, 7],
+      "facing": "right",
+      "sight": 4,
+      "members": [["cat", 0], ["cat", 1], ["raccoon", 1]],
+      "reward": 150,
+      "chips": 500,
+      "dealer": "STREET",
+      "dialogue": "alley_cats"
+    },
+    {
+      "id": "nut_club",
+      "name": "the Nut Club",
+      "cell": [60, 2],
+      "facing": "down",
+      "sight": 6,
+      "members": [["squirrel", 1], ["squirrel", 2], ["squirrel", 3]],
+      "reward": 180,
+      "chips": 500,
+      "dealer": "STREET",
+      "dialogue": "nut_club"
+    },
+    {
+      "id": "night_shift",
+      "name": "the Night Shift",
+      "cell": [78, 15],
+      "facing": "down",
+      "sight": 5,
+      "members": [["possum", 0], ["owl", 1], ["raccoon", 2]],
+      "reward": 220,
+      "chips": 500,
+      "dealer": "STREET",
+      "dialogue": "night_shift"
+    }
+  ]
+}

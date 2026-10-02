@@ -1,0 +1,11 @@
+{
+  "id": "home",
+  "speakers": [
+    {
+      "id": "practice_table",
+      "lines": [
+        {"id": "home.practice_table.1", "text": "Your practice table. The felt has seen better days. So has the deck.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

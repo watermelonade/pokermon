@@ -1,0 +1,25 @@
+{
+  "id": "mill_road",
+  "speakers": [
+    {
+      "id": "mill_road_sign",
+      "lines": [
+        {"id": "mill_road.mill_road_sign.1", "text": "THE MILL ROAD. West: Sootbridge. East: Mossbank. Mind the geese.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "flint",
+      "lines": [
+        {"id": "mill_road.flint.1", "text": "Sootbridge behind you, Mossbank ahead. Nothing between but the mill and me.", "status": "placeholder"},
+        {"id": "mill_road.flint.2", "text": "There's a card table in Mossbank, out on the street. Anyone can sit. Even you.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "hedda",
+      "lines": [
+        {"id": "mill_road.hedda.1", "text": "The mill's been shut for years. The wheel still turns. Nobody knows why.", "status": "placeholder"},
+        {"id": "mill_road.hedda.2", "text": "You look like you've had a night. Mossbank's kind to strays. Mostly.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

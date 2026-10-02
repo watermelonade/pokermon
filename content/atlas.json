@@ -1,0 +1,87 @@
+{
+  "areas": [
+    {
+      "id": "sootbridge",
+      "map": "sootbridge",
+      "name": "Sootbridge",
+      "region": "Sootbridge",
+      "kind": "town",
+      "status": "blockout",
+      "notes": "Demo 2's first town (docs/DEMO_SPEC.md): soot-stained terraces on a canal, the street where the dog wakes by the open manhole, and the gate east to the Mill Road. The four Aces are found four ways: the Ace of Spades in the gutter in plain sight, the Ace of Diamonds up the washhouse's floor drain, the Ace of Clubs at the dead end of the coal yard's alley (behind the crates), and the Ace of Hearts given by Mags. Outside the Lamp, three townsfolk play for pennies on a crate: the street game (demo 2.1), for a dog with empty pockets."
+    },
+    {
+      "id": "washhouse",
+      "map": "washhouse",
+      "name": "Sootbridge Washhouse",
+      "region": "Sootbridge",
+      "kind": "interior",
+      "status": "blockout",
+      "notes": "Sootbridge's washhouse: Nell's, mopped. An Ace came up its floor drain, by the tubs."
+    },
+    {
+      "id": "mill_road",
+      "map": "mill_road",
+      "name": "The Mill Road",
+      "region": "The Mill Road",
+      "kind": "route",
+      "status": "blockout",
+      "notes": "The road between the towns: short, a couple of folk on it, no crews (the dog has none to play them with yet)."
+    },
+    {
+      "id": "mossbank",
+      "map": "town",
+      "name": "Mossbank",
+      "region": "Mossbank",
+      "kind": "town",
+      "status": "blockout",
+      "notes": "Demo 1's town, the west end of the town map: the diner, home, the shop, and the open table by the pond (docs/DEMO_SPEC.md W-TABLE), where Sage and Bandit play until your first sit, then join you."
+    },
+    {
+      "id": "ridge_road",
+      "map": "town",
+      "name": "Ridge Road",
+      "region": "Mossbank",
+      "kind": "route",
+      "rect": [34, 0, 52, 25],
+      "status": "blockout",
+      "notes": "East out of Mossbank on the same map (one long outdoor map, so walking out of town is seamless). Four crews stand watching, placed so that the first and third can't be walked around and the other two can, with care."
+    },
+    {
+      "id": "hall_plaza",
+      "map": "town",
+      "name": "Mossbank Hall Plaza",
+      "region": "Mossbank",
+      "kind": "town",
+      "rect": [86, 0, 14, 25],
+      "status": "blockout",
+      "notes": "The plaza in front of the Tournament Hall, at Ridge Road's east end."
+    },
+    {
+      "id": "diner",
+      "map": "diner",
+      "name": "Rosie's Diner",
+      "region": "Mossbank",
+      "kind": "interior",
+      "status": "blockout",
+      "notes": "Rosie's Diner, the healing centre: a blackout wakes you in a booth."
+    },
+    {
+      "id": "home",
+      "map": "home",
+      "name": "Home",
+      "region": "Mossbank",
+      "kind": "interior",
+      "status": "blockout",
+      "notes": "Your house and your practice table."
+    },
+    {
+      "id": "hall",
+      "map": "hall",
+      "name": "Mossbank Tournament Hall",
+      "region": "Mossbank",
+      "kind": "interior",
+      "status": "blockout",
+      "notes": "The Mossbank Open: the Regulars, a boss crew (BossTable), four against your three, Graves leading on a big stack with the seat draw rigged around you. Lou, the dealer, is asleep."
+    }
+  ]
+}

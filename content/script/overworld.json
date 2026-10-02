@@ -1,0 +1,24 @@
+{
+  "id": "overworld",
+  "speakers": [
+    {
+      "id": "aces_complete",
+      "lines": [
+        {"id": "overworld.aces_complete.1", "text": "That's all four Aces. His deck is whole again. The gate east will let you by.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "no_crew",
+      "lines": [
+        {"id": "overworld.no_crew.1", "text": "({crew} look you over: one dog, no crew.)", "status": "placeholder"},
+        {"id": "overworld.no_crew.2", "text": "Come back with a crew.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "blackout",
+      "lines": [
+        {"id": "overworld.blackout.1", "text": "You wander back toward town, pockets flapping, and everything goes dark...", "status": "placeholder"}
+      ]
+    }
+  ]
+}

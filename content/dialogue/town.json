@@ -1,0 +1,152 @@
+{
+  "id": "town",
+  "speakers": [
+    {
+      "id": "diner_sign",
+      "lines": [
+        {"id": "town.diner_sign.1", "text": "ROSIE'S DINER. Pie, coffee, booths. Lose on the road? You'll wake up here.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "east_sign",
+      "lines": [
+        {"id": "town.east_sign.1", "text": "EAST: Ridge Road, then the Tournament Hall. Mostly Ridge Road. Lots of it.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "mossbank_sign",
+      "lines": [
+        {"id": "town.mossbank_sign.1", "text": "MOSSBANK. Population 212. Squirrels, please stop counting yourselves twice.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "shop_sign",
+      "lines": [
+        {"id": "town.shop_sign.1", "text": "SHOP. Closed for the Mossbank Open. The shopkeeper entered. Wish her luck.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "hall_sign",
+      "lines": [
+        {"id": "town.hall_sign.1", "text": "MOSSBANK TOURNAMENT HALL. Tonight: the Mossbank Open. Dealer: Lou. Lou: asleep.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "open_table_sign",
+      "lines": [
+        {"id": "town.open_table_sign.1", "text": "OPEN TABLE. Anyone may sit. $100 buy-in. Leave whenever you like.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "bertram",
+      "lines": [
+        {"id": "town.bertram.1", "text": "Ridge Road, eh? Crews line it like crows on a fence. Nobody gets by for free.", "status": "placeholder"},
+        {"id": "town.bertram.2", "text": "Step into a crew's sight and they'll deal you in. Win, and one might join you.", "status": "placeholder"},
+        {"id": "town.bertram.3", "text": "Press Start (or Tab) and pick Crew to choose which two animals sit with you.", "status": "placeholder"},
+        {"id": "town.bertram.4", "text": "I played that road forty years. Lost my shirt twice. Won it back once.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "kid",
+      "lines": [
+        {"id": "town.kid.1", "text": "Lou the dealer has been asleep since before I was born. Mom says so.", "status": "placeholder"},
+        {"id": "town.kid.2", "text": "So in the hall you can signal your crew all you like! Nose! Ear! Hat!", "status": "placeholder"},
+        {"id": "town.kid.3", "text": "When I grow up I'm gonna have a crew of nine geese. Nine!", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "tally",
+      "lines": [
+        {"id": "town.tally.1", "text": "Two hundred and twelve! Two hundred and thirteen! Wait. Did I count me?", "status": "placeholder"},
+        {"id": "town.tally.2", "text": "A dog! Do dogs count? I'll count you. Two hundred and fourteen!", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "dot",
+      "lines": [
+        {"id": "town.dot.1", "text": "HONK. THE TABLE BY THE POND IS OPEN TO ALL. EVEN DOGS. ESPECIALLY DOGS.", "status": "placeholder"},
+        {"id": "town.dot.2", "text": "THEY NEED A FOURTH. THEY ALWAYS NEED A FOURTH. GO ON. SIT.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "table_sage",
+      "lines": [
+        {"id": "town.table_sage.1", "text": "Ah. A dog. Do sit, if you have the buy-in. We play for money, not pats.", "status": "placeholder"}
+      ],
+      "joins": [
+        {"id": "town.table_sage.2", "text": "You fold with conviction. I could make something of that. I'm coming along.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "table_bandit",
+      "lines": [
+        {"id": "town.table_bandit.1", "text": "*psst* fresh chips. i mean, hi. sit down, sit down.", "status": "placeholder"}
+      ],
+      "joins": [
+        {"id": "town.table_bandit.2", "text": "*psst* me too. a dog with no crew is a plan with no raccoon.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "table_waddles",
+      "lines": [
+        {"id": "town.table_waddles.1", "text": "DEAL THE DOG IN. DEAL EVERYONE IN. THIS IS MY TABLE NOW.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "table_pudding",
+      "lines": [
+        {"id": "town.table_pudding.1", "text": "Sit, if you like. I play slow. If I lose, I lie down for a bit. It's fine.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "table_mittens",
+      "lines": [
+        {"id": "town.table_mittens.1", "text": "A dog at the table. How novel. Do try not to drool on the felt.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "pond_hecklers",
+      "before": [
+        {"id": "town.pond_hecklers.1", "text": "HONK! HALT! THIS IS OUR ROAD NOW. WE DECIDED THAT JUST NOW.", "status": "placeholder"},
+        {"id": "town.pond_hecklers.2", "text": "NOBODY PASSES THE POND HECKLERS WITHOUT A HAND. SIT. DEAL. FEAR.", "status": "placeholder"},
+        {"id": "town.pond_hecklers.3", "text": "(Nutmeg, the squirrel, holds their chips. In his cheeks. Mostly.)", "status": "placeholder"}
+      ],
+      "after": [
+        {"id": "town.pond_hecklers.4", "text": "FINE. YOU WIN. WE'LL BE AT THE POND, HONKING ABOUT IT FOR WEEKS.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "alley_cats",
+      "before": [
+        {"id": "town.alley_cats.1", "text": "Oh. A human. With pets. How quaint.", "status": "placeholder"},
+        {"id": "town.alley_cats.2", "text": "We weren't going to play today. It's warm. But fine. Don't be boring.", "status": "placeholder"},
+        {"id": "town.alley_cats.3", "text": "(Behind her, the raccoon whispers \"psst, I have a plan.\" Nobody listens.)", "status": "placeholder"}
+      ],
+      "after": [
+        {"id": "town.alley_cats.4", "text": "We let you win, obviously. Now move. You're standing in our sunbeam.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "nut_club",
+      "before": [
+        {"id": "town.nut_club.1", "text": "HALT! Halt. Hi. Halt! This stretch of road belongs to the Nut Club!", "status": "placeholder"},
+        {"id": "town.nut_club.2", "text": "Toll's one game. Or one nut. No nut? Game it is! Sit sit sit!", "status": "placeholder"},
+        {"id": "town.nut_club.3", "text": "Club rule one: we call. Rule two: we always call. Rule three: snacks.", "status": "placeholder"}
+      ],
+      "after": [
+        {"id": "town.nut_club.4", "text": "We called everything. EVERYTHING. Why didn't that work?!", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "night_shift",
+      "before": [
+        {"id": "town.night_shift.1", "text": "...", "status": "placeholder"},
+        {"id": "town.night_shift.2", "text": "Oh. You can see us. Most folks walk right past.", "status": "placeholder"},
+        {"id": "town.night_shift.3", "text": "We're the Night Shift. We play at night. It is not night. Deal quietly.", "status": "placeholder"}
+      ],
+      "after": [
+        {"id": "town.night_shift.4", "text": "*flops over* I have died. Tell my mother I bluffed bravely. ...Shh.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

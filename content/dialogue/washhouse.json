@@ -1,0 +1,12 @@
+{
+  "id": "washhouse",
+  "speakers": [
+    {
+      "id": "nell",
+      "lines": [
+        {"id": "washhouse.nell.1", "text": "Out, dog, I've just mopped. ...Oh. You're his. I heard.", "status": "placeholder"},
+        {"id": "washhouse.nell.2", "text": "Something came up my floor drain this morning. A card. It's by the tubs.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

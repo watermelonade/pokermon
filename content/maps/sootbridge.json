@@ -1,0 +1,115 @@
+{
+  "id": "sootbridge",
+  "outdoor": true,
+  "rows": [
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
+    "TTRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRBTTTTT",
+    "TTBwBDBBwBBBwBBdBBwBBwBdBwwBdBwBBBBTTTTT",
+    "T:::::::::::::::::::::::::::::::::g::::T",
+    "T:::::::::::::::::::::::::::::::::g::::T",
+    "T:::::::::::o:::::::x:::::::::::::BTTTTT",
+    "T:::::::S:::::::::::::::::::::::::BTTTTT",
+    "TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
+    "T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
+    "T~~~~~~~~~~~::~~~~~~~~~~~~~~~~~~~~BTTTTT",
+    "TFFFFFFFFFFF::FFFFFFFFFFFFFFFFFFFFBTTTTT",
+    "T::::::::::::::::::;x.............BTTTTT",
+    "T...........:.........xxxxxxxxxxxxBTTTTT",
+    "T..RRRRRR...:..........xx....xx...BTTTTT",
+    "T..RRRRRR...:....,.....xx....xx...BTTTTT",
+    "T..BwBdBB...:.....................BTTTTT",
+    "T...........::::::::::::::::::::..BTTTTT",
+    "T..,,.......:..........xx....xx...BTTTTT",
+    "T..,,...TT..:..........xx....xx...BTTTTT",
+    "T.......TT........................BTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+  ],
+  "labels": [
+    {"rect": [2, 1, 8, 2], "text": "WASHHOUSE"},
+    {"rect": [11, 1, 9, 2], "text": "THE LAMP"}
+  ],
+  "warps": [
+    {"cell": [5, 3], "to": "washhouse", "to_cell": [5, 6], "facing": "up"},
+    {"cell": [38, 4], "to": "mill_road", "to_cell": [2, 5], "facing": "right"},
+    {"cell": [38, 5], "to": "mill_road", "to_cell": [2, 6], "facing": "right"}
+  ],
+  "gates": [
+    {"cells": [[34, 4], [34, 5]], "requires": "full_deck", "dialogue": "gate"}
+  ],
+  "pickups": [
+    {"id": "ace_gutter", "cell": [18, 7], "card": "As"},
+    {"id": "ace_coal_yard", "cell": [33, 12], "card": "Ac"}
+  ],
+  "signs": [
+    {"cell": [8, 7], "dialogue": "sootbridge_sign"}
+  ],
+  "open_tables": [
+    {
+      "id": "sootbridge_street_game",
+      "stake": 60,
+      "blinds": [3, 6],
+      "max_money": 100,
+      "dealer": "STREET",
+      "players": [["owl", 3], ["raccoon", 3], ["goose", 2]]
+    }
+  ],
+  "npcs": [
+    {
+      "id": "mags",
+      "name": "Mags",
+      "sprite": "possum",
+      "cell": [5, 12],
+      "facing": "down",
+      "gives_card": {"id": "ace_mags", "card": "Ah"},
+      "dialogue": "mags"
+    },
+    {
+      "id": "ash",
+      "name": "Ash",
+      "sprite": "cat",
+      "cell": [17, 4],
+      "facing": "down",
+      "dialogue": "ash"
+    },
+    {
+      "id": "cinder",
+      "name": "Cinder, the sweep",
+      "sprite": "npc_kid",
+      "cell": [26, 7],
+      "facing": "up",
+      "dialogue": "cinder"
+    },
+    {
+      "id": "street_pip",
+      "name": "Pip",
+      "sprite": "owl",
+      "cell": [20, 5],
+      "facing": "down",
+      "open_table": "sootbridge_street_game",
+      "animal": ["owl", 3],
+      "dialogue": "street_pip"
+    },
+    {
+      "id": "street_scraps",
+      "name": "Scraps",
+      "sprite": "raccoon",
+      "cell": [21, 6],
+      "facing": "left",
+      "open_table": "sootbridge_street_game",
+      "animal": ["raccoon", 3],
+      "dialogue": "street_scraps"
+    },
+    {
+      "id": "street_gander",
+      "name": "Gander",
+      "sprite": "goose",
+      "cell": [19, 6],
+      "facing": "right",
+      "open_table": "sootbridge_street_game",
+      "animal": ["goose", 2],
+      "dialogue": "street_gander"
+    }
+  ],
+  "crews": []
+}

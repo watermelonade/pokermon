@@ -1,0 +1,40 @@
+{
+  "id": "intro",
+  "speakers": [
+    {
+      "id": "night",
+      "lines": [
+        {"id": "intro.night.1", "text": "Sootbridge, late. Coal smoke, rain on the cobbles. And him, coming home.", "status": "placeholder"},
+        {"id": "intro.night.2", "text": "He lost at the Lamp again tonight. He always loses. Then it's your fault.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "manhole",
+      "lines": [
+        {"id": "intro.manhole.1", "text": "He's singing. He doesn't see the cover's off the manhole.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "fall",
+      "lines": [
+        {"id": "intro.fall.1", "text": "A stumble, a clatter of cards, and he's gone. Down into the dark.", "status": "placeholder"},
+        {"id": "intro.fall.2", "text": "You wait at the edge all night. He doesn't call for you. Nothing comes up.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "morning",
+      "lines": [
+        {"id": "intro.morning.1", "text": "Morning. You slept by the manhole. His cards lay where they fell.", "status": "placeholder"},
+        {"id": "intro.morning.2", "text": "You gathered them, the way he never did. Four are missing: all four Aces.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "dawn",
+      "lines": [
+        {"id": "intro.dawn.1", "text": "They went down with him. But the drains run all over town.", "status": "placeholder"},
+        {"id": "intro.dawn.2", "text": "His deck and his wallet. Yours now. You won't leave without those Aces.", "status": "placeholder"},
+        {"id": "intro.dawn.3", "text": "Walk: arrows, WASD, D-pad or stick. Talk: A, Enter or Space. Menu: Start or Tab.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

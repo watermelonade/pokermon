@@ -1,0 +1,33 @@
+{
+  "id": "hall",
+  "speakers": [
+    {
+      "id": "hall_rules",
+      "lines": [
+        {"id": "hall.hall_rules.1", "text": "HALL RULES: 1. No biting. 2. No cards in cheek pouches. 3. Do not wake Lou.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "lou",
+      "lines": [
+        {"id": "hall.lou.1", "text": "Zzz... ante up... zzz...", "status": "placeholder"},
+        {"id": "hall.lou.2", "text": "Zzz... the House... always... zzz...", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "mossbank_regulars",
+      "before": [
+        {"id": "hall.mossbank_regulars.1", "text": "So. You're the one cleaning out Ridge Road. I'm Graves. I captain the Regulars.", "status": "placeholder"},
+        {"id": "hall.mossbank_regulars.2", "text": "Four of us, same seats every Thursday since 1971. Tonight: either side of you.", "status": "placeholder"},
+        {"id": "hall.mossbank_regulars.3", "text": "Lou's asleep, so signal all you like. We will. Our signals are older than you.", "status": "placeholder"},
+        {"id": "hall.mossbank_regulars.4", "text": "Win the Open and the Mossbank bracelet is yours. You won't.", "status": "placeholder"}
+      ],
+      "after": [
+        {"id": "hall.mossbank_regulars.5", "text": "*keels over* ...I'm fine. Wear it well. The next town won't be so polite.", "status": "placeholder"}
+      ],
+      "won": [
+        {"id": "hall.mossbank_regulars.6", "text": "You won the Mossbank Open! The Regulars hand over the bracelet. Slowly.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

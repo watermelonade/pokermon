@@ -1,0 +1,60 @@
+{
+  "id": "sootbridge",
+  "speakers": [
+    {
+      "id": "gate",
+      "lines": [
+        {"id": "sootbridge.gate.1", "text": "The gate out of town. You can't leave. Not without the Aces.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "sootbridge_sign",
+      "lines": [
+        {"id": "sootbridge.sootbridge_sign.1", "text": "SOOTBRIDGE. Mind the drains. The council will fix that manhole cover. Soon.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "mags",
+      "lines": [
+        {"id": "sootbridge.mags.1", "text": "Mags. I keep the drains. Don't look at me like that, it's honest work.", "status": "placeholder"},
+        {"id": "sootbridge.mags.2", "text": "Found this in my grate at dawn. A card. Smells of him. Of the Lamp's beer.", "status": "placeholder"},
+        {"id": "sootbridge.mags.3", "text": "Here. It's more yours than his, I reckon. Go careful, dog.", "status": "placeholder"}
+      ],
+      "after": [
+        {"id": "sootbridge.mags.4", "text": "The drains run all over town, dog. What goes down comes up somewhere.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "ash",
+      "lines": [
+        {"id": "sootbridge.ash.1", "text": "You're his dog. The one he shouted at. ...He's not shouting now, is he?", "status": "placeholder"},
+        {"id": "sootbridge.ash.2", "text": "I won't say sorry. I'll say: the coal yard. Something shines behind the crates.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "cinder",
+      "lines": [
+        {"id": "sootbridge.cinder.1", "text": "They're not opening the manhole. Too deep, the constable says. Too late.", "status": "placeholder"},
+        {"id": "sootbridge.cinder.2", "text": "Mum says the drains run under half the town. Even under the washhouse.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "street_pip",
+      "lines": [
+        {"id": "sootbridge.street_pip.1", "text": "We heard about last night. Sit, if your pockets are empty. We stake you.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "street_scraps",
+      "lines": [
+        {"id": "sootbridge.street_scraps.1", "text": "*psst* our chips, your paws. win and you keep the extra. lose and, eh.", "status": "placeholder"}
+      ]
+    },
+    {
+      "id": "street_gander",
+      "lines": [
+        {"id": "sootbridge.street_gander.1", "text": "HONK. PENNIES ON THE CRATE. THE CRATE IS MINE. THE PENNIES ARE ANYONE'S.", "status": "placeholder"}
+      ]
+    }
+  ]
+}

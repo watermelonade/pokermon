@@ -1,0 +1,52 @@
+{
+  "id": "mill_road",
+  "outdoor": true,
+  "rows": [
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTT......TTTTT.....RRRRRR.....TTTTTTTT",
+    "TTT.........,,.......RRRRRR.........TTTT",
+    "TT...;;;.............#w#d#w....S......TT",
+    "TT...;;;..........................,,..TT",
+    "T======================================T",
+    "T======================================T",
+    "TT.........,,,...............;;;.....TTT",
+    "TT....TTT...............,,,.........TTTT",
+    "TTTT....TTTT......TTTTT......TTTT...TTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT"
+  ],
+  "labels": [
+    {"rect": [21, 1, 6, 2], "text": "OLD MILL"}
+  ],
+  "warps": [
+    {"cell": [1, 5], "to": "sootbridge", "to_cell": [37, 4], "facing": "left"},
+    {"cell": [1, 6], "to": "sootbridge", "to_cell": [37, 5], "facing": "left"},
+    {"cell": [38, 5], "to": "town", "to_cell": [2, 11], "facing": "right"},
+    {"cell": [38, 6], "to": "town", "to_cell": [2, 12], "facing": "right"}
+  ],
+  "gates": [],
+  "pickups": [],
+  "signs": [
+    {"cell": [31, 3], "dialogue": "mill_road_sign"}
+  ],
+  "open_tables": [],
+  "npcs": [
+    {
+      "id": "flint",
+      "name": "Flint, a carter",
+      "sprite": "npc",
+      "cell": [10, 7],
+      "facing": "up",
+      "dialogue": "flint"
+    },
+    {
+      "id": "hedda",
+      "name": "Hedda",
+      "sprite": "npc_badger",
+      "cell": [30, 4],
+      "facing": "down",
+      "dialogue": "hedda"
+    }
+  ],
+  "crews": []
+}

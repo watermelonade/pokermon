@@ -1,0 +1,29 @@
+{
+  "id": "home",
+  "outdoor": false,
+  "rows": [
+    "WWWWWWWWWW",
+    "W_bb___p_W",
+    "W_bb_____W",
+    "W________W",
+    "W___tt___W",
+    "W___tt___W",
+    "W________W",
+    "W___XX___W",
+    "WWWWWWWWWW"
+  ],
+  "labels": [],
+  "warps": [
+    {"cell": [4, 7], "to": "town", "to_cell": [17, 7], "facing": "down"},
+    {"cell": [5, 7], "to": "town", "to_cell": [17, 7], "facing": "down"}
+  ],
+  "gates": [],
+  "pickups": [],
+  "signs": [
+    {"cell": [4, 4], "dialogue": "practice_table"},
+    {"cell": [5, 4], "dialogue": "practice_table"}
+  ],
+  "open_tables": [],
+  "npcs": [],
+  "crews": []
+}

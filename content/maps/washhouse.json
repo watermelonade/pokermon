@@ -1,0 +1,37 @@
+{
+  "id": "washhouse",
+  "outdoor": false,
+  "rows": [
+    "WWWWWWWWWWWW",
+    "W_uu_uu_uu_W",
+    "W__________W",
+    "W__________W",
+    "WCCCC______W",
+    "W__________W",
+    "W_______p__W",
+    "W____XX____W",
+    "WWWWWWWWWWWW"
+  ],
+  "labels": [],
+  "warps": [
+    {"cell": [5, 7], "to": "sootbridge", "to_cell": [5, 4], "facing": "down"},
+    {"cell": [6, 7], "to": "sootbridge", "to_cell": [5, 4], "facing": "down"}
+  ],
+  "gates": [],
+  "pickups": [
+    {"id": "ace_washhouse", "cell": [10, 2], "card": "Ad"}
+  ],
+  "signs": [],
+  "open_tables": [],
+  "npcs": [
+    {
+      "id": "nell",
+      "name": "Nell",
+      "sprite": "npc_cook",
+      "cell": [7, 3],
+      "facing": "down",
+      "dialogue": "nell"
+    }
+  ],
+  "crews": []
+}

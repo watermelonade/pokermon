@@ -1,0 +1,58 @@
+{
+  "id": "hall",
+  "outdoor": false,
+  "rows": [
+    "WWWWWWWWWWWWWWWWWWWW",
+    "W__________________W",
+    "W_p______________p_W",
+    "W______tttttt______W",
+    "W______tttttt______W",
+    "W______tttttt______W",
+    "W__________________W",
+    "W__________________W",
+    "W__________________W",
+    "W__________________W",
+    "W__________________W",
+    "W________XX________W",
+    "WWWWWWWWWWWWWWWWWWWW"
+  ],
+  "labels": [],
+  "warps": [
+    {"cell": [9, 11], "to": "town", "to_cell": [92, 10], "facing": "down"},
+    {"cell": [10, 11], "to": "town", "to_cell": [92, 10], "facing": "down"}
+  ],
+  "gates": [],
+  "pickups": [],
+  "signs": [
+    {"cell": [5, 0], "dialogue": "hall_rules"}
+  ],
+  "open_tables": [],
+  "npcs": [
+    {
+      "id": "lou",
+      "name": "Lou, the dealer",
+      "sprite": "npc_dealer",
+      "cell": [9, 2],
+      "facing": "down",
+      "asleep": true,
+      "dialogue": "lou"
+    }
+  ],
+  "crews": [
+    {
+      "id": "mossbank_regulars",
+      "name": "the Mossbank Regulars",
+      "cell": [9, 6],
+      "facing": "down",
+      "sight": 0,
+      "members": [["possum", 3], ["cat", 2], ["owl", 2], ["possum", 1]],
+      "boss": true,
+      "tournament": true,
+      "bracelet": "mossbank",
+      "reward": 500,
+      "chips": 1000,
+      "dealer": "ASLEEP",
+      "dialogue": "mossbank_regulars"
+    }
+  ]
+}

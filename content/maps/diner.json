@@ -1,0 +1,38 @@
+{
+  "id": "diner",
+  "outdoor": false,
+  "rows": [
+    "WWWWWWWWWWWWWW",
+    "W____________W",
+    "WCCCCCCCCC___W",
+    "W____________W",
+    "W____________W",
+    "W_tt____tt___W",
+    "W_tt____tt__pW",
+    "Wp___________W",
+    "W_____XX_____W",
+    "WWWWWWWWWWWWWW"
+  ],
+  "labels": [],
+  "warps": [
+    {"cell": [6, 8], "to": "town", "to_cell": [7, 7], "facing": "down"},
+    {"cell": [7, 8], "to": "town", "to_cell": [7, 7], "facing": "down"}
+  ],
+  "gates": [],
+  "pickups": [],
+  "signs": [
+    {"cell": [13, 4], "dialogue": "painting"}
+  ],
+  "open_tables": [],
+  "npcs": [
+    {
+      "id": "rosie",
+      "name": "Rosie",
+      "sprite": "npc_cook",
+      "cell": [5, 1],
+      "facing": "down",
+      "dialogue": "rosie"
+    }
+  ],
+  "crews": []
+}
