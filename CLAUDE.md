@@ -91,6 +91,12 @@ Log: `/tmp/cloud_setup.log`.
   saw, at the game's equity samples (not `--iterations=60`). When a matchup
   is wrong, `tools/chip_flow.gd` shows where the chips go: that found every
   real fix; parameter sweeps found none.
+- **The world is data.** Maps, townsfolk, crews, signs and every line
+  they say live in `content/` (README "Content", docs/EDITOR_SPEC.md), not
+  in code: edit the JSON, then run
+  `godot --headless --path . -s tools/format_content.gd` (canonical form,
+  then the schema and playability checks). Text the game says about what
+  just happened stays in code.
 - **The rules engine stays headless.** `src/poker/` and `src/match/` never
   touch nodes or drawing, so tests and simulations run thousands of hands.
 - **Code style:** module docstrings explain *why* something is built the way

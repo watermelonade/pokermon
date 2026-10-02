@@ -107,6 +107,12 @@ class _Checker:
 			if talk_paths[id].begins_with(script_dir) and not Content.SCRIPTS.has(id):
 				_at(talk_paths[id])
 				_bad("", "isn't one of the scripts the game reads (Content.SCRIPTS)")
+		for id: String in Content.SCRIPTS:
+			if maps.has(id):
+				# Lines are found by file id (Content.say): a map and a script
+				# of the same name would be one file id for two files.
+				_at(Content.map_path(id))
+				_bad("id", "%s is also a script's id (content/script/%s.json): pick another" % [_show(id), id])
 		_atlas()
 		for want: Array in Content.CODE_LINES:
 			var speaker: Dictionary = talk.get(want[0], {}).get(want[1], {})

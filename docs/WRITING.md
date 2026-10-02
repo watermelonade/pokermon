@@ -1,11 +1,14 @@
 # Writing: voice and canon
 
-How the game talks. Every line in the demo lives in data: crews, townsfolk
-and signs in `src/world/world_map.gd` (MAPS), the animals' bios and join
-lines in `src/crew/bios.gd`, tells in `src/crew/species.gd`, and the
-narration (intro, blackout, recruiting, the diner) as `dialog.say(...)`
-strings in `src/world/overworld.gd`. `tests/test_writing.gd` checks every
-one of them fits the text box.
+How the game talks. Every line in the demo lives in data: what crews,
+townsfolk and signs say, Rosie's lines, the intro and the narration in
+`content/dialogue/<map>.json` and `content/script/` (README "Content": each
+line has an id and a status, placeholder, draft or final), the animals' bios
+and join lines in `src/crew/bios.gd`, tells in `src/crew/species.gd`. What
+the game says about what just happened (cards found, money, who joined) is
+system text in `src/world/overworld.gd`. `tests/test_writing.gd` checks every
+one of them fits the text box, and so does
+`godot --headless --path . -s tools/format_content.gd` after a hand edit.
 
 ## The rules
 
@@ -100,10 +103,10 @@ first and a hint second. Nobody explains the House.
 ## Adding lines
 
 - Crews: `before` is a list (up to three or four boxes), `after` is one
-  string, said after you win and whenever you talk to them later (so it
+  line, said after you win and whenever you talk to them later (so it
   should still make sense after one of them has joined you).
 - Townsfolk `lines` are said in full every time you talk to them.
-- Signs are one box. A sign can sit on a wall cell (the diner's painting,
+- Signs (and the gate) are one box: one line. A sign can sit on a wall cell (the diner's painting,
   the hall's rules): you read it from the floor in front.
 - New animals get a bio and a join line in `Bios.BIOS`; the test fails
   until they do.
