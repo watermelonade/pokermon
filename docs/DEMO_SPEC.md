@@ -248,3 +248,46 @@ What the tests count as what:
 
 Neither build agent edits a test to make it pass. If a test is wrong, it
 says so in its report and the lead decides (spec first, then test).
+
+## Demo 2.1: the street game, and three fixes (2026-10-02)
+
+The playtester found that the demo could become impossible to finish:
+quit twice while seated before your first full session and the dog has $0,
+no crew, a table it can't afford, and crews that won't play a dog alone.
+The owner chose a street game in Sootbridge as the way back up (a first
+piece of docs/DESIGN.md's safety net), and asked for the playtester's
+other three findings to be fixed.
+
+### The street game
+
+- **Where:** Sootbridge, by the Lamp, before the gate (reachable from the
+  start without a full deck). A few townsfolk play for pennies on an
+  upturned crate.
+- **Who can sit:** only a dog whose money is under the Mossbank open
+  table's buy-in ("This game's for empty pockets."). It's a safety net,
+  not a second income.
+- **The stake:** no buy-in. The players front you a stake of chips that
+  isn't yours. When you leave you keep what's above the stake; if you're
+  below it, you owe nothing. So a session never costs money, and a good
+  one pays a little.
+- **Same table as the open table:** a cash game (CashMatch, TableView's
+  cash mode), every seat for itself, leave after any hand.
+- **Pace target:** about 10-15 minutes of play from $0 back to the open
+  table's buy-in (docs/DESIGN.md, the safety net). Measured with a bot in
+  your seat; reported, not a test gate.
+
+### Outcomes
+
+| ID | Outcome | Test |
+| --- | --- | --- |
+| S-STREET | A staked session: money after = money before + max(0, stack at leaving - stake), exactly, over many seeded sessions; money never goes down. Sitting is refused (nothing changes) when money is at or above the open table's buy-in. | test_cash_match (or a new unit file) |
+| W-STREET | Sootbridge has a street table: an npc entry with `open_table` carrying `"stake"` (chips fronted) and `"max_money"` (sit only below it, = the Mossbank buy-in), its players standing round a crate or table, reachable from the start cell with the gate shut, none of them in the way (W-NPCS still holds). | test_demo_world |
+| G-STREET | In the game: a dog with $0 in Sootbridge talks to the street game's players, sits without paying, plays (a bot in your seat), leaves, and its money grows by exactly the chips above the stake (or stays the same). A dog with money at or above the buy-in is turned away with a line, and nothing changes. | scene/test_street_game |
+| J-STRANDED | The playtester's stranded case: a dog with $0 and no crew in Mossbank walks back to Sootbridge, plays street games until it can afford the open table, walks back, sits, and gets its crew. Run with a fixed seed and a bot in your seat; checks the demo can always be finished. | scene/test_journey |
+| B-JOINSAVE | Fix 1: after the first open-table session, the save on disk already has Sage and Bandit in the roster with the Binder's "Mossbank, at the open table", in the same save as the cash-out (no save between the cash-out and the join). Quitting during the cash-out or the pair's lines and continuing loses nothing. | scene/test_open_table |
+| B-CASHOUT | Fix 2: no frame exists where you've left the table but your stack isn't in your money and the save. Quitting on the very first frame after leaving and continuing keeps the stack. | scene/test_open_table |
+| B-DECKFIX | Fix 3: loading a save repairs its deck: duplicates and invalid cards dropped; any card other than an Ace that's missing is put back; an Ace is held exactly when its pickup (or Mags's gift) is recorded as taken. A run then never gets stuck at the gate through a damaged file. | test_save_safety (or test_demo_state) |
+
+R-* still holds: everything green, R-CHART unchanged, the soak green
+with the playtester taught the street game (its `stranded` note becomes
+a check: a stranded dog must be able to get back to the street game).
