@@ -300,7 +300,7 @@ func test_C_CHECKS_find_each_kind_of_problem() -> void:
 			"lines": [long_line, "One.", "Two.", "Three.", "Four."]}]}
 	var room := {"outdoor": false, "rows": ["WWWWW", "W___W", "WWWWW"], "labels": [], "signs": [], "crews": [],
 		"npcs": [], "gates": [], "pickups": [],
-		"warps": [{"cell": Vector2i(3, 1), "to": "yard", "to_cell": Vector2i(6, 3), "facing": Vector2i.UP}]}
+		"warps": [{"cell": Vector2i(3, 1), "to": "yard", "to_cell": Vector2i(5, 3), "facing": Vector2i.UP}]}
 	var maps := {"yard": _world_map().from_data("yard", yard), "room": _world_map().from_data("room", room)}
 	var problems: Array = checks.problems(maps, "yard", Vector2i(1, 1))
 	for want: Array in [["blocker", "(4, 2)"], ["nowhere"], ["lost_card"], ["(6, 3)"], ["blocker", "characters"], ["blocker", "boxes"]]:

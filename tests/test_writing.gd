@@ -11,48 +11,27 @@ extends TestCase
 ## names filled in instead of capped, and so are the {placeholders} in
 ## content/'s lines (capped too: a writer's line should fit with any name).
 
-const BASE_WIDTH := 640.0
-const MAX_WRAPPED := 2
-const MAX_CHARS := 84
-const MAX_BOXES := 4
-## Worst cases for the overworld's format strings: the longest crew title
-## (and two names joined, for the intro) and a big sum of money.
-const LONG_NAME := "Bramble the Owl and Chitter the Squirrel"
-const BIG_NUMBER := "99999"
+## The measure itself (the box's width, the greedy wrap, the caps and the
+## worst-case names) is ContentChecks' since the editor's phase 1, which
+## checks lines live as they're typed (docs/EDITOR_SPEC.md C-CHECKS); these
+## tests call it rather than keep their own copy.
+const MAX_WRAPPED := ContentChecks.MAX_WRAPPED
+const LONG_NAME := ContentChecks.LONG_NAME
+const BIG_NUMBER := ContentChecks.BIG_NUMBER
 
 
-## The width DialogBox wraps its text to (see DialogBox._draw).
-func _box_width() -> float:
-	return (BASE_WIDTH - 16.0) - 30.0
-
-
-## Lines `text` wraps to in the box: greedy word wrap, as the box does.
 func _wrapped_lines(text: String) -> int:
-	var width := _box_width()
-	var lines := 1
-	var current := ""
-	for word in text.split(" "):
-		var attempt := word if current == "" else current + " " + word
-		if UiKit.text_width(attempt, 10) <= width or current == "":
-			current = attempt
-		else:
-			lines += 1
-			current = word
-	return lines
+	return ContentChecks.wrapped_lines(text)
 
 
 func _check_line(text: String, where: String, cap_chars := true) -> void:
-	check(text.strip_edges() != "", "%s: empty line" % where)
-	if cap_chars:
-		check(text.length() <= MAX_CHARS, "%s: %d characters (max %d): %s" % [where, text.length(), MAX_CHARS, text])
-	var n := _wrapped_lines(text)
-	check(n <= MAX_WRAPPED, "%s: wraps to %d lines (max %d): %s" % [where, n, MAX_WRAPPED, text])
+	for problem in ContentChecks.line_problems(text, where, cap_chars):
+		check(false, problem)
 
 
 func _check_speech(lines: Array, where: String) -> void:
-	check(lines.size() <= MAX_BOXES, "%s: %d boxes (max %d)" % [where, lines.size(), MAX_BOXES])
-	for i in lines.size():
-		_check_line(str(lines[i]), "%s[%d]" % [where, i])
+	for problem in ContentChecks.speech_problems(lines, where):
+		check(false, problem)
 
 
 func test_the_measure_wraps() -> void:

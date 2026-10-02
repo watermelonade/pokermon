@@ -8,7 +8,10 @@ extends TestCase
 ## Reachability is computed here, from the map data (tests/world_paths.gd:
 ## a BFS over walkable cells and warps, with everyone standing where they
 ## stand at home), rather than asked of the game, so a later map edit that
-## walls something off fails here, not in a playtest.
+## walls something off fails here, not in a playtest. (The walk is the
+## editor's ContentChecks since phase 1, docs/EDITOR_SPEC.md C-CHECKS:
+## world_paths.gd hands its calls on, so the tests and the editor's live
+## checks can't disagree; tests/test_content.gd checks the walk itself.)
 ##
 ## Written before the maps (test first): red until the world and opening
 ## agent builds them, and listed in tests/expected_red.txt until then. The
